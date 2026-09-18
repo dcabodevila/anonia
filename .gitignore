@@ -1,0 +1,18 @@
+target/
+
+# Artefactos del pipeline. Nunca deben versionarse: el original y el texto
+# intermedio son los ficheros mas sensibles del sistema, y el Markdown de salida
+# esta desidentificado, no anonimo.
+*.pdf
+*.anon.md
+*.report.md
+
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+# Local Pi runtime state
+.atl/
+/odd/

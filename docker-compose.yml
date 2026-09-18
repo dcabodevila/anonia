@@ -1,0 +1,38 @@
+services:
+  doc-anonymizer:
+    build: .
+    image: doc-anonymizer:0.1.0
+    container_name: doc-anonymizer
+
+    # Solo accesible desde esta maquina. Quitar el "127.0.0.1:" lo abriria a la LAN,
+    # que es justo lo que el briefing pide no hacer por defecto.
+    ports:
+      - "127.0.0.1:8080:8080"
+
+    # Sistema de ficheros de solo lectura y /tmp en RAM.
+    #
+    # No es decoracion: el PDF subido se escribe a un temporal porque PDFBox trabaja
+    # sobre fichero, y ese temporal es una copia integra del documento original en
+    # claro. Con tmpfs nunca toca el disco, asi que no queda nada que recuperar de un
+    # SSD donde el borrado seguro no es fiable, ni nada que un backup pueda llevarse
+    # por accidente.
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m
+
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+    mem_limit: 1g
+    pids_limit: 256
+
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+    restart: unless-stopped

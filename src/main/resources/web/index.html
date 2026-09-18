@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>doc-anonymizer</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="dot"></span>
+    <h1>doc-anonymizer</h1>
+    <span class="tag">PDF nativo &rarr; Markdown desidentificado</span>
+  </div>
+  <div class="offline">100% local &middot; sin red</div>
+</header>
+
+<main>
+
+  <section id="dropzone" class="dropzone">
+    <input type="file" id="file" accept="application/pdf,.pdf" hidden>
+    <div class="drop-inner">
+      <p class="drop-title">Arrastra un PDF aqu&iacute;</p>
+      <p class="drop-sub">o <button type="button" id="browse" class="link">selecci&oacute;nalo</button>.
+        Solo PDF con capa de texto: los escaneados se rechazan.</p>
+      <p class="drop-sample">&iquest;No tienes uno a mano? Genera el de ejemplo:
+        <code>java -cp app.jar com.docanonymizer.tools.SampleDocumentGenerator ejemplo.pdf</code></p>
+    </div>
+  </section>
+
+  <section id="error" class="error hidden"></section>
+
+  <section id="loading" class="loading hidden">
+    <div class="spinner"></div>
+    <span>Analizando documento&hellip;</span>
+  </section>
+
+  <section id="workspace" class="workspace hidden">
+
+    <div class="stats" id="stats"></div>
+
+    <div class="panes">
+
+      <div class="pane pane-doc">
+        <div class="pane-head">
+          <h2>Documento</h2>
+          <span class="hint">Pulsa cualquier marca para aceptarla o descartarla</span>
+        </div>
+        <div id="doctext" class="doctext"></div>
+      </div>
+
+      <div class="pane pane-side">
+        <nav class="tabs">
+          <button class="tab active" data-tab="entities">Entidades</button>
+          <button class="tab" data-tab="result">Resultado</button>
+          <button class="tab" data-tab="checks">Verificaci&oacute;n</button>
+        </nav>
+
+        <div class="tabpanel" id="tab-entities">
+          <div class="actions">
+            <button type="button" id="apply" class="primary">Aplicar y verificar</button>
+            <button type="button" id="reset" class="ghost">Aceptar todo</button>
+          </div>
+          <div id="entities" class="entities"></div>
+        </div>
+
+        <div class="tabpanel hidden" id="tab-result">
+          <div class="actions">
+            <button type="button" id="download" class="primary" disabled>Descargar .md</button>
+            <button type="button" id="warning-download" class="warning-action" disabled>Descargar con advertencias</button>
+            <button type="button" id="copy" class="ghost" disabled>Copiar</button>
+          </div>
+          <p id="warning-note" class="warning-note hidden">Este archivo puede contener datos personales residuales. Descárgalo solo si aceptas ese riesgo.</p>
+          <pre id="markdown" class="markdown">Pulsa &laquo;Aplicar y verificar&raquo; para generar el resultado.</pre>
+        </div>
+
+        <div class="tabpanel hidden" id="tab-checks">
+          <div id="verdict" class="verdict pending">Sin ejecutar</div>
+          <div id="findings" class="findings"></div>
+          <p class="disclaimer">
+            <strong>Documento desidentificado, no an&oacute;nimo.</strong>
+            Las etiquetas mantienen distinguibles a las personas, que es lo que conserva el
+            sentido del texto y a la vez lo que permite reidentificar por estructura.
+            Fechas, importes, cargos y hechos singulares permanecen intactos.
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+</main>
+
+<script src="/app.js"></script>
+</body>
+</html>
