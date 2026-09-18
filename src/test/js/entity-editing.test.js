@@ -336,6 +336,66 @@ test('rendering projects accepted outer once and reveals inner when rejected', (
   assert.equal(container.children.map(c => typeof c === 'string' ? c : c.textContent).join(''), state.text);
 });
 
+test('manual creation finds all eligible occurrences once and produces a CODIGO review operation', () => {
+  fixture('REF-1 | REF-1 | REF-12', []);
+
+  assert.equal(app.addManualEntity('REF-1'), true);
+  assert.deepEqual(state.detections.map(detection => [detection.id, detection.type, detection.start, detection.end]), [
+    ['manual:1', 'CODIGO', 0, 5], ['manual:1:8:13', 'CODIGO', 8, 13]
+  ]);
+  assert.equal(state.entities.get('manual:1').count, 2);
+  assert.equal(app.reviewBody(), 'review-v1\nadd\tmanual%3A1\tREF-1');
+  assert.equal(app.changeText('manual:1', 'REF'), true);
+  assert.deepEqual(state.detections.map(detection => state.text.slice(detection.start, detection.end)), ['REF', 'REF']);
+
+  assert.equal(app.addManualEntity('REF-1'), true);
+  assert.equal(state.detections.length, 2);
+  assert.equal(state.edits.length, 2);
+});
+
+test('manual creation rejects partial overlaps but accepts contained ranges', () => {
+  fixture('ABCDE', []);
+
+  assert.equal(app.addManualEntity('ABC'), true);
+  assert.equal(app.addManualEntity('CDE'), false);
+  assert.deepEqual(state.detections.map(detection => [detection.id, detection.start, detection.end]), [
+    ['manual:1', 0, 3]
+  ]);
+  assert.equal(app.addManualEntity('ABCDE'), true);
+  assert.deepEqual(state.detections.map(detection => [detection.id, detection.start, detection.end]), [
+    ['manual:1', 0, 3], ['manual:2', 0, 5]
+  ]);
+});
+
+test('manual creation uses the same Unicode digit boundary as server exact occurrences', () => {
+  fixture('𝟙REF-1 | REF-1', []);
+
+  assert.equal(app.addManualEntity('REF-1'), true);
+  assert.deepEqual(state.detections.map(detection => [detection.start, detection.end]), [[10, 15]]);
+});
+
+test('manual draft defaults to CODIGO, commits once on Enter then blur, and reports no source match', () => {
+  const { nodes } = fakeDom();
+  fixture('REF-1 | REF-1', []);
+
+  app.startManualEntity();
+  const draft = nodes.get('entities').children.at(-1);
+  const input = draft.children[0].children[0];
+  assert.equal(draft.children[1].textContent, 'CODIGO');
+  input.value = 'REF-1';
+  input.listeners.keydown({ key: 'Enter', preventDefault() {} });
+  input.listeners.blur();
+  assert.equal(state.edits.length, 1);
+  assert.equal(state.detections.length, 2);
+
+  app.startManualEntity();
+  const unmatched = nodes.get('entities').children.at(-1).children[0].children[0];
+  unmatched.value = 'AUSENTE';
+  unmatched.listeners.blur();
+  assert.equal(document.getElementById('error').textContent, 'Ningún elemento encontrado');
+  assert.equal(state.detections.length, 2);
+});
+
 test('backend-provided CODIGO is a selectable manual classification', async () => {
   const { nodes } = fakeDom();
   global.fetch = async () => ({ ok: true, json: async () => ({

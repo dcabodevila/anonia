@@ -51,6 +51,7 @@ function init() {
 
   el('apply').addEventListener('click', apply);
   el('reset').addEventListener('click', acceptAll);
+  el('add-entity').addEventListener('click', startManualEntity);
   el('download').addEventListener('click', download);
   el('warning-download').addEventListener('click', downloadWithWarnings);
   el('copy').addEventListener('click', copyMarkdown);
@@ -229,6 +230,30 @@ function sourceMatches(source, selected) {
   return found;
 }
 
+// Match ExactOccurrences: a selected number must not be a fragment of a longer number.
+function isDigitAt(source, index) {
+  return /\p{Nd}/u.test(String.fromCodePoint(source.codePointAt(index)));
+}
+
+function isDigitBefore(source, index) {
+  const previous = source.charCodeAt(index - 1);
+  const start = previous >= 0xDC00 && previous <= 0xDFFF ? index - 2 : index - 1;
+  return isDigitAt(source, start);
+}
+
+function eligibleSourceMatches(source, selected) {
+  return sourceMatches(source, selected).filter(([start, end]) =>
+    !(start > 0 && isDigitBefore(source, start))
+    && !(end < source.length && isDigitAt(source, end)));
+}
+
+function hasPartialOverlap(first, second) {
+  if (first[0] >= second[1] || second[0] >= first[1]) return false;
+  const contains = first[0] <= second[0] && first[1] >= second[1];
+  const contained = second[0] <= first[0] && second[1] >= first[1];
+  return !contains && !contained;
+}
+
 function normalizeSource(source) {
   let value = '';
   const offsets = [];
@@ -321,6 +346,81 @@ function changeText(key, input) {
   rebuildEntities();
   state.editError = null;
   return true;
+}
+
+function nextManualId() {
+  let sequence = 1;
+  while (state.detections.some(detection => detection.id === 'manual:' + sequence
+    || detection.entityKey === 'manual:' + sequence)) sequence++;
+  return 'manual:' + sequence;
+}
+
+function addManualEntity(input) {
+  const selected = normalize(input);
+  if (!selected) return false;
+  if (state.edits.some(([action, , value]) => action === 'add' && value === selected)) return true;
+
+  const ranges = eligibleSourceMatches(state.text, selected);
+  if (!ranges.length || ranges.some((range, index) =>
+    state.detections.some(other => hasPartialOverlap(range, [other.start, other.end]))
+    || ranges.slice(0, index).some(other => hasPartialOverlap(range, other)))) return false;
+  const id = nextManualId();
+  ranges.forEach(([start, end], index) => {
+    const detectionId = index === 0 ? id : id + ':' + start + ':' + end;
+    state.detections.push({
+      id: detectionId, type: 'CODIGO', start, end, entityKey: id,
+      provenance: 'MANUAL', confidence: 1
+    });
+    state.originals.set(detectionId, Object.freeze({ start, end }));
+  });
+  state.edits.push(['add', id, selected]);
+  rebuildEntities();
+  return true;
+}
+
+function startManualEntity() {
+  const container = el('entities');
+  const row = document.createElement('div');
+  row.className = 'entity';
+  const main = document.createElement('div');
+  main.className = 'entity-main';
+  const input = document.createElement('input');
+  input.className = 'entity-editor';
+  input.placeholder = 'Texto a anonimizar';
+  input.setAttribute('aria-label', 'Texto a anonimizar; Enter guarda, Escape cancela');
+  const meta = document.createElement('div');
+  meta.className = 'entity-meta';
+  meta.textContent = 'Se añadirán todas las apariciones exactas.';
+  main.append(input, meta);
+  const type = document.createElement('span');
+  type.className = 'chip';
+  type.textContent = 'CODIGO';
+  type.setAttribute('aria-label', 'Tipo predeterminado: CODIGO');
+  type.style.color = colorOf('CODIGO');
+  row.append(main, type);
+  container.append(row);
+
+  let finished = false;
+  const finish = save => {
+    if (finished) return;
+    finished = true;
+    if (save && addManualEntity(input.value)) {
+      showError(null);
+      refreshReview();
+      return;
+    }
+    if (save && normalize(input.value)) showError('Ningún elemento encontrado');
+    renderEntities();
+  };
+  input.addEventListener('blur', () => finish(true));
+  input.addEventListener('keydown', event => {
+    if (event.isComposing) return;
+    if (event.key === 'Enter' || event.key === 'Escape') {
+      event.preventDefault();
+      finish(event.key === 'Enter');
+    }
+  });
+  input.focus();
 }
 
 function editInline(button, key) {
@@ -591,6 +691,6 @@ async function copyMarkdown() {
 if (typeof document !== 'undefined') init();
 if (typeof module !== 'undefined') module.exports = {
   state, normalize, narrow, groupEntities, changeText, changeType, reviewBody,
-  editInline, invalidateResult, apply, analyze, effectiveDetections, renderDocument,
+  addManualEntity, startManualEntity, editInline, invalidateResult, apply, analyze, effectiveDetections, renderDocument,
   download, downloadWithWarnings
 };

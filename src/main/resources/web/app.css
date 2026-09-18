@@ -159,7 +159,7 @@ main { padding: 20px; max-width: 1500px; margin: 0 auto; }
 .tabpanel { padding: 12px 14px; }
 
 .actions { display: flex; gap: 8px; margin-bottom: 12px; }
-button.primary, button.ghost, button.warning-action {
+button.primary, button.ghost, button.warning-action, button.add-entity {
   border-radius: 6px; padding: 8px 14px; font: inherit; font-size: 12px;
   cursor: pointer; border: 1px solid var(--border);
 }
@@ -167,6 +167,12 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 button.ghost { background: var(--panel-2); color: var(--text); }
 button.warning-action { background: rgba(210,153,34,.14); border-color: rgba(210,153,34,.6); color: #f2c66d; }
 button.warning-action:not(:disabled):hover { background: rgba(210,153,34,.24); }
+button.add-entity {
+  display: inline-grid; place-items: center; min-width: 38px; padding: 6px;
+  background: var(--panel-2); color: var(--accent);
+}
+button.add-entity:hover { background: var(--bg); }
+button.add-entity svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 button:disabled { opacity: .45; cursor: not-allowed; }
 .warning-note { color: #f2c66d; font-size: 11px; line-height: 1.5; margin: -4px 0 12px; }
 
@@ -199,7 +205,7 @@ button:disabled { opacity: .45; cursor: not-allowed; }
   caret-color: var(--accent);
 }
 .entity .entity-editor { cursor: text; }
-.entity-value:focus-visible, .entity-editor:focus-visible, .chip:focus-visible {
+.entity-value:focus-visible, .entity-editor:focus-visible, .chip:focus-visible, .add-entity:focus-visible {
   outline: 2px solid var(--accent); outline-offset: 2px;
 }
 select.chip { max-width: 115px; background: var(--panel); cursor: pointer; }

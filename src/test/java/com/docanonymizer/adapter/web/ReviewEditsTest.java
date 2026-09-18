@@ -287,6 +287,54 @@ class ReviewEditsTest {
         assertEquals(List.of(0, code.length() + 3), edited.stream().map(Detection::start).toList());
     }
 
+    @Test void addsManualCodigoAtEveryEligibleOccurrenceForApplyAndVerification() {
+        String code = "TRA/2023/36/000/10812";
+        String text = code + " | " + code + " | TRA/2023/36/000/108120";
+        var input = analysis(text);
+        var reviewed = ReviewEdits.replay(input, "review-v1\nadd\tmanual:1\t" + code);
+
+        assertEquals(List.of("manual:1", "manual:1:24:45"), ids(reviewed.effective()));
+        assertTrue(reviewed.effective().stream().allMatch(detection -> detection.type() == DetectionType.CODIGO));
+        var pipeline = new AnonymizationPipeline(null, null, null,
+                new com.docanonymizer.domain.service.RunScopedIdentifier(), java.time.Clock.systemUTC());
+        var result = pipeline.complete(input, reviewed);
+        assertTrue(result.markdown().contains("[CODIGO_001] | [CODIGO_001] | TRA/2023/36/000/108120"));
+        assertFalse(result.deliverable(), () -> result.verification().findings().toString());
+    }
+
+    @Test void manualEntitiesCanBeRetypedAndRejectedButNeverCreatedWithoutAnEligibleMatch() {
+        String text = "REF-1 | REF-1 | REF-12";
+        var input = analysis(text);
+        String added = "add\tmanual:1\tREF-1";
+
+        var edited = apply(input, added, edit("manual:1", "REF"));
+        assertEquals(List.of("REF", "REF"), edited.stream().map(Detection::value).toList());
+        var changed = apply(input, added, "type\tmanual:1\tEMAIL");
+        assertEquals(List.of(DetectionType.EMAIL, DetectionType.EMAIL),
+                changed.stream().map(Detection::type).toList());
+        assertTrue(apply(input, added, "reject\tmanual:1\ttrue").isEmpty());
+        assertThrows(IllegalArgumentException.class,
+                () -> apply(input, "add\tmanual:2\tAUSENTE"));
+    }
+
+    @Test void manualCreationRejectsPartialOverlapsButAcceptsContainedRanges() {
+        var input = analysis("ABCDE");
+        String abc = "add\tmanual:1\tABC";
+
+        assertThrows(IllegalArgumentException.class,
+                () -> apply(input, abc, "add\tmanual:2\tCDE"));
+        assertEquals(List.of("manual:2"), ids(apply(input, abc, "add\tmanual:2\tABCDE")));
+    }
+
+    @Test void manualCreationRejectsBlankAndWhitespaceSelectionsBeforeMatching() {
+        var input = analysis("ABCDE");
+
+        for (String value : List.of("", "%20", "%20%20")) {
+            assertThrows(IllegalArgumentException.class,
+                    () -> apply(input, "add\tmanual:1\t" + value), value);
+        }
+    }
+
     @Test void rejectsUnknownMalformedOrForgedOperationsAndPreservesLegacy() {
         String text = "Maria Garcia";
         var input = analysis(text, at(text, "a", DetectionType.PERSON, text, "one", 0));

@@ -2,6 +2,7 @@ package com.docanonymizer.adapter.web;
 
 import com.docanonymizer.domain.model.Detection;
 import com.docanonymizer.domain.model.DetectionType;
+import com.docanonymizer.domain.model.Provenance;
 import com.docanonymizer.domain.service.AnonymizationPipeline;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -97,6 +98,10 @@ final class ReviewEdits {
         if (fields.length != 3) throw invalid();
         String id = decode(fields[1]);
         String value = decode(fields[2]);
+        if (fields[0].equals("add")) {
+            addManual(id, value);
+            return;
+        }
         Detection anchor = detections.get(id);
         if (anchor == null) throw invalid();
         String key = anchor.entityKey();
@@ -117,6 +122,40 @@ final class ReviewEdits {
                 editText(id, entity, selected);
             }
             default -> throw invalid();
+        }
+    }
+
+    /** Adds only server-derived, exact source ranges for a browser-created manual entity. */
+    private void addManual(String id, String value) {
+        String selected = normalize(value);
+        if (!id.matches("manual:[1-9]\\d*") || selected.isEmpty() || !selected.equals(value)
+                || detections.containsKey(id) || entities.containsKey(id)) throw invalid();
+        List<int[]> ranges = matches(text, selected).stream()
+                .filter(range -> !joinsDigits(text, range)).toList();
+        if (ranges.isEmpty()) throw invalid();
+        for (int index = 0; index < ranges.size(); index++) {
+            int[] range = ranges.get(index);
+            if (!hasNoPartialOverlap(null, range)) throw invalid();
+            for (int earlier = 0; earlier < index; earlier++) {
+                if (hasPartialOverlap(range, ranges.get(earlier))) throw invalid();
+            }
+        }
+
+        Entity entity = null;
+        for (int index = 0; index < ranges.size(); index++) {
+            int[] range = ranges.get(index);
+            String detectionId = index == 0 ? id : id + ":" + range[0] + ":" + range[1];
+            if (detections.containsKey(detectionId)) throw invalid();
+            Detection detection = new Detection(detectionId, DetectionType.CODIGO,
+                    range[0], range[1], text.substring(range[0], range[1]), id,
+                    Provenance.MANUAL, 1.0);
+            detections.put(detectionId, detection);
+            originals.put(detectionId, detection);
+            if (entity == null) {
+                entity = new Entity(detection);
+                entities.put(id, entity);
+            }
+            entity.ids.add(detectionId);
         }
     }
 
@@ -163,12 +202,17 @@ final class ReviewEdits {
 
     private boolean hasNoPartialOverlap(String id, int[] range) {
         for (Detection other : detections.values()) {
-            if (other.id().equals(id) || range[0] >= other.end() || other.start() >= range[1]) continue;
-            boolean contains = range[0] <= other.start() && range[1] >= other.end();
-            boolean contained = other.start() <= range[0] && other.end() >= range[1];
-            if (!contains && !contained) return false;
+            if (id != null && other.id().equals(id)) continue;
+            if (hasPartialOverlap(range, new int[]{other.start(), other.end()})) return false;
         }
         return true;
+    }
+
+    private static boolean hasPartialOverlap(int[] first, int[] second) {
+        if (first[0] >= second[1] || second[0] >= first[1]) return false;
+        boolean contains = first[0] <= second[0] && first[1] >= second[1];
+        boolean contained = second[0] <= first[0] && second[1] >= first[1];
+        return !contains && !contained;
     }
 
     /** Narrow inside the immutable occurrence, or expand to a unique source match enclosing it. */
@@ -192,6 +236,11 @@ final class ReviewEdits {
     static int[] narrow(String source, String selected) {
         List<int[]> found = matches(source, selected);
         return found.isEmpty() ? null : found.get(0);
+    }
+
+    private static boolean joinsDigits(String source, int[] range) {
+        return range[0] > 0 && Character.isDigit(source.codePointBefore(range[0]))
+                || range[1] < source.length() && Character.isDigit(source.codePointAt(range[1]));
     }
 
     private static List<int[]> matches(String source, String selected) {
