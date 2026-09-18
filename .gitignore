@@ -15,4 +15,5 @@ target/
 .settings/
 # Local Pi runtime state
 .atl/
+/.codegraph/
 /odd/
