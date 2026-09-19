@@ -130,11 +130,11 @@ async function analyze(file) {
 function resetDropzone() {
   el('dropzone').classList.remove('compact');
   el('drop-title').textContent = 'Arrastra un PDF aquí o ';
-  el('drop-sub').textContent = 'Podrás visualizar los cambios a anonimizar antes de generar el Markdown.';
+  el('drop-sub').textContent = 'PDF con capa de texto, o fotos JPEG/PNG leídas localmente con Tesseract en español.';
 }
 
 function compactDropzone(file) {
-  const filename = file && typeof file.name === 'string' && file.name ? file.name : 'PDF seleccionado';
+  const filename = file && typeof file.name === 'string' && file.name ? file.name : 'documento seleccionado';
   el('dropzone').classList.add('compact');
   el('drop-title').textContent = 'Documento seleccionado: ' + filename + '. Arrastra otro PDF o ';
   el('drop-sub').textContent = 'Puedes reemplazarlo sin perder la vista del documento actual.';

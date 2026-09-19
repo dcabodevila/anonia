@@ -43,7 +43,7 @@ public final class TextSanityGuard {
         if (stats.meaningful() < MIN_MEANINGFUL_CHARS) {
             return Result.rejected(
                     "el documento no tiene capa de texto utilizable (" + stats.meaningful()
-                            + " caracteres). Un PDF escaneado esta fuera del alcance de este prototipo.",
+                            + " caracteres). Comprueba que el PDF o la foto se lea con suficiente nitidez.",
                     stats);
         }
         if (stats.suspiciousRatio() > MAX_SUSPICIOUS_RATIO) {

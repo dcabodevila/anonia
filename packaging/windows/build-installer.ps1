@@ -45,6 +45,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Maven fallo: $LASTEXITCODE" }
     if (-not (Test-Path -LiteralPath $jar)) { throw "Falta el JAR sombreado: $jar" }
     $null = New-Item -ItemType Directory -Path $inputDirectory
+    # La entrada aislada contiene solo el JAR; el OCR se resuelve externamente en ejecucion.
     Copy-Item -LiteralPath $jar -Destination $inputDirectory
     $null = New-Item -ItemType Directory -Path $outputDirectory -Force
     # Sin --runtime-image: jpackage crea e incluye su propio runtime Java.

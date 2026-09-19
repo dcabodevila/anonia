@@ -96,12 +96,12 @@ public final class WebServer {
         try {
             byte[] body = readLimited(exchange.getRequestBody());
             if (body.length == 0) {
-                respondError(exchange, 400, "Cuerpo vacio: falta el PDF.");
+                respondError(exchange, 400, "Cuerpo vacio: falta el documento.");
                 return;
             }
-            // PDFBox trabaja sobre fichero. El temporal vive lo minimo y se borra
-            // siempre: es una copia del documento original en claro.
-            temp = Files.createTempFile("doc-anonymizer-", ".pdf");
+            // Los extractores locales trabajan sobre fichero. El temporal vive lo minimo y se
+            // borra siempre: es una copia del documento original en claro.
+            temp = Files.createTempFile("doc-anonymizer-", uploadSuffix(body));
             Files.write(temp, body);
 
             long startedAt = System.nanoTime();
@@ -114,6 +114,8 @@ public final class WebServer {
 
         } catch (DocumentNotProcessableException | TextExtractorPort.ExtractionException e) {
             respondError(exchange, 422, e.getMessage());
+        } catch (IOException e) {
+            respondError(exchange, 500, "No se pudo leer el documento localmente.");
         } catch (IllegalStateException e) {
             respondError(exchange, 413, e.getMessage());
         } catch (RuntimeException e) {
@@ -246,6 +248,24 @@ public final class WebServer {
     }
 
     // ------------------------------------------------------------------ utils
+
+    private String uploadSuffix(byte[] body) {
+        if (body.length >= 5 && body[0] == '%' && body[1] == 'P' && body[2] == 'D'
+                && body[3] == 'F' && body[4] == '-') {
+            return ".pdf";
+        }
+        if (body.length >= 3 && (body[0] & 0xff) == 0xff && (body[1] & 0xff) == 0xd8
+                && (body[2] & 0xff) == 0xff) {
+            return ".jpg";
+        }
+        if (body.length >= 8 && (body[0] & 0xff) == 0x89 && body[1] == 'P' && body[2] == 'N'
+                && body[3] == 'G' && body[4] == 0x0d && body[5] == 0x0a && body[6] == 0x1a
+                && body[7] == 0x0a) {
+            return ".png";
+        }
+        throw new TextExtractorPort.ExtractionException(
+                "Solo se admiten documentos PDF y fotos JPEG o PNG.");
+    }
 
     private byte[] readLimited(InputStream in) throws IOException {
         byte[] data = in.readNBytes((int) MAX_UPLOAD_BYTES + 1);

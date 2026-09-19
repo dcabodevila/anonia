@@ -11,12 +11,13 @@
 FROM eclipse-temurin:17-jre-alpine
 
 LABEL org.opencontainers.image.title="doc-anonymizer" \
-      org.opencontainers.image.description="PDF nativo a Markdown desidentificado, 100% local" \
+      org.opencontainers.image.description="PDF y fotos a Markdown desidentificado, 100% local" \
       org.opencontainers.image.version="0.2.0"
 
-# Usuario sin privilegios: el proceso analiza ficheros que vienen de fuera y son,
-# por definicion, contenido no confiable.
-RUN addgroup -S anon && adduser -S -G anon -h /app anon
+# Tesseract y el modelo español solo se instalan dentro del contenedor aislado.
+RUN apk add --no-cache tesseract-ocr tesseract-ocr-data-spa \
+    && addgroup -S anon \
+    && adduser -S -G anon -h /app anon
 
 WORKDIR /app
 COPY --chown=anon:anon target/doc-anonymizer.jar /app/app.jar
@@ -25,6 +26,7 @@ COPY --chown=anon:anon target/doc-anonymizer.jar /app/app.jar
 # publicado. Fuera de un contenedor el valor por defecto sigue siendo 127.0.0.1.
 ENV DOC_ANONYMIZER_HOST=0.0.0.0 \
     DOC_ANONYMIZER_PORT=8080 \
+    TESSERACT_COMMAND=tesseract \
     JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -Djava.awt.headless=true"
 
 EXPOSE 8080

@@ -7,7 +7,7 @@ import com.docanonymizer.adapter.detector.GazetteerPersonDetector;
 import com.docanonymizer.adapter.detector.PostalCodeDetector;
 import com.docanonymizer.adapter.detector.StructuralPersonDetector;
 import com.docanonymizer.adapter.gazetteer.ResourceGazetteer;
-import com.docanonymizer.adapter.pdf.PdfBoxTextExtractor;
+import com.docanonymizer.adapter.ocr.LocalDocumentTextExtractor;
 import com.docanonymizer.adapter.review.AutoAcceptReview;
 import com.docanonymizer.domain.port.DetectorPort;
 import com.docanonymizer.domain.port.ReviewPort;
@@ -33,7 +33,7 @@ public final class PipelineFactory {
 
     public static AnonymizationPipeline withReview(ReviewPort review, Clock clock) {
         return new AnonymizationPipeline(
-                new PdfBoxTextExtractor(),
+                new LocalDocumentTextExtractor(),
                 new DetectionEngine(defaultDetectors()),
                 review,
                 new RunScopedIdentifier(),

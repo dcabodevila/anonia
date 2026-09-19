@@ -1,12 +1,12 @@
 # doc-anonymizer
 
-**Versión 0.2.0** — Prototipo: **PDF nativo → Markdown desidentificado**, 100 % offline.
+**Versión 0.2.0** — Prototipo: **PDF y fotos → Markdown desidentificado**, 100 % offline.
 
 Toma un PDF con capa de texto, detecta identificadores personales, los sustituye por
 etiquetas estables (`[PERSONA_001]`, `[DNI_002]`) y verifica sobre el fichero final que
 ningún valor detectado sobrevive. Si algún control falla, **no escribe el Markdown**.
 
-No hace OCR, no procesa escaneados, no sale a la red y no genera un PDF.
+Procesa fotos JPEG/PNG con OCR local. No aplica OCR a PDF escaneados, no sale a la red y no genera un PDF.
 
 ---
 
@@ -17,8 +17,8 @@ mvn -o clean package          # el jar se construye fuera de la imagen
 docker compose up -d --build
 ```
 
-Abre **http://127.0.0.1:8080**. Arrastra un PDF y verás el documento con las detecciones
-resaltadas en su sitio.
+Abre **http://127.0.0.1:8080**. Arrastra un PDF con capa de texto o una foto JPEG/PNG y
+verás el documento con las detecciones resaltadas en su sitio.
 
 Para tener un PDF con datos sembrados a mano:
 
@@ -65,6 +65,42 @@ Produce `ejemplo.anon.md` (el documento) y `ejemplo.report.md` (informe técnico
 | `--show-detections` | Lista las detecciones por consola. **Muestra datos personales en claro**; es el sustituto de la interfaz de revisión, no un modo de diagnóstico |
 | `--dry-run` | Procesa y verifica sin escribir nada |
 
+### OCR local para fotos JPEG/PNG
+
+Los instaladores Windows nuevos no incluyen ni redistribuyen Tesseract, sus DLL ni el modelo
+`spa`. Instale Tesseract y el idioma español por medios administrados por el usuario y
+compruebe localmente que la instalación contiene el idioma:
+
+```powershell
+& 'C:\Program Files\Tesseract-OCR\tesseract.exe' --list-langs
+```
+
+La lista debe incluir `spa`. La aplicación ejecuta Tesseract con `-l spa`; no descarga
+modelos, no instala software y no envía imágenes a la red.
+
+El resolvedor conserva este orden: la propiedad Java explícita
+`doc.anonymizer.tesseract.command`, un bundle legado `app/ocr` junto al JAR, la variable de
+entorno `TESSERACT_COMMAND` y, por último, `tesseract.exe` en `PATH`. La propiedad es para
+desarrollo. `TESSERACT_COMMAND` puede indicar un ejecutable local o un lanzador de Windows
+`.cmd` o `.bat`; los lanzadores se ejecutan mediante el intérprete de comandos de Windows.
+El soporte del bundle legado mantiene funcionales instalaciones antiguas, pero no se envía en
+los instaladores nuevos.
+
+Para una apertura desde PowerShell con ruta explícita, defina la variable y arranque el
+lanzador desde la misma consola:
+
+```powershell
+$env:TESSERACT_COMMAND = 'C:\Program Files\Tesseract-OCR\tesseract.exe'
+& 'C:\Users\<usuario>\AppData\Local\DocAnonymizer\DocAnonymizer.exe'
+```
+
+Esto solo afecta a ese proceso y no configura el acceso directo del escritorio ni variables
+persistentes. Como alternativa, el usuario puede administrar Tesseract en su `PATH` de
+usuario mediante Windows; cierre y vuelva a abrir la aplicación o el acceso directo para que
+el proceso nuevo herede el cambio. El instalador no cambia `PATH`, `TESSDATA_PREFIX`,
+`TESSERACT_COMMAND` ni otra variable de entorno de forma persistente. Los errores de OCR no
+incluyen el contenido de la imagen ni rutas configuradas.
+
 ### Códigos de salida
 
 | Código | Significado |
@@ -102,8 +138,8 @@ el texto ya normalizado, y el 9 corre sobre el artefacto exacto que se escribe.
 **Guarda de cordura (2).** Hay PDF que se renderizan perfectamente y extraen basura,
 porque su `/ToUnicode` es incorrecto. Sin esta comprobación no se detectaría nada, la
 verificación pasaría —no hay valores que buscar— y se entregaría un fichero ilegible que
-el usuario creería anonimizado. Falla cerrado. De paso captura los escaneados, que están
-fuera de alcance.
+el usuario creería anonimizado. Falla cerrado. Los PDF escaneados siguen fuera de alcance;
+para fotos JPEG/PNG se usa el OCR local descrito arriba.
 
 **Normalización (4).** Un NIF partido por un guion de fin de línea o un título escrito
 `A C T A` no lo captura ninguna expresión regular. El fallo es silencioso: el pipeline
@@ -197,6 +233,7 @@ domain/
   service/   pipeline, normalización, detección, propagación, verificación
 adapter/
   pdf/       PdfBoxTextExtractor
+  ocr/       TesseractImageTextExtractor (JPEG/PNG, modelo spa local)
   detector/  regex + validadores + pistas estructurales + diccionario
   gazetteer/ ResourceGazetteer
   review/    AutoAcceptReview
@@ -205,8 +242,8 @@ adapter/
 tools/       SampleDocumentGenerator (corpus de prueba)
 ```
 
-El dominio no conoce PDFBox ni las expresiones regulares: solo puertos. Añadir OCR más
-adelante es implementar `TextExtractorPort`, sin tocar el núcleo.
+El dominio no conoce PDFBox, Tesseract ni las expresiones regulares: solo puertos. El OCR
+local implementa `TextExtractorPort` sin tocar el núcleo.
 
 ---
 
@@ -216,9 +253,8 @@ adelante es implementar `TextExtractorPort`, sin tocar el núcleo.
 mvn -o test
 ```
 
-La suite incluye 132 pruebas Java y 55 JavaScript para cubrir el pipeline y la interfaz.
-El test que importa es
-`SecurityCorpusEndToEndTest`: genera un PDF con datos
+La suite incluye las pruebas Java y JavaScript del pipeline, la interfaz y el OCR local.
+El test que importa es `SecurityCorpusEndToEndTest`: genera un PDF con datos
 sembrados, ejecuta el pipeline completo y comprueba que ninguno sobrevive —tampoco
 reformateado, ni sin acentos, ni como apellido suelto.
 
