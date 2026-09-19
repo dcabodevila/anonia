@@ -1,7 +1,7 @@
 services:
   doc-anonymizer:
     build: .
-    image: doc-anonymizer:0.1.0
+    image: doc-anonymizer:0.2.0
     container_name: doc-anonymizer
 
     # Solo accesible desde esta maquina. Quitar el "127.0.0.1:" lo abriria a la LAN,

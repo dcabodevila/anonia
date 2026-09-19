@@ -6,13 +6,13 @@
 # a bajarse medio Maven Central en cada build.
 #
 #   mvn -o clean package
-#   docker build -t doc-anonymizer:0.1.0 .
+#   docker build -t doc-anonymizer:0.2.0 .
 
 FROM eclipse-temurin:17-jre-alpine
 
 LABEL org.opencontainers.image.title="doc-anonymizer" \
       org.opencontainers.image.description="PDF nativo a Markdown desidentificado, 100% local" \
-      org.opencontainers.image.version="0.1.0-SNAPSHOT"
+      org.opencontainers.image.version="0.2.0"
 
 # Usuario sin privilegios: el proceso analiza ficheros que vienen de fuera y son,
 # por definicion, contenido no confiable.

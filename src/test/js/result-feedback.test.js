@@ -210,7 +210,7 @@ test('blocked findings are shown exactly once in the result status', async () =>
 
 test('preview hides only the known leading generated metadata while export and clipboard keep exact bytes', async (t) => {
   const generated = '<!--\n'
-    + 'doc-anonymizer 0.1.0-SNAPSHOT\n'
+    + 'doc-anonymizer 0.2.0\n'
     + 'generado: 2025-01-02T03:04:05Z\n'
     + 'origen sha-256: abcdef0123456789\n'
     + 'paginas: 2\n'

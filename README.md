@@ -1,6 +1,6 @@
 # doc-anonymizer
 
-Prototipo: **PDF nativo → Markdown desidentificado**, 100 % offline.
+**Versión 0.2.0** — Prototipo: **PDF nativo → Markdown desidentificado**, 100 % offline.
 
 Toma un PDF con capa de texto, detecta identificadores personales, los sustituye por
 etiquetas estables (`[PERSONA_001]`, `[DNI_002]`) y verifica sobre el fichero final que
@@ -216,7 +216,9 @@ adelante es implementar `TextExtractorPort`, sin tocar el núcleo.
 mvn -o test
 ```
 
-96 tests. El que importa es `SecurityCorpusEndToEndTest`: genera un PDF con datos
+La suite incluye 132 pruebas Java y 55 JavaScript para cubrir el pipeline y la interfaz.
+El test que importa es
+`SecurityCorpusEndToEndTest`: genera un PDF con datos
 sembrados, ejecuta el pipeline completo y comprueba que ninguno sobrevive —tampoco
 reformateado, ni sin acentos, ni como apellido suelto.
 
