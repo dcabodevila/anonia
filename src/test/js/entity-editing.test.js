@@ -268,8 +268,19 @@ test('an unchosen conflicting variant cannot reject a local edit', () => {
 function fakeDom() {
   const nodes = new Map();
   function node() {
-    return { classList: { add() {}, remove() {}, toggle() {} }, style: {}, dataset: {}, children: [],
-      listeners: {}, append(...children) { this.children.push(...children); }, setAttribute() {}, focus() {}, select() {}, click() {},
+    const classes = new Set();
+    return { classList: {
+      add(...names) { names.forEach(name => classes.add(name)); },
+      remove(...names) { names.forEach(name => classes.delete(name)); },
+      toggle(name, force) {
+        const enabled = force === undefined ? !classes.has(name) : force;
+        if (enabled) classes.add(name); else classes.delete(name);
+        return enabled;
+      },
+      contains(name) { return classes.has(name); }
+    }, style: {}, dataset: {}, attributes: {}, children: [],
+      listeners: {}, append(...children) { this.children.push(...children); },
+      setAttribute(name, value) { this.attributes[name] = String(value); }, focus() {}, select() {}, click() {},
       replaceWith(other) { this.replacement = other; },
       addEventListener(name, fn) { this.listeners[name] = fn; },
       querySelector() { return node(); } };
@@ -420,3 +431,78 @@ test('review changes clear downloads and discard in-flight apply response', asyn
   assert.equal(state.markdown, '');
   assert.equal(document.getElementById('apply').disabled, false);
 });
+
+test('comparison preserves its view through review invalidation, while tab selection exits it', () => {
+  fakeDom();
+  state.activeTab = 'document';
+  state.comparing = false;
+
+  app.toggleCompare();
+  assert.equal(state.comparing, true);
+  app.invalidateResult();
+  assert.equal(state.comparing, true);
+
+  app.selectTab('result');
+  assert.equal(state.activeTab, 'result');
+  assert.equal(state.comparing, false);
+
+  app.toggleCompare();
+  app.toggleCompare();
+  assert.equal(state.activeTab, 'result');
+  assert.equal(state.comparing, false);
+});
+
+test('comparison collapses only entity controls while result actions remain available', () => {
+  const { nodes } = comparisonDom();
+  state.activeTab = 'document';
+  state.comparing = false;
+
+  app.toggleCompare();
+
+  assert.equal(state.comparing, true);
+  assert.equal(nodes.get('workspace').classList.contains('comparing'), true);
+  assert.equal(nodes.get('pane-side').classList.contains('comparing'), true);
+  assert.equal(nodes.get('entity-controls').hidden, true);
+  assert.equal(nodes.get('entity-controls').inert, true);
+  assert.equal(nodes.get('entity-controls').attributes['aria-hidden'], 'true');
+  assert.equal(nodes.get('result-actions').hidden, undefined);
+  assert.equal(nodes.get('result-actions').inert, undefined);
+  assert.equal(nodes.get('result-actions').attributes['aria-hidden'], undefined);
+  assert.equal(nodes.get('compare').attributes['aria-pressed'], 'true');
+  assert.equal(nodes.get('compare-label').textContent, 'Salir de comparación');
+
+  app.toggleCompare();
+
+  assert.equal(state.comparing, false);
+  assert.equal(nodes.get('workspace').classList.contains('comparing'), false);
+  assert.equal(nodes.get('pane-side').classList.contains('comparing'), false);
+  assert.equal(nodes.get('entity-controls').hidden, false);
+  assert.equal(nodes.get('entity-controls').inert, false);
+  assert.equal(nodes.get('entity-controls').attributes['aria-hidden'], 'false');
+  assert.equal(nodes.get('result-actions').hidden, undefined);
+  assert.equal(nodes.get('result-actions').inert, undefined);
+  assert.equal(nodes.get('result-actions').attributes['aria-hidden'], undefined);
+  assert.equal(nodes.get('compare').attributes['aria-pressed'], 'false');
+  assert.equal(nodes.get('compare-label').textContent, 'Comparar');
+});
+
+function comparisonDom() {
+  const { node, nodes } = fakeDom();
+  ['workspace', 'pane-side', 'entity-controls', 'result-actions', 'compare', 'compare-label'].forEach(id =>
+    document.getElementById(id));
+  const documentTab = node();
+  documentTab.dataset.tab = 'document';
+  const resultTab = node();
+  resultTab.dataset.tab = 'result';
+  const documentPanel = node();
+  documentPanel.id = 'tab-document';
+  const resultPanel = node();
+  resultPanel.id = 'tab-result';
+  const previousQuerySelectorAll = document.querySelectorAll;
+  document.querySelectorAll = selector => {
+    if (selector === '.tab') return [documentTab, resultTab];
+    if (selector === '.main-tabpanels > [role="tabpanel"]') return [documentPanel, resultPanel];
+    return previousQuerySelectorAll(selector);
+  };
+  return { nodes };
+}

@@ -17,7 +17,8 @@ const state = {
   entities: new Map(),   // entityKey -> {type, sample, ids:[], count}
   rejected: new Set(),   // entityKeys descartadas
   markdown: '', warningMarkdown: '', warningDownloadEligible: false,
-  types: [], edits: [], revision: 0, analysisRequest: 0, applyRequest: 0
+  types: [], edits: [], revision: 0, analysisRequest: 0, applyRequest: 0,
+  activeTab: 'document', comparing: false
 };
 
 const el = (id) => document.getElementById(id);
@@ -50,13 +51,15 @@ function init() {
   });
 
   el('apply').addEventListener('click', apply);
-  el('reset').addEventListener('click', acceptAll);
   el('download').addEventListener('click', download);
   el('warning-download').addEventListener('click', downloadWithWarnings);
   el('copy').addEventListener('click', copyMarkdown);
 
-  document.querySelectorAll('.tab').forEach((tab) =>
-    tab.addEventListener('click', () => selectTab(tab.dataset.tab)));
+  el('compare').addEventListener('click', toggleCompare);
+  document.querySelectorAll('.tab').forEach((tab) => {
+    tab.addEventListener('click', () => selectTab(tab.dataset.tab));
+    tab.addEventListener('keydown', handleTabKeydown);
+  });
 }
 
 async function analyze(file) {
@@ -92,7 +95,7 @@ async function analyze(file) {
     resetResultPanels();
 
     el('workspace').classList.remove('hidden');
-    selectTab('entities');
+    selectTab('document');
   } catch (err) {
     if (request === state.analysisRequest) showError('No se pudo contactar con el servidor.');
   } finally {
@@ -153,7 +156,7 @@ function renderEntities() {
     checkbox.setAttribute('aria-label', 'Anonimizar ' + normalize(entity.best));
     const value = document.createElement('button');
     value.type = 'button';
-    value.className = 'entity-value';
+    value.className = 'entity-value has-icon';
     value.textContent = entity.best.replace(/\s+/g, ' ');
     value.title = 'Editar texto: ' + entity.best;
     value.addEventListener('click', () => editInline(value, entityKey));
@@ -461,7 +464,7 @@ async function apply() {
     state.warningDownloadEligible = !data.deliverable && hasResult;
     renderResult(data, hasResult);
     renderChecks(data);
-    selectTab(data.deliverable ? 'result' : 'checks');
+    selectTab('result');
   } catch (err) {
     if (current()) showError('No se pudo contactar con el servidor.');
   } finally {
@@ -473,49 +476,67 @@ function renderResult(data, hasResult) {
   const deliverable = data.deliverable && hasResult;
   el('markdown').textContent = deliverable
     ? data.markdown
-    : 'VERIFICACION BLOQUEADA: el resultado no se entrega.\n\n'
-      + 'Revisa la pestana de verificacion para ver que control fallo.';
+    : 'ANONIMIZACIÓN BLOQUEADA: el resultado no se entrega.\n\n'
+      + 'Revisa la notificación para conocer el control que falló.';
+  if (!deliverable && data.findings && data.findings.length) {
+    el('warning-note').textContent = 'Controles bloqueantes: '
+      + data.findings.map(finding => finding.control + ': ' + finding.detail).join(' ');
+  } else {
+    el('warning-note').textContent = 'Este archivo puede contener datos personales residuales. Descárgalo solo si aceptas ese riesgo.';
+  }
 
   el('download').disabled = !deliverable;
   el('copy').disabled = !deliverable;
   el('warning-download').disabled = !state.warningDownloadEligible;
+  el('warning-download').classList.toggle('hidden', !state.warningDownloadEligible);
   el('warning-note').classList.toggle('hidden', !state.warningDownloadEligible);
 }
 
 function renderChecks(data) {
-  const verdict = el('verdict');
-  verdict.className = 'verdict ' + (data.deliverable ? 'ok' : 'bad');
-  verdict.textContent = data.deliverable
-    ? 'VERIFICACION SUPERADA - ' + data.substitutions + ' sustituciones, '
-      + data.entities + ' entidades'
-    : 'VERIFICACION BLOQUEADA - el documento no se entrega';
-
-  const container = el('findings');
-  container.innerHTML = '';
-  for (const finding of data.findings) {
-    const box = document.createElement('div');
-    box.className = 'finding ' + finding.severity;
-
-    const control = document.createElement('code');
-    control.textContent = finding.control + ' - ' + finding.severity;
-
-    const detail = document.createElement('div');
-    detail.textContent = finding.detail;
-
-    box.append(control, detail);
-    container.append(box);
+  if (data.deliverable) {
+    showToast(
+      'Anonimización completada',
+      data.substitutions + ' sustituciones en ' + data.entities + ' entidades. El Markdown está listo.',
+      'success'
+    );
+    return;
   }
+
+  const detail = data.findings && data.findings.length
+    ? data.findings.map(finding => finding.control + ': ' + finding.detail).join(' ')
+    : 'El documento no se entrega porque la verificación encontró un riesgo.';
+  showToast('Anonimización bloqueada', detail, 'warning');
+}
+
+function showToast(title, message, tone) {
+  const region = el('toast-region');
+  if (!region) return;
+
+  const toast = document.createElement('div');
+  toast.className = 'toast ' + tone;
+  toast.setAttribute('role', tone === 'warning' ? 'alert' : 'status');
+
+  const heading = document.createElement('strong');
+  heading.className = 'toast-title';
+  heading.textContent = title;
+  const body = document.createElement('span');
+  body.className = 'toast-message';
+  body.textContent = message;
+  toast.append(heading, body);
+  region.append(toast);
+
+  setTimeout(() => {
+    if (typeof toast.remove === 'function') toast.remove();
+  }, 6500);
 }
 
 function resetResultPanels() {
-  el('markdown').textContent = 'Pulsa «Aplicar y verificar» para generar el resultado.';
+  el('markdown').textContent = 'Pulsa «Anonimizar» para generar el resultado.'
   el('download').disabled = true;
   el('warning-download').disabled = true;
+  el('warning-download').classList.add('hidden');
   el('warning-note').classList.add('hidden');
   el('copy').disabled = true;
-  el('verdict').className = 'verdict pending';
-  el('verdict').textContent = 'Sin ejecutar';
-  el('findings').innerHTML = '';
 }
 
 // -------------------------------------------------------------------- misc
@@ -539,10 +560,56 @@ function renderStats(data) {
 }
 
 function selectTab(name) {
-  document.querySelectorAll('.tab').forEach((tab) =>
-    tab.classList.toggle('active', tab.dataset.tab === name));
-  document.querySelectorAll('.tabpanel').forEach((panel) =>
-    panel.classList.toggle('hidden', panel.id !== 'tab-' + name));
+  if (name !== 'document' && name !== 'result') return;
+  state.activeTab = name;
+  state.comparing = false;
+  renderMainView();
+}
+
+function toggleCompare() {
+  state.comparing = !state.comparing;
+  renderMainView();
+}
+
+function renderMainView() {
+  const selectedPanel = 'tab-' + state.activeTab;
+  document.querySelectorAll('.tab').forEach((tab) => {
+    const active = tab.dataset.tab === state.activeTab;
+    tab.classList.toggle('active', active);
+    tab.setAttribute('aria-selected', String(active));
+    tab.tabIndex = active ? 0 : -1;
+  });
+  document.querySelectorAll('.main-tabpanels > [role="tabpanel"]').forEach((panel) =>
+    panel.classList.toggle('hidden', !state.comparing && panel.id !== selectedPanel));
+
+  setComparisonVisibility('entity-controls', state.comparing);
+  el('workspace').classList.toggle('comparing', state.comparing);
+  el('pane-side').classList.toggle('comparing', state.comparing);
+  el('pane-main').classList.toggle('comparing', state.comparing);
+  el('compare').setAttribute('aria-pressed', String(state.comparing));
+  el('compare-label').textContent = state.comparing ? 'Salir de comparación' : 'Comparar';
+}
+
+function setComparisonVisibility(id, hidden) {
+  const target = el(id);
+  target.hidden = hidden;
+  target.inert = hidden;
+  target.setAttribute('aria-hidden', String(hidden));
+}
+
+function handleTabKeydown(event) {
+  const tabs = [...document.querySelectorAll('.tab')];
+  const index = tabs.indexOf(event.currentTarget);
+  if (index < 0) return;
+  let next = index;
+  if (event.key === 'ArrowRight' || event.key === 'ArrowDown') next = (index + 1) % tabs.length;
+  else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') next = (index - 1 + tabs.length) % tabs.length;
+  else if (event.key === 'Home') next = 0;
+  else if (event.key === 'End') next = tabs.length - 1;
+  else return;
+  event.preventDefault();
+  tabs[next].focus();
+  selectTab(tabs[next].dataset.tab);
 }
 
 function showError(message) {
@@ -592,5 +659,5 @@ if (typeof document !== 'undefined') init();
 if (typeof module !== 'undefined') module.exports = {
   state, normalize, narrow, groupEntities, changeText, changeType, reviewBody,
   editInline, invalidateResult, apply, analyze, effectiveDetections, renderDocument,
-  download, downloadWithWarnings
+  selectTab, toggleCompare, download, downloadWithWarnings
 };
