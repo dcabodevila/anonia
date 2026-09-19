@@ -17,8 +17,11 @@ const state = {
   entities: new Map(),   // entityKey -> {type, sample, ids:[], count}
   rejected: new Set(),   // entityKeys descartadas
   markdown: '', warningMarkdown: '', warningDownloadEligible: false,
-  types: [], edits: [], revision: 0, analysisRequest: 0, applyRequest: 0,
-  activeTab: 'document', comparing: false
+  resultStatus: 'pending', resultStatusTitle: 'Resultado pendiente', resultStatusMessage: '', resultFindings: [],
+  types: [], edits: [], revision: 0, analysisRequest: 0, applyRequest: 0, copyRequest: 0,
+  activeTab: 'document', comparing: false,
+  entitySearch: '', entityTypeFilter: '', activeEntityKey: null, activeOccurrenceId: null,
+  lastNavigationWrapped: false, focusTarget: null
 };
 
 const el = (id) => document.getElementById(id);
@@ -56,6 +59,18 @@ function init() {
   el('copy').addEventListener('click', copyMarkdown);
 
   el('compare').addEventListener('click', toggleCompare);
+  el('entity-search').addEventListener('input', () => {
+    setEntityFilters(el('entity-search').value, el('entity-type-filter').value);
+    renderEntities();
+    updateLocationControls();
+  });
+  el('entity-type-filter').addEventListener('change', () => {
+    setEntityFilters(el('entity-search').value, el('entity-type-filter').value);
+    renderEntities();
+    updateLocationControls();
+  });
+  el('previous-occurrence').addEventListener('click', () => navigateLocation(-1));
+  el('next-occurrence').addEventListener('click', () => navigateLocation(1));
   document.querySelectorAll('.tab').forEach((tab) => {
     tab.addEventListener('click', () => selectTab(tab.dataset.tab));
     tab.addEventListener('keydown', handleTabKeydown);
@@ -66,6 +81,7 @@ async function analyze(file) {
   const request = ++state.analysisRequest;
   invalidateResult();
   state.jobId = null;
+  resetDropzone();
   showError(null);
   el('workspace').classList.add('hidden');
   el('loading').classList.remove('hidden');
@@ -86,13 +102,20 @@ async function analyze(file) {
     state.types = data.types;
     state.edits = [];
     state.rejected = new Set();
+    state.entitySearch = '';
+    state.entityTypeFilter = '';
+    state.activeEntityKey = null;
+    state.activeOccurrenceId = null;
+    state.lastNavigationWrapped = false;
     state.markdown = '';
     groupEntities();
 
     renderStats(data);
     renderDocument();
     renderEntities();
+    updateLocationControls();
     resetResultPanels();
+    compactDropzone(file);
 
     el('workspace').classList.remove('hidden');
     selectTab('document');
@@ -101,6 +124,19 @@ async function analyze(file) {
   } finally {
     if (request === state.analysisRequest) el('loading').classList.add('hidden');
   }
+}
+
+function resetDropzone() {
+  el('dropzone').classList.remove('compact');
+  el('drop-title').textContent = 'Arrastra un PDF aquí o ';
+  el('drop-sub').textContent = 'Podrás visualizar los cambios a anonimizar antes de generar el Markdown.';
+}
+
+function compactDropzone(file) {
+  const filename = file && typeof file.name === 'string' && file.name ? file.name : 'PDF seleccionado';
+  el('dropzone').classList.add('compact');
+  el('drop-title').textContent = 'Documento seleccionado: ' + filename + '. Arrastra otro PDF o ';
+  el('drop-sub').textContent = 'Puedes reemplazarlo sin perder la vista del documento actual.';
 }
 
 // ---------------------------------------------------------------- entidades
@@ -132,31 +168,108 @@ function rebuildEntities() {
   }
 }
 
+function sortedEntities() {
+  return [...state.entities.entries()]
+    .sort((a, b) => a[1].type.localeCompare(b[1].type) || b[1].count - a[1].count);
+}
+
+function filteredEntities() {
+  const search = normalize(state.entitySearch || '').toLocaleLowerCase();
+  return sortedEntities().filter(([, entity]) =>
+    (!search || normalize(entity.best).toLocaleLowerCase().includes(search))
+    && (!state.entityTypeFilter || entity.type === state.entityTypeFilter));
+}
+
+function setEntityFilters(search, type) {
+  state.entitySearch = search || '';
+  state.entityTypeFilter = type || '';
+}
+
+function occurrenceIds(entityKey) {
+  const entity = state.entities.get(entityKey);
+  if (!entity) return [];
+  const seenRanges = new Set();
+  return entity.ids.slice().sort((a, b) => {
+    const first = state.detections.find(detection => detection.id === a);
+    const second = state.detections.find(detection => detection.id === b);
+    return first.start - second.start || first.end - second.end || a.localeCompare(b);
+  }).filter(id => {
+    const detection = state.detections.find(candidate => candidate.id === id);
+    const range = detection.start + ':' + detection.end;
+    if (seenRanges.has(range)) return false;
+    seenRanges.add(range);
+    return true;
+  });
+}
+
+function selectEntityLocation(entityKey, index = 0) {
+  const ids = occurrenceIds(entityKey);
+  if (!ids.length) return null;
+  const resolved = ((index % ids.length) + ids.length) % ids.length;
+  state.activeEntityKey = entityKey;
+  state.activeOccurrenceId = ids[resolved];
+  state.lastNavigationWrapped = false;
+  return { id: ids[resolved], index: resolved, count: ids.length, wrapped: false };
+}
+
+function navigateEntityOccurrence(direction) {
+  const ids = occurrenceIds(state.activeEntityKey);
+  if (!ids.length) return null;
+  const current = Math.max(0, ids.indexOf(state.activeOccurrenceId));
+  const requested = current + (direction < 0 ? -1 : 1);
+  const index = (requested + ids.length) % ids.length;
+  const wrapped = requested < 0 || requested >= ids.length;
+  state.activeOccurrenceId = ids[index];
+  state.lastNavigationWrapped = wrapped;
+  return { id: ids[index], index, count: ids.length, wrapped };
+}
+
+function renderEntityFilters() {
+  const filter = el('entity-type-filter');
+  if (!filter) return;
+  filter.innerHTML = '<option value="">Todos los tipos</option>';
+  for (const type of state.types) {
+    const option = document.createElement('option');
+    option.value = type;
+    option.textContent = type;
+    option.selected = type === state.entityTypeFilter;
+    filter.append(option);
+  }
+  el('entity-search').value = state.entitySearch;
+}
+
 function renderEntities() {
+  renderEntityFilters();
   const container = el('entities');
   container.innerHTML = '';
-
-  const sorted = [...state.entities.entries()]
-    .sort((a, b) => a[1].type.localeCompare(b[1].type) || b[1].count - a[1].count);
+  const sorted = filteredEntities();
 
   for (const [entityKey, entity] of sorted) {
     const off = state.rejected.has(entityKey);
-
+    const active = state.activeEntityKey === entityKey;
     const row = document.createElement('div');
-    row.className = 'entity' + (off ? ' off' : '');
+    row.className = 'entity' + (off ? ' off' : '') + (active ? ' active' : '');
 
+    const groupScope = entity.count === 1 ? '1 aparición' : entity.count + ' apariciones';
+    const entityName = normalize(entity.best);
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.checked = !off;
-    checkbox.addEventListener('change', () => toggleEntity(entityKey));
+    checkbox.dataset.focusTarget = 'checkbox:' + entityKey;
+    checkbox.setAttribute('aria-label', off
+      ? 'Se conserva ' + entityName + ' en el texto; grupo de ' + groupScope + '. Marcar para anonimizar.'
+      : 'Anonimizar ' + entityName + '; grupo de ' + groupScope + '. Desmarcar para conservar el texto.');
+    checkbox.addEventListener('change', () => {
+      state.focusTarget = checkbox.dataset.focusTarget;
+      toggleEntity(entityKey);
+    });
 
     const main = document.createElement('div');
     main.className = 'entity-main';
-
-    checkbox.setAttribute('aria-label', 'Anonimizar ' + normalize(entity.best));
     const value = document.createElement('button');
     value.type = 'button';
     value.className = 'entity-value has-icon';
+    value.dataset.focusTarget = 'edit:' + entityKey;
     value.textContent = entity.best.replace(/\s+/g, ' ');
     value.title = 'Editar texto: ' + entity.best;
     value.addEventListener('click', () => editInline(value, entityKey));
@@ -170,11 +283,30 @@ function renderEntities() {
       ? 'Seleccion editada · posicion original ' + position + ' · ' + occurrences
       : entity.count === 1 ? occurrences
         : occurrences + ' exactas; el texto las edita juntas';
+    const discarded = off ? document.createElement('div') : null;
+    if (discarded) {
+      discarded.className = 'entity-state';
+      discarded.textContent = 'Se conserva en el texto';
+    }
 
+    const locate = document.createElement('button');
+    locate.type = 'button';
+    locate.className = 'entity-locate';
+    locate.dataset.focusTarget = 'locate:' + entityKey;
+    locate.textContent = 'Ubicar';
+    locate.setAttribute('aria-label', 'Ubicar ' + normalize(entity.best));
+    locate.addEventListener('click', () => {
+      state.focusTarget = locate.dataset.focusTarget;
+      selectEntityLocation(entityKey);
+      refreshLocation();
+    });
     main.append(value, meta);
+    if (discarded) main.append(discarded);
+    main.append(locate);
 
     const chip = document.createElement('select');
     chip.className = 'chip';
+    chip.dataset.focusTarget = 'type:' + entityKey;
     chip.setAttribute('aria-label', 'Tipo de ' + normalize(entity.best));
     for (const type of state.types) {
       const option = document.createElement('option');
@@ -185,6 +317,7 @@ function renderEntities() {
     }
     chip.style.color = colorOf(entity.type);
     chip.addEventListener('change', () => {
+      state.focusTarget = chip.dataset.focusTarget;
       changeType(entityKey, chip.value);
       refreshReview();
     });
@@ -194,8 +327,59 @@ function renderEntities() {
   }
 
   if (sorted.length === 0) {
-    container.innerHTML = '<p class="entity-meta">No se detecto ningun dato personal.</p>';
+    container.innerHTML = '<p class="entity-meta">No hay entidades que coincidan con los filtros.</p>';
   }
+}
+
+function activeEntityIsFiltered() {
+  return filteredEntities().some(([key]) => key === state.activeEntityKey);
+}
+
+function updateLocationControls() {
+  const status = el('location-status');
+  const previous = el('previous-occurrence');
+  const next = el('next-occurrence');
+  const ids = occurrenceIds(state.activeEntityKey);
+  if (!ids.length) {
+    status.textContent = 'Selecciona Ubicar para recorrer sus apariciones.';
+    previous.disabled = true;
+    next.disabled = true;
+    return;
+  }
+  const index = Math.max(0, ids.indexOf(state.activeOccurrenceId));
+  const entity = state.entities.get(state.activeEntityKey);
+  const hiddenByFilter = !activeEntityIsFiltered();
+  status.textContent = normalize(entity.best) + ': aparición ' + (index + 1) + ' de ' + ids.length
+    + (state.lastNavigationWrapped ? '. Vuelta al ' + (index === 0 ? 'inicio.' : 'final.') : '.')
+    + (hiddenByFilter ? ' La fila no coincide con el filtro actual; ajusta o limpia los filtros.' : '');
+  previous.disabled = false;
+  next.disabled = false;
+}
+
+function restoreFocus() {
+  if (!state.focusTarget || typeof document === 'undefined') return;
+  const target = [...document.querySelectorAll('[data-focus-target]')]
+    .find(control => control.dataset.focusTarget === state.focusTarget);
+  state.focusTarget = null;
+  if (target && typeof target.focus === 'function') {
+    target.focus();
+    return;
+  }
+  const filter = el('entity-search');
+  if (filter && typeof filter.focus === 'function') filter.focus();
+}
+
+function refreshLocation() {
+  if (!state.comparing && state.activeTab !== 'document') selectTab('document');
+  renderEntities();
+  renderDocument();
+  updateLocationControls();
+  restoreFocus();
+}
+
+function navigateLocation(direction) {
+  if (!navigateEntityOccurrence(direction)) return;
+  refreshLocation();
 }
 
 function toggleEntity(entityKey) {
@@ -337,6 +521,7 @@ function editInline(button, key) {
     finished = true;
     if (save && input.value !== normalize(state.entities.get(key).best)) {
       if (changeText(key, input.value)) {
+        state.focusTarget = 'edit:' + key;
         showError(null);
         refreshReview();
         return;
@@ -364,13 +549,17 @@ function invalidateResult() {
   state.markdown = '';
   state.warningMarkdown = '';
   state.warningDownloadEligible = false;
+  state.resultFindings = [];
   resetResultPanels();
+  setResultStatus('pending', 'Resultado pendiente', 'Revisa las entidades y pulsa «Anonimizar».');
 }
 
 function refreshReview() {
   invalidateResult();
   renderEntities();
   renderDocument();
+  updateLocationControls();
+  restoreFocus();
 }
 
 function reviewBody() {
@@ -397,36 +586,98 @@ function effectiveDetections() {
   return effective;
 }
 
-// Render only effective spans; all retained tags stay controllable in the sidebar.
+function isHighlightActivation(event) {
+  return event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar';
+}
+
+function toggleFromHighlight(detection) {
+  // The document is rebuilt after a review edit, so retain a source anchor first.
+  state.activeEntityKey = detection.entityKey;
+  state.activeOccurrenceId = detection.id;
+  state.focusTarget = 'highlight:' + detection.id;
+  toggleEntity(detection.entityKey);
+}
+
+function makeHighlight(text, detection, active) {
+  const mark = document.createElement('span');
+  mark.className = 'hl' + (active ? ' active-location' : '');
+  mark.style.color = colorOf(detection.type);
+  mark.textContent = text;
+  mark.title = detection.type + ' - ' + detection.provenance
+    + ' - confianza ' + detection.confidence;
+  mark.tabIndex = 0;
+  mark.dataset.focusTarget = 'highlight:' + detection.id;
+  mark.setAttribute('role', 'button');
+  mark.setAttribute('aria-label', 'Alternar anonimización de ' + normalize(text));
+  mark.addEventListener('click', () => toggleFromHighlight(detection));
+  mark.addEventListener('keydown', event => {
+    if (!isHighlightActivation(event)) return;
+    event.preventDefault();
+    toggleFromHighlight(detection);
+  });
+  return mark;
+}
+
+function scrollToActiveLocation(container) {
+  if (!state.activeOccurrenceId || !container.querySelector) return;
+  const location = container.querySelector('[data-occurrence-id="' + state.activeOccurrenceId + '"]');
+  if (location && typeof location.scrollIntoView === 'function') {
+    location.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
+  }
+}
+
+// Effective tags remain the substitution projection. A location-only marker exposes
+// rejected or nested occurrences without turning them into accepted substitutions.
 function renderDocument() {
   const container = el('doctext');
   container.innerHTML = '';
-
   const ordered = effectiveDetections();
-  let cursor = 0;
+  const active = state.detections.find(detection => detection.id === state.activeOccurrenceId);
 
-  for (const detection of ordered) {
-    if (detection.start < cursor) continue;
-
-    if (detection.start > cursor) {
-      container.append(document.createTextNode(
-        state.text.slice(cursor, detection.start)));
+  if (!active) {
+    let cursor = 0;
+    for (const detection of ordered) {
+      if (detection.start > cursor) container.append(document.createTextNode(state.text.slice(cursor, detection.start)));
+      container.append(makeHighlight(state.text.slice(detection.start, detection.end), detection, false));
+      cursor = detection.end;
     }
-
-    const off = state.rejected.has(detection.entityKey);
-    const mark = document.createElement('span');
-    mark.className = 'hl' + (off ? ' off' : '');
-    mark.style.color = colorOf(detection.type);
-    mark.textContent = state.text.slice(detection.start, detection.end);
-    mark.title = detection.type + ' - ' + detection.provenance
-      + ' - confianza ' + detection.confidence;
-    mark.addEventListener('click', () => toggleEntity(detection.entityKey));
-    container.append(mark);
-
-    cursor = detection.end;
+    container.append(document.createTextNode(state.text.slice(cursor)));
+    return;
   }
 
-  container.append(document.createTextNode(state.text.slice(cursor)));
+  const boundaries = new Set([0, state.text.length, active.start, active.end]);
+  ordered.forEach(detection => {
+    boundaries.add(detection.start);
+    boundaries.add(detection.end);
+  });
+  const points = [...boundaries].sort((first, second) => first - second);
+  for (let index = 0; index < points.length - 1; index++) {
+    const start = points[index];
+    const end = points[index + 1];
+    if (start === end) continue;
+    const visible = ordered.find(detection => detection.start <= start && detection.end >= end);
+    const activeHere = active.start < end && active.end > start;
+    const text = state.text.slice(start, end);
+    if (visible) {
+      const mark = makeHighlight(text, visible, activeHere);
+      if (activeHere) mark.dataset.occurrenceId = active.id;
+      container.append(mark);
+    } else if (activeHere) {
+      const marker = document.createElement('span');
+      marker.className = 'location-marker active-location';
+      marker.dataset.occurrenceId = active.id;
+      marker.dataset.focusTarget = 'highlight:' + active.id;
+      marker.tabIndex = -1;
+      marker.setAttribute('role', 'status');
+      marker.setAttribute('aria-label', 'Ubicación de ' + normalize(text) + '. Esta coincidencia está descartada.');
+      marker.textContent = text;
+      marker.title = 'Ubicación de ' + normalize(text) + '. Esta coincidencia no cambia la selección.';
+      container.append(marker);
+    } else {
+      container.append(document.createTextNode(text));
+    }
+  }
+  scrollToActiveLocation(container);
 }
 
 function colorOf(type) {
@@ -443,6 +694,7 @@ async function apply() {
   const revision = state.revision;
   const request = ++state.applyRequest;
   const current = () => revision === state.revision && request === state.applyRequest;
+  setResultStatus('working', 'Generando resultado', 'Aplicando tus decisiones y verificando que el documento se pueda entregar.');
   el('apply').disabled = true;
   try {
     const response = await fetch('/api/apply', {
@@ -454,7 +706,8 @@ async function apply() {
     if (!current()) return;
 
     if (!response.ok) {
-      showError(data.error || 'No se pudo generar el resultado.');
+      setResultStatus('error', 'No se pudo generar el resultado',
+        (data.error || 'El servidor no pudo validar la revisión.') + ' Revisa las entidades y vuelve a anonimizar.');
       return;
     }
 
@@ -462,29 +715,33 @@ async function apply() {
     state.markdown = data.deliverable && hasResult ? data.markdown : '';
     state.warningMarkdown = !data.deliverable && hasResult ? data.markdown : '';
     state.warningDownloadEligible = !data.deliverable && hasResult;
+    state.resultFindings = Array.isArray(data.findings) ? data.findings : [];
     renderResult(data, hasResult);
-    renderChecks(data);
+    renderChecks(data, hasResult);
     selectTab('result');
   } catch (err) {
-    if (current()) showError('No se pudo contactar con el servidor.');
+    if (current()) {
+      setResultStatus('error', 'No se pudo generar el resultado',
+        'No se pudo contactar con el servidor. Comprueba que la aplicación siga abierta y vuelve a anonimizar.');
+    }
   } finally {
     if (request === state.applyRequest) el('apply').disabled = false;
   }
 }
 
+const GENERATED_METADATA_COMMENT = /^<!--\r?\ndoc-anonymizer [^\r\n]+\r?\ngenerado: [^\r\n]+\r?\norigen sha-256: [a-f0-9]{16,}\r?\npaginas: \d+\r?\nsustituciones: [^\r\n]+\r?\n\r?\nDOCUMENTO DESIDENTIFICADO, NO ANONIMO\. Se han sustituido identificadores\r?\ndirectos detectados\. Fechas, importes, cargos, localidades y hechos\r?\nsingulares permanecen y pueden permitir reidentificar\. Requiere revision\r?\nhumana antes de compartir\.\r?\n-->\r?\n(?:[ \t]*\r?\n)*/;
+
+function previewMarkdown(markdown) {
+  return typeof markdown === 'string' ? markdown.replace(GENERATED_METADATA_COMMENT, '') : markdown;
+}
+
 function renderResult(data, hasResult) {
   const deliverable = data.deliverable && hasResult;
   el('markdown').textContent = deliverable
-    ? data.markdown
+    ? previewMarkdown(data.markdown)
     : 'ANONIMIZACIÓN BLOQUEADA: el resultado no se entrega.\n\n'
-      + 'Revisa la notificación para conocer el control que falló.';
-  if (!deliverable && data.findings && data.findings.length) {
-    el('warning-note').textContent = 'Controles bloqueantes: '
-      + data.findings.map(finding => finding.control + ': ' + finding.detail).join(' ');
-  } else {
-    el('warning-note').textContent = 'Este archivo puede contener datos personales residuales. Descárgalo solo si aceptas ese riesgo.';
-  }
-
+      + 'Revisa el estado del resultado para conocer el control que falló.';
+  el('warning-note').textContent = 'Este archivo puede contener datos personales residuales. Descárgalo solo si aceptas ese riesgo.';
   el('download').disabled = !deliverable;
   el('copy').disabled = !deliverable;
   el('warning-download').disabled = !state.warningDownloadEligible;
@@ -492,20 +749,29 @@ function renderResult(data, hasResult) {
   el('warning-note').classList.toggle('hidden', !state.warningDownloadEligible);
 }
 
-function renderChecks(data) {
-  if (data.deliverable) {
-    showToast(
-      'Anonimización completada',
-      data.substitutions + ' sustituciones en ' + data.entities + ' entidades. El Markdown está listo.',
-      'success'
-    );
+function renderChecks(data, hasResult) {
+  const detail = state.resultFindings.length
+    ? state.resultFindings.map(finding => finding.control + ': ' + finding.detail).join(' ')
+    : 'La verificación encontró un riesgo. Revisa las entidades y vuelve a anonimizar.';
+  if (data.deliverable && hasResult) {
+    const message = data.substitutions + ' sustituciones en ' + data.entities + ' entidades. El Markdown está listo para descargar o copiar.';
+    setResultStatus('success', 'Anonimización completada', message);
+    showToast('Anonimización completada', message, 'success');
     return;
   }
 
-  const detail = data.findings && data.findings.length
-    ? data.findings.map(finding => finding.control + ': ' + finding.detail).join(' ')
-    : 'El documento no se entrega porque la verificación encontró un riesgo.';
+  setResultStatus('blocked', 'Anonimización bloqueada', detail);
   showToast('Anonimización bloqueada', detail, 'warning');
+}
+
+function setResultStatus(status, title, message) {
+  state.resultStatus = status;
+  state.resultStatusTitle = title;
+  state.resultStatusMessage = message;
+  const panel = el('result-status');
+  if (!panel) return;
+  panel.className = 'result-status ' + status;
+  panel.textContent = title + ': ' + message;
 }
 
 function showToast(title, message, tone) {
@@ -582,6 +848,7 @@ function renderMainView() {
   document.querySelectorAll('.main-tabpanels > [role="tabpanel"]').forEach((panel) =>
     panel.classList.toggle('hidden', !state.comparing && panel.id !== selectedPanel));
 
+  setComparisonVisibility('result-actions', !state.comparing && state.activeTab !== 'result');
   setComparisonVisibility('entity-controls', state.comparing);
   el('workspace').classList.toggle('comparing', state.comparing);
   el('pane-side').classList.toggle('comparing', state.comparing);
@@ -646,12 +913,23 @@ function downloadWithWarnings() {
 
 async function copyMarkdown() {
   if (!state.markdown) return;
+  const revision = state.revision;
+  const markdown = state.markdown;
+  const request = ++state.copyRequest;
+  const current = () => revision === state.revision
+    && markdown === state.markdown && request === state.copyRequest;
   try {
-    await navigator.clipboard.writeText(state.markdown);
-    el('copy').textContent = 'Copiado';
-    setTimeout(() => { el('copy').textContent = 'Copiar'; }, 1500);
+    await navigator.clipboard.writeText(markdown);
+    if (!current()) return;
+    el('copy-label').textContent = 'Copiado';
+    setTimeout(() => {
+      if (current()) el('copy-label').textContent = 'Copiar';
+    }, 1500);
   } catch (err) {
-    showError('El navegador bloqueo el acceso al portapapeles.');
+    if (current()) {
+      setResultStatus('error', 'No se pudo copiar el resultado',
+        'El navegador bloqueó el acceso al portapapeles. Usa «Descargar .md» para guardar el resultado.');
+    }
   }
 }
 
@@ -659,5 +937,7 @@ if (typeof document !== 'undefined') init();
 if (typeof module !== 'undefined') module.exports = {
   state, normalize, narrow, groupEntities, changeText, changeType, reviewBody,
   editInline, invalidateResult, apply, analyze, effectiveDetections, renderDocument,
-  selectTab, toggleCompare, download, downloadWithWarnings
+  selectTab, toggleCompare, download, downloadWithWarnings, filteredEntities, setEntityFilters,
+  selectEntityLocation, navigateEntityOccurrence, occurrenceIds, isHighlightActivation, restoreFocus,
+  copyMarkdown, previewMarkdown
 };
