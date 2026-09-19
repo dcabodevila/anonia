@@ -38,36 +38,7 @@ public final class MarkdownRenderer {
     }
 
     public String render(String anonymizedText, Metadata metadata) {
-        return header(metadata) + "\n" + body(anonymizedText) + "\n";
-    }
-
-    /**
-     * Cabecera de procedencia como comentario HTML: viaja con el fichero, no ensucia el
-     * documento renderizado y no contiene ningun valor detectado, solo recuentos y hashes.
-     */
-    private String header(Metadata metadata) {
-        StringBuilder out = new StringBuilder();
-        out.append("<!--\n");
-        out.append("doc-anonymizer ").append(metadata.toolVersion()).append("\n");
-        out.append("generado: ").append(metadata.generatedAt()).append("\n");
-        out.append("origen sha-256: ").append(metadata.sourceSha256()).append("\n");
-        out.append("paginas: ").append(metadata.pageCount()).append("\n");
-        out.append("sustituciones: ");
-        if (metadata.countsByType().isEmpty()) {
-            out.append("ninguna");
-        } else {
-            List<String> parts = new ArrayList<>();
-            metadata.countsByType().forEach((type, count) -> parts.add(type + "=" + count));
-            parts.sort(String::compareTo);
-            out.append(String.join(", ", parts));
-        }
-        out.append("\n\n");
-        out.append("DOCUMENTO DESIDENTIFICADO, NO ANONIMO. Se han sustituido identificadores\n");
-        out.append("directos detectados. Fechas, importes, cargos, localidades y hechos\n");
-        out.append("singulares permanecen y pueden permitir reidentificar. Requiere revision\n");
-        out.append("humana antes de compartir.\n");
-        out.append("-->\n");
-        return out.toString();
+        return body(anonymizedText) + "\n";
     }
 
     private String body(String text) {

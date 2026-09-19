@@ -162,14 +162,14 @@ class SecurityCorpusEndToEndTest {
     }
 
     @Test
-    @DisplayName("la cabecera del Markdown no filtra ningun valor")
-    void generatedHeaderIsFreeOfPersonalData() {
-        String header = markdown.substring(0, markdown.indexOf("-->"));
-
-        for (Detection detection : result.accepted()) {
-            assertFalse(TextFolding.fold(header).contains(TextFolding.fold(detection.value())),
-                    () -> "la cabecera de procedencia filtro un valor detectado");
-        }
+    @DisplayName("la salida comienza con el documento anonimizado, sin cabecera generada")
+    void outputHasNoGeneratedHeader() {
+        assertTrue(markdown.startsWith("## ACTA DE MANIFESTACIONES"),
+                () -> "la salida debe empezar por el cuerpo del documento: " + markdown);
+        assertTrue(markdown.contains("[PERSONA_001]"),
+                "el cuerpo debe conservar los reemplazos anonimizados");
+        assertFalse(markdown.startsWith("<!--"),
+                "la salida no debe incluir una cabecera HTML generada");
     }
 
     private String labelOf(String loweredValue) {
