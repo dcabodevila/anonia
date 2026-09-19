@@ -1,0 +1,62 @@
+{
+  "component": "libpng",
+  "candidateVersion": "1.6.58",
+  "url": "https://downloads.sourceforge.net/sourceforge/libpng/libpng-1.6.58.tar.xz",
+  "expectedSha256": "28eb403f51f0f7405249132cecfe82ea5c0ef97f1b32c5a65828814ae0d34775",
+  "archiveReused": true,
+  "bytes": 1070096,
+  "sha256": "28eb403f51f0f7405249132cecfe82ea5c0ef97f1b32c5a65828814ae0d34775",
+  "archivePath": "target/ocr-source-audit/archives/libpng/libpng-1.6.58.tar.xz",
+  "status": "archived_and_license_texts_extracted",
+  "archiveMemberCount": 669,
+  "extracted": [
+    {
+      "sourceMember": "libpng-1.6.58/AUTHORS",
+      "path": "packaging/windows/ocr-evidence/licenses/libpng/libpng-1.6.58__AUTHORS",
+      "bytes": 1773,
+      "sha256": "0c777e9f2a67bd4058ab91050eb7a56106c92ed038ba8fe5f54c83344f2d93ca"
+    },
+    {
+      "sourceMember": "libpng-1.6.58/LICENSE",
+      "path": "packaging/windows/ocr-evidence/licenses/libpng/libpng-1.6.58__LICENSE",
+      "bytes": 5345,
+      "sha256": "bdb0a645ea18c60507d0368379b1ac5474b92255fcc2d115e07486a7672ba526"
+    },
+    {
+      "sourceMember": "libpng-1.6.58/ci/LICENSE_MIT.txt",
+      "path": "packaging/windows/ocr-evidence/licenses/libpng/libpng-1.6.58__ci__LICENSE_MIT.txt",
+      "bytes": 1036,
+      "sha256": "508a77d2e7b51d98adeed32648ad124b7b30241a8e70b2e72c99f92d8e5874d1"
+    },
+    {
+      "sourceMember": "libpng-1.6.58/contrib/gregbook/COPYING",
+      "path": "packaging/windows/ocr-evidence/licenses/libpng/libpng-1.6.58__contrib__gregbook__COPYING",
+      "bytes": 18097,
+      "sha256": "d6cb0e9e560f51085556949a84af12b79a00f10ab8b66c752537faf7cd665572"
+    },
+    {
+      "sourceMember": "libpng-1.6.58/contrib/gregbook/LICENSE",
+      "path": "packaging/windows/ocr-evidence/licenses/libpng/libpng-1.6.58__contrib__gregbook__LICENSE",
+      "bytes": 2373,
+      "sha256": "b6a03c1803eb58ffb1f1278d5c7d4096c4c116e66dce8a7553e8c77d163c3438"
+    },
+    {
+      "sourceMember": "libpng-1.6.58/contrib/pngexif/LICENSE_MIT.txt",
+      "path": "packaging/windows/ocr-evidence/licenses/libpng/libpng-1.6.58__contrib__pngexif__LICENSE_MIT.txt",
+      "bytes": 1036,
+      "sha256": "508a77d2e7b51d98adeed32648ad124b7b30241a8e70b2e72c99f92d8e5874d1"
+    },
+    {
+      "sourceMember": "libpng-1.6.58/contrib/pngminus/LICENSE.txt",
+      "path": "packaging/windows/ocr-evidence/licenses/libpng/libpng-1.6.58__contrib__pngminus__LICENSE.txt",
+      "bytes": 1164,
+      "sha256": "1806f1f10d393e9e377b3a8d1b968452b54f1a90378f14eeef45426946ace330"
+    },
+    {
+      "sourceMember": "libpng-1.6.58/scripts/cmake/AUTHORS.md",
+      "path": "packaging/windows/ocr-evidence/licenses/libpng/libpng-1.6.58__scripts__cmake__AUTHORS.md",
+      "bytes": 862,
+      "sha256": "50633b976f0133862c921aa67d56de2c0b42eb344c8ca3853686efb092a447db"
+    }
+  ]
+}

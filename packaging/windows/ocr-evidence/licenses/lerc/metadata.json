@@ -1,0 +1,26 @@
+{
+  "component": "lerc",
+  "candidateVersion": "4.1.1",
+  "url": "https://github.com/Esri/lerc/archive/v4.1.1/lerc-4.1.1.tar.gz",
+  "expectedSha256": "fe2860e10635166cd9f2144e429ec6b870d471e9957f5812ba2da0973770b022",
+  "archiveReused": true,
+  "bytes": 4058063,
+  "sha256": "fe2860e10635166cd9f2144e429ec6b870d471e9957f5812ba2da0973770b022",
+  "archivePath": "target/ocr-source-audit/archives/lerc/lerc-4.1.1.tar.gz",
+  "status": "archived_and_license_texts_extracted",
+  "archiveMemberCount": 125,
+  "extracted": [
+    {
+      "sourceMember": "lerc-4.1.1/LICENSE",
+      "path": "packaging/windows/ocr-evidence/licenses/lerc/lerc-4.1.1__LICENSE",
+      "bytes": 9198,
+      "sha256": "77a8b761727c75e2167b15bfdf61b2c0bcf8792271228bebe80779106ad00671"
+    },
+    {
+      "sourceMember": "lerc-4.1.1/NOTICE",
+      "path": "packaging/windows/ocr-evidence/licenses/lerc/lerc-4.1.1__NOTICE",
+      "bytes": 679,
+      "sha256": "f222a70d24e261b9b4b238df4fe9132e669d7776f137753c6cbbc5be4701124d"
+    }
+  ]
+}

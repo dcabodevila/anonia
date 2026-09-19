@@ -1,0 +1,50 @@
+{
+  "component": "openjpeg2",
+  "candidateVersion": "2.5.4",
+  "url": "https://github.com/uclouvain/openjpeg/archive/v2.5.4/openjpeg-2.5.4.tar.gz",
+  "expectedSha256": "a695fbe19c0165f295a8531b1e4e855cd94d0875d2f88ec4b61080677e27188a",
+  "archiveReused": true,
+  "bytes": 2157028,
+  "sha256": "a695fbe19c0165f295a8531b1e4e855cd94d0875d2f88ec4b61080677e27188a",
+  "archivePath": "target/ocr-source-audit/archives/openjpeg2/openjpeg-2.5.4.tar.gz",
+  "status": "archived_and_license_texts_extracted",
+  "archiveMemberCount": 519,
+  "extracted": [
+    {
+      "sourceMember": "openjpeg-2.5.4/AUTHORS.md",
+      "path": "packaging/windows/ocr-evidence/licenses/openjpeg2/openjpeg-2.5.4__AUTHORS.md",
+      "bytes": 712,
+      "sha256": "cf22e984f9fbb9be7550e9a94120595ba8c4a7de0d63f47d3725f4b2e28a4387"
+    },
+    {
+      "sourceMember": "openjpeg-2.5.4/LICENSE",
+      "path": "packaging/windows/ocr-evidence/licenses/openjpeg2/openjpeg-2.5.4__LICENSE",
+      "bytes": 2112,
+      "sha256": "a6af136f3e15038a666b61f376612a07d9a4e48cb7c01adbf3e33b3f14ab49b6"
+    },
+    {
+      "sourceMember": "openjpeg-2.5.4/src/bin/wx/OPJViewer/source/license.txt",
+      "path": "packaging/windows/ocr-evidence/licenses/openjpeg2/openjpeg-2.5.4__src__bin__wx__OPJViewer__source__license.txt",
+      "bytes": 1683,
+      "sha256": "8081c33f6953950dcf424aa844714658b73ada0fcaea16e4487f5fa07ef0960d"
+    },
+    {
+      "sourceMember": "openjpeg-2.5.4/thirdparty/astyle/LICENSE.md",
+      "path": "packaging/windows/ocr-evidence/licenses/openjpeg2/openjpeg-2.5.4__thirdparty__astyle__LICENSE.md",
+      "bytes": 1094,
+      "sha256": "2e8480e753b7a1d100c80920f4250b1bc9f93a18c6a5953c42b11445218cd0fb"
+    },
+    {
+      "sourceMember": "openjpeg-2.5.4/thirdparty/liblcms2/COPYING",
+      "path": "packaging/windows/ocr-evidence/licenses/openjpeg2/openjpeg-2.5.4__thirdparty__liblcms2__COPYING",
+      "bytes": 1078,
+      "sha256": "c725daac91a9259ce5e195683c0eeb797d345035c36ac5ba114c9fa80e11639a"
+    },
+    {
+      "sourceMember": "openjpeg-2.5.4/thirdparty/libpng/LICENSE",
+      "path": "packaging/windows/ocr-evidence/licenses/openjpeg2/openjpeg-2.5.4__thirdparty__libpng__LICENSE",
+      "bytes": 5345,
+      "sha256": "7317e078e2d3b5d7ba5a6159e650945153262b44b76f6700f8e9edb261c5143e"
+    }
+  ]
+}

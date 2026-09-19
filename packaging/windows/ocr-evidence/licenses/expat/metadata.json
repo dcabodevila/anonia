@@ -1,0 +1,26 @@
+{
+  "component": "expat",
+  "candidateVersion": "2.8.2",
+  "url": "https://github.com/libexpat/libexpat/releases/download/R_2_8_2/expat-2.8.2.tar.xz",
+  "expectedSha256": "3ad89b8588e6644bd4e49981480d48b21289eebbcd4f0a1a4afb1c29f99b6ab4",
+  "archiveReused": true,
+  "bytes": 515504,
+  "sha256": "3ad89b8588e6644bd4e49981480d48b21289eebbcd4f0a1a4afb1c29f99b6ab4",
+  "archivePath": "target/ocr-source-audit/archives/expat/expat-2.8.2.tar.xz",
+  "status": "archived_and_license_texts_extracted",
+  "archiveMemberCount": 182,
+  "extracted": [
+    {
+      "sourceMember": "expat-2.8.2/COPYING",
+      "path": "packaging/windows/ocr-evidence/licenses/expat/expat-2.8.2__COPYING",
+      "bytes": 1144,
+      "sha256": "31b15de82aa19a845156169a17a5488bf597e561b2c318d159ed583139b25e87"
+    },
+    {
+      "sourceMember": "expat-2.8.2/AUTHORS",
+      "path": "packaging/windows/ocr-evidence/licenses/expat/expat-2.8.2__AUTHORS",
+      "bytes": 142,
+      "sha256": "59f14371c6b75912cfebb46e6247ee5146766e803a0365b124e5d3011e7d0877"
+    }
+  ]
+}

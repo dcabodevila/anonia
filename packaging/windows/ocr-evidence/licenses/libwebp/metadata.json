@@ -1,0 +1,26 @@
+{
+  "component": "libwebp",
+  "candidateVersion": "1.6.0",
+  "url": "https://github.com/webmproject/libwebp/archive/v1.6.0/libwebp-1.6.0.tar.gz",
+  "expectedSha256": "93a852c2b3efafee3723efd4636de855b46f9fe1efddd607e1f42f60fc8f2136",
+  "archiveReused": true,
+  "bytes": 3833512,
+  "sha256": "93a852c2b3efafee3723efd4636de855b46f9fe1efddd607e1f42f60fc8f2136",
+  "archivePath": "target/ocr-source-audit/archives/libwebp/libwebp-1.6.0.tar.gz",
+  "status": "archived_and_license_texts_extracted",
+  "archiveMemberCount": 364,
+  "extracted": [
+    {
+      "sourceMember": "libwebp-1.6.0/AUTHORS",
+      "path": "packaging/windows/ocr-evidence/licenses/libwebp/libwebp-1.6.0__AUTHORS",
+      "bytes": 3279,
+      "sha256": "f251be89fd442bd9d701360730aea163cc8e2076ff03528f59267dc2c4f8b60a"
+    },
+    {
+      "sourceMember": "libwebp-1.6.0/COPYING",
+      "path": "packaging/windows/ocr-evidence/licenses/libwebp/libwebp-1.6.0__COPYING",
+      "bytes": 1496,
+      "sha256": "5aec868f669e384a22372a4e8a1a6cd7d44c64cd451f960ca69cc170d1e13acf"
+    }
+  ]
+}

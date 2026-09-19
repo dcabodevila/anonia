@@ -1,0 +1,152 @@
+{
+  "component": "gettext",
+  "candidateVersion": "1.0",
+  "url": "https://ftp.gnu.org/pub/gnu/gettext/gettext-1.0.tar.lz",
+  "expectedSha256": "d6342cbe1411a2fe7d139bfed80c2d63b1babc92acfedc72501cc105184f61ee",
+  "archiveReused": true,
+  "bytes": 10261665,
+  "sha256": "d6342cbe1411a2fe7d139bfed80c2d63b1babc92acfedc72501cc105184f61ee",
+  "archivePath": "target/ocr-source-audit/archives/gettext/gettext-1.0.tar.lz",
+  "status": "archived_and_license_texts_extracted",
+  "archiveMemberCount": 9346,
+  "extracted": [
+    {
+      "sourceMember": "gettext-1.0/AUTHORS",
+      "path": "packaging/windows/ocr-evidence/licenses/gettext/gettext-1.0__AUTHORS",
+      "bytes": 2637,
+      "sha256": "167b04ed012e59c2d2cfc87d420d8c8a8f5c528ef1fd068598b36d57f39db203"
+    },
+    {
+      "sourceMember": "gettext-1.0/gettext-runtime/AUTHORS",
+      "path": "packaging/windows/ocr-evidence/licenses/gettext/gettext-1.0__gettext-runtime__AUTHORS",
+      "bytes": 145,
+      "sha256": "136ea88816ec1990c2fc060970013b9e94c875ba8b387f9bb3d62e77c90bc9b4"
+    },
+    {
+      "sourceMember": "gettext-1.0/gettext-runtime/intl/AUTHORS",
+      "path": "packaging/windows/ocr-evidence/licenses/gettext/gettext-1.0__gettext-runtime__intl__AUTHORS",
+      "bytes": 96,
+      "sha256": "4bd9e2cd15ab6d68b30965512b63a1d4aae95f4c1dd040657a4d1300252a695f"
+    },
+    {
+      "sourceMember": "gettext-1.0/gettext-runtime/libasprintf/AUTHORS",
+      "path": "packaging/windows/ocr-evidence/licenses/gettext/gettext-1.0__gettext-runtime__libasprintf__AUTHORS",
+      "bytes": 33,
+      "sha256": "590f1c4aa72c2c14dd52b0e230bf652e2109d00099fc7bb272e4594b800913d0"
+    },
+    {
+      "sourceMember": "gettext-1.0/gettext-tools/AUTHORS",
+      "path": "packaging/windows/ocr-evidence/licenses/gettext/gettext-1.0__gettext-tools__AUTHORS",
+      "bytes": 60,
+      "sha256": "4027705b723299dd8e6153939ab73395e22685503994cc8de92fa2ebaa432a49"
+    },
+    {
+      "sourceMember": "gettext-1.0/libtextstyle/AUTHORS",
+      "path": "packaging/windows/ocr-evidence/licenses/gettext/gettext-1.0__libtextstyle__AUTHORS",
+      "bytes": 271,
+      "sha256": "71c0580cb05d28848b341e5a4da2761d4a8eb482592358d646dab104648a8303"
+    },
+    {
+      "sourceMember": "gettext-1.0/COPYING",
+      "path": "packaging/windows/ocr-evidence/licenses/gettext/gettext-1.0__COPYING",
+      "bytes": 35151,
+      "sha256": "e79e9c8a0c85d735ff98185918ec94ed7d175efc377012787aebcf3b80f0d90b"
+    },
+    {
+      "sourceMember": "gettext-1.0/gettext-runtime/COPYING",
+      "path": "packaging/windows/ocr-evidence/licenses/gettext/gettext-1.0__gettext-runtime__COPYING",
+      "bytes": 495,
+      "sha256": "7ef2cdfe58e0c0460657b6598b49af29d4e03c1e41cbaf0e1da1eb8ad74b95d0"
+    },
+    {
+      "sourceMember": "gettext-1.0/gettext-runtime/libasprintf/COPYING",
+      "path": "packaging/windows/ocr-evidence/licenses/gettext/gettext-1.0__gettext-runtime__libasprintf__COPYING",
+      "bytes": 65,
+      "sha256": "03133addae5b99a6148c538300e6d97074453089be1423b741bd081f18e2b298"
+    },
+    {
+      "sourceMember": "gettext-1.0/gettext-tools/COPYING",
+      "path": "packaging/windows/ocr-evidence/licenses/gettext/gettext-1.0__gettext-tools__COPYING",
+      "bytes": 78,
+      "sha256": "5d4cff30d5038f82a0edc79798456049b61e1752fdb7e9ab1f4bfb9fae3a7303"
+    },
+    {
+      "sourceMember": "gettext-1.0/gettext-tools/gnulib-lib/libxml/COPYING",
+      "path": "packaging/windows/ocr-evidence/licenses/gettext/gettext-1.0__gettext-tools__gnulib-lib__libxml__COPYING",
+      "bytes": 1289,
+      "sha256": "c5c63674f8a83c4d2e385d96d1c670a03cb871ba2927755467017317878574bd"
+    },
+    {
+      "sourceMember": "gettext-1.0/gnulib-local/lib/libxml/COPYING",
+      "path": "packaging/windows/ocr-evidence/licenses/gettext/gettext-1.0__gnulib-local__lib__libxml__COPYING",
+      "bytes": 1289,
+      "sha256": "c5c63674f8a83c4d2e385d96d1c670a03cb871ba2927755467017317878574bd"
+    },
+    {
+      "sourceMember": "gettext-1.0/libtextstyle/COPYING",
+      "path": "packaging/windows/ocr-evidence/licenses/gettext/gettext-1.0__libtextstyle__COPYING",
+      "bytes": 35151,
+      "sha256": "e79e9c8a0c85d735ff98185918ec94ed7d175efc377012787aebcf3b80f0d90b"
+    },
+    {
+      "sourceMember": "gettext-1.0/libtextstyle/lib/libxml/COPYING",
+      "path": "packaging/windows/ocr-evidence/licenses/gettext/gettext-1.0__libtextstyle__lib__libxml__COPYING",
+      "bytes": 1289,
+      "sha256": "c5c63674f8a83c4d2e385d96d1c670a03cb871ba2927755467017317878574bd"
+    },
+    {
+      "sourceMember": "gettext-1.0/gettext-runtime/intl/COPYING.LIB",
+      "path": "packaging/windows/ocr-evidence/licenses/gettext/gettext-1.0__gettext-runtime__intl__COPYING.LIB",
+      "bytes": 26419,
+      "sha256": "20e50fe7aae3e56378ebf0417d9de904f55a0e61e4df315333e632a4d3555d95"
+    },
+    {
+      "sourceMember": "gettext-1.0/gettext-runtime/libasprintf/COPYING.LIB",
+      "path": "packaging/windows/ocr-evidence/licenses/gettext/gettext-1.0__gettext-runtime__libasprintf__COPYING.LIB",
+      "bytes": 26419,
+      "sha256": "20e50fe7aae3e56378ebf0417d9de904f55a0e61e4df315333e632a4d3555d95"
+    },
+    {
+      "sourceMember": "gettext-1.0/gettext-tools/tree-sitter-0.23.2/LICENSE",
+      "path": "packaging/windows/ocr-evidence/licenses/gettext/gettext-1.0__gettext-tools__tree-sitter-0.23.2__LICENSE",
+      "bytes": 1085,
+      "sha256": "5f9cf9fb6acb1972b35ae29119ce563bb60ec097656bc4b69b9bac2d04c7a147"
+    },
+    {
+      "sourceMember": "gettext-1.0/gettext-tools/tree-sitter-0.23.2/lib/src/unicode/LICENSE",
+      "path": "packaging/windows/ocr-evidence/licenses/gettext/gettext-1.0__gettext-tools__tree-sitter-0.23.2__lib__src__unicode__LICENSE",
+      "bytes": 21001,
+      "sha256": "6a18c5fac70d7860b57f5b72b4e2c9a1ba6b3d2741eef7ff9767c5379364f10d"
+    },
+    {
+      "sourceMember": "gettext-1.0/gettext-tools/tree-sitter-d-0.8.2/LICENSE",
+      "path": "packaging/windows/ocr-evidence/licenses/gettext/gettext-1.0__gettext-tools__tree-sitter-d-0.8.2__LICENSE",
+      "bytes": 1040,
+      "sha256": "ecf206b1a27e8e4ea07f1e1529cb111b4be5ce8420bd27b8269981d9c0c389f8"
+    },
+    {
+      "sourceMember": "gettext-1.0/gettext-tools/tree-sitter-go-0.23.4/LICENSE",
+      "path": "packaging/windows/ocr-evidence/licenses/gettext/gettext-1.0__gettext-tools__tree-sitter-go-0.23.4__LICENSE",
+      "bytes": 1080,
+      "sha256": "2e0110e07abef7c2548b26ec9d6969775617ca539a0dc8dbeeb14d6452c711d1"
+    },
+    {
+      "sourceMember": "gettext-1.0/gettext-tools/tree-sitter-ocaml-0.23.2/LICENSE",
+      "path": "packaging/windows/ocr-evidence/licenses/gettext/gettext-1.0__gettext-tools__tree-sitter-ocaml-0.23.2__LICENSE",
+      "bytes": 1094,
+      "sha256": "f977a20805dd6e275f14bc090a5f8e638401dad4df366841c1060f12c75b74ae"
+    },
+    {
+      "sourceMember": "gettext-1.0/gettext-tools/tree-sitter-rust-0.23.2/LICENSE",
+      "path": "packaging/windows/ocr-evidence/licenses/gettext/gettext-1.0__gettext-tools__tree-sitter-rust-0.23.2__LICENSE",
+      "bytes": 1080,
+      "sha256": "31d5b6f4243d5c7c6e1c4ebbbb9f6407bd1457a08bcc4f706521710341acba36"
+    },
+    {
+      "sourceMember": "gettext-1.0/gettext-tools/tree-sitter-typescript-0.23.2/LICENSE",
+      "path": "packaging/windows/ocr-evidence/licenses/gettext/gettext-1.0__gettext-tools__tree-sitter-typescript-0.23.2__LICENSE",
+      "bytes": 1080,
+      "sha256": "49bf33cf78ef5897e4e161ce1517df7de1ae5042a65b6bcfd44401e0fc606559"
+    }
+  ]
+}

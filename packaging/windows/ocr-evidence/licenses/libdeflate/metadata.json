@@ -1,0 +1,20 @@
+{
+  "component": "libdeflate",
+  "candidateVersion": "1.25",
+  "url": "https://github.com/ebiggers/libdeflate/archive/v1.25/libdeflate-1.25.tar.gz",
+  "expectedSha256": "d11473c1ad4c57d874695e8026865e38b47116bbcb872bfc622ec8f37a86017d",
+  "archiveReused": true,
+  "bytes": 197494,
+  "sha256": "d11473c1ad4c57d874695e8026865e38b47116bbcb872bfc622ec8f37a86017d",
+  "archivePath": "target/ocr-source-audit/archives/libdeflate/libdeflate-1.25.tar.gz",
+  "status": "archived_and_license_texts_extracted",
+  "archiveMemberCount": 112,
+  "extracted": [
+    {
+      "sourceMember": "libdeflate-1.25/COPYING",
+      "path": "packaging/windows/ocr-evidence/licenses/libdeflate/libdeflate-1.25__COPYING",
+      "bytes": 1078,
+      "sha256": "4ad69099cb4374836fd27583d9991e2838cd86b6e4666ab26b2d32582c91e73a"
+    }
+  ]
+}

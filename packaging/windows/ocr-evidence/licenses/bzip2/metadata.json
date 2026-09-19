@@ -1,0 +1,20 @@
+{
+  "component": "bzip2",
+  "candidateVersion": "1.0.8",
+  "url": "https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz",
+  "expectedSha256": "ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269",
+  "archiveReused": true,
+  "bytes": 810029,
+  "sha256": "ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269",
+  "archivePath": "target/ocr-source-audit/archives/bzip2/bzip2-1.0.8.tar.gz",
+  "status": "archived_and_license_texts_extracted",
+  "archiveMemberCount": 56,
+  "extracted": [
+    {
+      "sourceMember": "bzip2-1.0.8/LICENSE",
+      "path": "packaging/windows/ocr-evidence/licenses/bzip2/bzip2-1.0.8__LICENSE",
+      "bytes": 1896,
+      "sha256": "c6dbbf828498be844a89eaa3b84adbab3199e342eb5cb2ed2f0d4ba7ec0f38a3"
+    }
+  ]
+}

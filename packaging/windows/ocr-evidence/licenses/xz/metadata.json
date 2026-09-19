@@ -1,0 +1,56 @@
+{
+  "component": "xz",
+  "candidateVersion": "5.8.3",
+  "url": "https://github.com/tukaani-project/xz/releases/download/v5.8.3/xz-5.8.3.tar.xz",
+  "expectedSha256": "fff1ffcf2b0da84d308a14de513a1aa23d4e9aa3464d17e64b9714bfdd0bbfb6",
+  "archiveReused": true,
+  "bytes": 1548064,
+  "sha256": "fff1ffcf2b0da84d308a14de513a1aa23d4e9aa3464d17e64b9714bfdd0bbfb6",
+  "archivePath": "target/ocr-source-audit/archives/xz/xz-5.8.3.tar.xz",
+  "status": "archived_and_license_texts_extracted",
+  "archiveMemberCount": 698,
+  "extracted": [
+    {
+      "sourceMember": "xz-5.8.3/AUTHORS",
+      "path": "packaging/windows/ocr-evidence/licenses/xz/xz-5.8.3__AUTHORS",
+      "bytes": 2146,
+      "sha256": "01e6df90d71d591f4307db3f397a5a4fac93b18533f5a3862156f1a0a7dc8610"
+    },
+    {
+      "sourceMember": "xz-5.8.3/COPYING",
+      "path": "packaging/windows/ocr-evidence/licenses/xz/xz-5.8.3__COPYING",
+      "bytes": 3119,
+      "sha256": "616a3ad264ce29b8f1cb97e53037b139d406899ca8d1f799651e17bfa09830b8"
+    },
+    {
+      "sourceMember": "xz-5.8.3/COPYING.0BSD",
+      "path": "packaging/windows/ocr-evidence/licenses/xz/xz-5.8.3__COPYING.0BSD",
+      "bytes": 607,
+      "sha256": "0b01625d853911cd0e2e088dcfb743261034a091bb379246cb25a14cc4c74bf1"
+    },
+    {
+      "sourceMember": "xz-5.8.3/COPYING.GPLv2",
+      "path": "packaging/windows/ocr-evidence/licenses/xz/xz-5.8.3__COPYING.GPLv2",
+      "bytes": 17984,
+      "sha256": "edaef632cbb643e4e7a221717a6c441a4c1a7c918e6e4d56debc3d8739b233f6"
+    },
+    {
+      "sourceMember": "xz-5.8.3/COPYING.GPLv3",
+      "path": "packaging/windows/ocr-evidence/licenses/xz/xz-5.8.3__COPYING.GPLv3",
+      "bytes": 35149,
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    {
+      "sourceMember": "xz-5.8.3/COPYING.LGPLv2.1",
+      "path": "packaging/windows/ocr-evidence/licenses/xz/xz-5.8.3__COPYING.LGPLv2.1",
+      "bytes": 26419,
+      "sha256": "20e50fe7aae3e56378ebf0417d9de904f55a0e61e4df315333e632a4d3555d95"
+    },
+    {
+      "sourceMember": "xz-5.8.3/build-aux/license-check.sh",
+      "path": "packaging/windows/ocr-evidence/licenses/xz/xz-5.8.3__build-aux__license-check.sh",
+      "bytes": 5127,
+      "sha256": "2b3fa1d23cb2ab084f3d919908159473cc0e1eed059d106e2a2857c0ec8af98a"
+    }
+  ]
+}

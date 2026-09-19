@@ -1,0 +1,56 @@
+{
+  "component": "lz4",
+  "candidateVersion": "1.10.0",
+  "url": "https://github.com/lz4/lz4/archive/v1.10.0/lz4-1.10.0.tar.gz",
+  "expectedSha256": "537512904744b35e232912055ccf8ec66d768639ff3abe5788d90d792ec5f48b",
+  "archiveReused": true,
+  "bytes": 387114,
+  "sha256": "537512904744b35e232912055ccf8ec66d768639ff3abe5788d90d792ec5f48b",
+  "archivePath": "target/ocr-source-audit/archives/lz4/lz4-1.10.0.tar.gz",
+  "status": "archived_and_license_texts_extracted",
+  "archiveMemberCount": 251,
+  "extracted": [
+    {
+      "sourceMember": "lz4-1.10.0/LICENSE",
+      "path": "packaging/windows/ocr-evidence/licenses/lz4/lz4-1.10.0__LICENSE",
+      "bytes": 646,
+      "sha256": "4bc9c403f6b679cc076dee210e0e21c27b4e8f6d3fb43d85364c76657bfaaac5"
+    },
+    {
+      "sourceMember": "lz4-1.10.0/contrib/debian/copyright",
+      "path": "packaging/windows/ocr-evidence/licenses/lz4/lz4-1.10.0__contrib__debian__copyright",
+      "bytes": 321,
+      "sha256": "4f6ef9d0e844bf432d6a0abb2623f5a61175ae40f7f0e3665490311d89e3af87"
+    },
+    {
+      "sourceMember": "lz4-1.10.0/contrib/djgpp/LICENSE",
+      "path": "packaging/windows/ocr-evidence/licenses/lz4/lz4-1.10.0__contrib__djgpp__LICENSE",
+      "bytes": 1292,
+      "sha256": "d011d1e02cb32b71c1ce2922ab41a2e2ad30f4ecf8de22c078d53618205abc05"
+    },
+    {
+      "sourceMember": "lz4-1.10.0/examples/COPYING",
+      "path": "packaging/windows/ocr-evidence/licenses/lz4/lz4-1.10.0__examples__COPYING",
+      "bytes": 14901,
+      "sha256": "609b910ef05c9c855ecc1da155a36ed0f57514eac452cf93446530b5ea4b3bc3"
+    },
+    {
+      "sourceMember": "lz4-1.10.0/lib/LICENSE",
+      "path": "packaging/windows/ocr-evidence/licenses/lz4/lz4-1.10.0__lib__LICENSE",
+      "bytes": 1311,
+      "sha256": "8b58c446121a109ccf32edc094bba3010a3d85e4ee3702950db55e4d3e87736c"
+    },
+    {
+      "sourceMember": "lz4-1.10.0/programs/COPYING",
+      "path": "packaging/windows/ocr-evidence/licenses/lz4/lz4-1.10.0__programs__COPYING",
+      "bytes": 14901,
+      "sha256": "609b910ef05c9c855ecc1da155a36ed0f57514eac452cf93446530b5ea4b3bc3"
+    },
+    {
+      "sourceMember": "lz4-1.10.0/tests/COPYING",
+      "path": "packaging/windows/ocr-evidence/licenses/lz4/lz4-1.10.0__tests__COPYING",
+      "bytes": 14901,
+      "sha256": "609b910ef05c9c855ecc1da155a36ed0f57514eac452cf93446530b5ea4b3bc3"
+    }
+  ]
+}

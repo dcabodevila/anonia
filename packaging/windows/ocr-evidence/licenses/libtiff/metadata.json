@@ -1,0 +1,32 @@
+{
+  "component": "libtiff",
+  "candidateVersion": "4.7.2",
+  "url": "https://download.osgeo.org/libtiff/tiff-4.7.2.tar.gz",
+  "expectedSha256": "672bd7d10aee4606171afb864f3570b83340f6a33e2c186dc0512f7145ffdf6a",
+  "archiveReused": true,
+  "bytes": 4083368,
+  "sha256": "672bd7d10aee4606171afb864f3570b83340f6a33e2c186dc0512f7145ffdf6a",
+  "archivePath": "target/ocr-source-audit/archives/libtiff/tiff-4.7.2.tar.gz",
+  "status": "archived_and_license_texts_extracted",
+  "archiveMemberCount": 1106,
+  "extracted": [
+    {
+      "sourceMember": "tiff-4.7.2/doc/html-prebuilt/_sources/project/license.rst.txt",
+      "path": "packaging/windows/ocr-evidence/licenses/libtiff/tiff-4.7.2__doc__html-prebuilt___sources__project__license.rst.txt",
+      "bytes": 1181,
+      "sha256": "02e86af3b805e0f2075ebb5ac512831f6ab2a97ddeb186de076c418956418ba1"
+    },
+    {
+      "sourceMember": "tiff-4.7.2/doc/project/license.rst",
+      "path": "packaging/windows/ocr-evidence/licenses/libtiff/tiff-4.7.2__doc__project__license.rst",
+      "bytes": 1181,
+      "sha256": "02e86af3b805e0f2075ebb5ac512831f6ab2a97ddeb186de076c418956418ba1"
+    },
+    {
+      "sourceMember": "tiff-4.7.2/LICENSE.md",
+      "path": "packaging/windows/ocr-evidence/licenses/libtiff/tiff-4.7.2__LICENSE.md",
+      "bytes": 2416,
+      "sha256": "0e27c2382d7b8147972bbb746e04059a1152c8d0fda9d03ef1399d1a433c4ade"
+    }
+  ]
+}

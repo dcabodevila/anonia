@@ -1,0 +1,20 @@
+{
+  "component": "curl",
+  "candidateVersion": "8.21.0",
+  "url": "https://github.com/curl/curl/releases/download/curl-8_21_0/curl-8.21.0.tar.xz",
+  "expectedSha256": "aa1b66a70eace83dc624508745646c08ae561de512ab403adffb93ac87fc72e6",
+  "archiveReused": true,
+  "bytes": 2882336,
+  "sha256": "aa1b66a70eace83dc624508745646c08ae561de512ab403adffb93ac87fc72e6",
+  "archivePath": "target/ocr-source-audit/archives/curl/curl-8.21.0.tar.xz",
+  "status": "archived_and_license_texts_extracted",
+  "archiveMemberCount": 4346,
+  "extracted": [
+    {
+      "sourceMember": "curl-8.21.0/COPYING",
+      "path": "packaging/windows/ocr-evidence/licenses/curl/curl-8.21.0__COPYING",
+      "bytes": 1088,
+      "sha256": "82f2f4427d6545ee5aaac4f0b80428da6cc8ba41c2cf5da3a03680ec327b9681"
+    }
+  ]
+}

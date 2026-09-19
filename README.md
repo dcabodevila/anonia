@@ -1,0 +1,266 @@
+# doc-anonymizer
+
+Prototipo: **PDF nativo → Markdown desidentificado**, 100 % offline.
+
+Toma un PDF con capa de texto, detecta identificadores personales, los sustituye por
+etiquetas estables (`[PERSONA_001]`, `[DNI_002]`) y verifica sobre el fichero final que
+ningún valor detectado sobrevive. Si algún control falla, **no escribe el Markdown**.
+
+Procesa fotos JPEG/PNG con OCR local. No aplica OCR a PDF escaneados, no sale a la red y no genera un PDF.
+
+---
+
+## Interfaz de revisión (Docker)
+
+```bash
+mvn -o clean package          # el jar se construye fuera de la imagen
+docker compose up -d --build
+```
+
+Abre **http://127.0.0.1:8080**. Arrastra un PDF con capa de texto o una foto JPEG/PNG y
+verás el documento con las detecciones resaltadas en su sitio.
+
+Para tener un PDF con datos sembrados a mano:
+
+```bash
+java -cp target/doc-anonymizer.jar \
+     com.docanonymizer.tools.SampleDocumentGenerator ejemplo.pdf
+```
+
+Sin Docker: `java -cp target/doc-anonymizer.jar com.docanonymizer.adapter.web.WebServer`
+(escucha en 127.0.0.1:8080).
+
+### Qué mirar en la UI
+
+1. **El texto, no la lista.** Las marcas están sobre el documento corrido a propósito. Una
+   lista solo enseña lo que el detector encontró; leyendo el texto se ve **lo que se
+   escapó**, que es el fallo que importa y el único que ninguna interfaz de aciertos
+   revela.
+2. **Pulsa una marca** para descartar esa entidad. Se descartan todas sus apariciones a la
+   vez, porque son la misma persona.
+3. **Prueba a romperlo.** Descarta *una sola* mención de una persona con varias y pulsa
+   «Aplicar y verificar»: la puerta de salida bloquea con `C3-TOKENS-DE-NOMBRE`, porque el
+   apellido quedó suelto en el texto. Ese es el control que sostiene el sistema.
+
+El contenedor corre con sistema de ficheros de solo lectura, `/tmp` en RAM, sin
+privilegios y sin capabilities. El PDF subido se escribe a un temporal —PDFBox trabaja
+sobre fichero— que con `tmpfs` nunca toca el disco.
+
+---
+
+## Uso por línea de comandos
+
+```bash
+java -jar target/doc-anonymizer.jar ejemplo.pdf
+```
+
+Produce `ejemplo.anon.md` (el documento) y `ejemplo.report.md` (informe técnico sin PII).
+
+### Opciones
+
+| Opción | Efecto |
+|---|---|
+| `-o, --output <fichero>` | Markdown de salida. Por defecto `<entrada>.anon.md` |
+| `--report <fichero>` | Informe técnico. Por defecto `<entrada>.report.md` |
+| `--show-detections` | Lista las detecciones por consola. **Muestra datos personales en claro**; es el sustituto de la interfaz de revisión, no un modo de diagnóstico |
+| `--dry-run` | Procesa y verifica sin escribir nada |
+
+### OCR local para fotos JPEG/PNG
+
+La aplicación Windows empaquetada busca primero `app/ocr` junto al JAR que la ejecuta,
+mediante su URI de `CodeSource` (por tanto funciona aunque la ruta tenga espacios o cambie
+el directorio de trabajo). El bundle incluye `tesseract.exe`, sus DLL, `tessdata/spa.traineddata`
+y evidencia de licencias bajo `ocr/licenses`; el proceso pasa explícitamente
+`--tessdata-dir` al ejecutable incluido. Un bundle detectado pero incompleto bloquea el OCR:
+no se sustituye silenciosamente por una instalación externa.
+
+Para desarrollo o instalaciones sin bundle, instala Tesseract localmente y el modelo español
+`spa`. El archivo `spa.traineddata` debe estar en el directorio `tessdata` de la instalación
+o en un directorio configurado mediante `TESSDATA_PREFIX`. La aplicación ejecuta Tesseract
+con `-l spa` y no descarga modelos ni envía imágenes a la red. La propiedad Java
+`doc.anonymizer.tesseract.command` tiene prioridad explícita para desarrolladores. Cuando no
+hay bundle ni propiedad, `TESSERACT_COMMAND` puede indicar el ejecutable local o un lanzador
+de Windows `.cmd` o `.bat`; los lanzadores se ejecutan mediante el intérprete de comandos de
+Windows. El instalador no cambia `PATH`, `TESSDATA_PREFIX` ni otra variable de entorno de
+forma persistente. Los errores de OCR no incluyen el contenido de la imagen ni rutas
+configuradas.
+
+### Códigos de salida
+
+| Código | Significado |
+|---|---|
+| `0` | Documento entregado |
+| `1` | Error de uso, o documento rechazado en la puerta de entrada |
+| `2` | **Verificación bloqueada**: el pipeline terminó, y la puerta de salida decidió no entregar |
+
+El `2` se distingue del `1` a propósito: significa que todo funcionó y aun así el
+resultado no era seguro.
+
+---
+
+## El pipeline
+
+```
+PDF nativo
+  │
+  ├─ 1. Extracción por páginas (PDFBox, sortByPosition)
+  ├─ 2. Guarda de cordura ──────────────► rechaza si el texto no es fiable
+  ├─ 3. Limpieza de cabeceras y pies      (necesita las páginas separadas)
+  ├─ 4. Normalización                     (fija el sistema de coordenadas único)
+  ├─ 5. Detección + arbitraje de solapes
+  ├─ 6. Propagación de entidades + unificación de personas
+  ├─ 7. Revisión humana                   (puerto; el prototipo auto-acepta)
+  ├─ 8. Seudónimos → sustitución → Markdown
+  └─ 9. Verificación del fichero final ──► BLOQUEA o entrega
+```
+
+El orden no es negociable: el paso 3 necesita las páginas sin concatenar, el 5 necesita
+el texto ya normalizado, y el 9 corre sobre el artefacto exacto que se escribe.
+
+### Por qué cada paso está donde está
+
+**Guarda de cordura (2).** Hay PDF que se renderizan perfectamente y extraen basura,
+porque su `/ToUnicode` es incorrecto. Sin esta comprobación no se detectaría nada, la
+verificación pasaría —no hay valores que buscar— y se entregaría un fichero ilegible que
+el usuario creería anonimizado. Falla cerrado. Los PDF escaneados siguen fuera de alcance;
+para fotos JPEG/PNG se usa el OCR local descrito arriba.
+
+**Normalización (4).** Un NIF partido por un guion de fin de línea o un título escrito
+`A C T A` no lo captura ninguna expresión regular. El fallo es silencioso: el pipeline
+exporta convencido de que no había nada que ocultar.
+
+**Propagación (6).** Es el mecanismo principal de recall. Los detectores anclan a la
+persona donde hay una pista fuerte (`D. Juan Pérez López, con DNI…`), y la propagación
+persigue el resto de menciones (`el Sr. Pérez López`, `PÉREZ LÓPEZ`, `Pérez`).
+
+**Verificación (9).** Es el único control del sistema que puede fallar de verdad, y por
+eso es el que sostiene todo lo demás.
+
+---
+
+## La verificación, y por qué aquí sí sirve
+
+En el diseño original —reconstruir un PDF desde un bitmap enmascarado— los controles de
+"no queda texto", "no hay JavaScript", "no hay metadatos heredados" **pasaban siempre por
+construcción**. Si insertas solo un bitmap en un PDF nuevo, no puede haber texto. Eran
+tautologías presentadas como pruebas de seguridad.
+
+Con salida en texto plano la comprobación es directa: el valor está o no está.
+
+| Control | Qué caza |
+|---|---|
+| `C1-VALOR-LITERAL` | El valor sigue ahí, ignorando caja y acentos |
+| `C2-VALOR-REFORMATEADO` | Reaparece con otra puntuación: `12.345.678-Z` frente a `12345678Z` |
+| `C3-TOKENS-DE-NOMBRE` | **La propagación dejó un apellido suelto.** Ningún control de "valor completo" ve esta fuga, porque el nombre completo sí desapareció |
+| `C4-COBERTURA-DE-SUSTITUCION` | Una entidad se quedó sin etiqueta |
+| `C5-SALIDA-NO-VACIA` | El Markdown salió vacío |
+
+`C3` es el que importa. La política de qué tokens cuentan vive en `NamePolicy`, compartida
+por el propagador y el verificador: si divergieran, la puerta bloquearía siempre o dejaría
+pasar fugas.
+
+---
+
+## Qué es y qué no es el resultado
+
+El Markdown es un documento **desidentificado**, no anónimo. La diferencia no es
+terminológica:
+
+- Las etiquetas mantienen **distinguibles** a las personas, que es justo lo que conserva
+  el sentido del documento (quién demandó a quién) y a la vez lo que permite reidentificar
+  por estructura. Esto es **seudonimización**.
+- Fechas, importes, cargos, localidades pequeñas y hechos singulares permanecen intactos.
+  En un documento único pueden bastar para identificar a alguien.
+- Texto plano es más fácil de procesar en masa que un PDF, y por tanto más fácil de
+  correlacionar. Un PDF rasterizado tiene fricción; un Markdown es un dataset.
+
+No se guarda tabla de correspondencias: la sustitución es irreversible desde la salida.
+
+---
+
+## Limitaciones conocidas
+
+**La revisión humana está simulada.** `AutoAcceptReview` acepta todo. Sirve para medir
+sobre un corpus y para tests deterministas; no sustituye a una persona. Los falsos
+negativos son invisibles: un detector no encuentra lo que no sabe buscar, y una interfaz
+que solo muestra lo detectado nunca enseña lo que se escapó.
+
+**Sobre-ocultación deliberada en nombres.** Se propagan todos los tokens de 4+ caracteres,
+incluido el nombre de pila. Así, ocultar "María García Pérez" puede llevarse por delante
+un "Virgen del Carmen" legítimo si "Carmen" era el nombre de otra persona detectada. Es la
+dirección de fallo correcta para un prototipo, y es exactamente el tipo de decisión que la
+revisión humana debe poder revertir.
+
+**Menciones ambiguas sin resolver.** Si "Pérez López" encaja igual con "Juan Pérez López"
+y con "Marta Pérez López", `PersonEntityResolver` **no elige**: las deja como entidades
+separadas. Resolverlo a la brava afirmaría algo que el documento no dice.
+
+**Fidelidad de maquetación baja, a propósito.** No se reconstruyen tablas ni columnas. Una
+tabla mal inferida mueve celdas de sitio y cambia lo que el documento dice; un párrafo de
+texto plano ordenado, no.
+
+**Diccionario de nombres corto.** `src/main/resources/gazetteer/nombres-es.txt` es de
+prototipo. El sustituto natural es el listado del INE: público, descargable y offline.
+Cambiarlo no toca el dominio.
+
+**Direcciones ancladas en el tipo de vía.** Se detecta "Calle Mayor 15" pero no una
+dirección escrita sin "Calle", "Avda." o similar. Precisión alta a cambio de recall.
+
+---
+
+## Estructura
+
+```
+domain/
+  model/     Detection, ExtractedDocument, VerificationReport, Finding…
+  port/      TextExtractorPort, DetectorPort, GazetteerPort, ReviewPort
+  service/   pipeline, normalización, detección, propagación, verificación
+adapter/
+  pdf/       PdfBoxTextExtractor
+  ocr/       TesseractImageTextExtractor (JPEG/PNG, modelo spa local)
+  detector/  regex + validadores + pistas estructurales + diccionario
+  gazetteer/ ResourceGazetteer
+  review/    AutoAcceptReview
+  cli/       Main, TechnicalReport
+  PipelineFactory  ← raíz de composición
+tools/       SampleDocumentGenerator (corpus de prueba)
+```
+
+El dominio no conoce PDFBox, Tesseract ni las expresiones regulares: solo puertos. El OCR
+local implementa `TextExtractorPort` sin tocar el núcleo.
+
+---
+
+## Tests
+
+```bash
+mvn -o test
+```
+
+96 tests. El que importa es `SecurityCorpusEndToEndTest`: genera un PDF con datos
+sembrados, ejecuta el pipeline completo y comprueba que ninguno sobrevive —tampoco
+reformateado, ni sin acentos, ni como apellido suelto.
+
+Incluye **controles negativos**, sin los cuales la prueba sería vacua: un pipeline que lo
+ocultara todo pasaría cualquier test de fugas siendo inútil. Por eso se exige además que
+`87654321A` (forma de DNI, dígito de control inválido → referencia interna, no dato
+personal) **siga presente**, y que el contenido legítimo del documento se conserve.
+
+---
+
+## Requisitos
+
+- Java 17+ (probado con 17.0.6; el briefing apuntaba a 21, no disponible en este equipo)
+- Maven 3.8+
+- Apache PDFBox 3.0.6 — única dependencia de ejecución
+
+Sin red en tiempo de ejecución. Sin telemetría. Sin descarga de modelos.
+
+---
+
+## Siguiente paso
+
+Lo que más valor daría ahora no es más código, sino **medir**: pasar 20 PDF reales de un
+solo dominio y contar cuántas personas encuentra y cuántas se escapan. Ese número decide
+si hacen falta NER y ONNX, o si reglas + pistas estructurales + diccionario del INE ya
+llegan. Sin ese dato, cualquier decisión sobre modelos es una apuesta.

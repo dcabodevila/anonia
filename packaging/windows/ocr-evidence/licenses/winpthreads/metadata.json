@@ -1,0 +1,19 @@
+{
+  "component": "winpthreads",
+  "candidateVersion": "14.0.0.r220.gd999af622",
+  "source": "git+https://git.code.sf.net/p/mingw-w64/mingw-w64#commit=d999af62247693a8b5b25a98d67316c8bb2dcd37",
+  "officialProjectSourcePage": "https://www.mingw-w64.org/source/",
+  "officialProjectMirror": "https://github.com/mingw-w64/mingw-w64",
+  "status": "candidate_commit_license_and_patch_archived_no_source_archive",
+  "license": {
+    "path": "packaging/windows/ocr-evidence/licenses/winpthreads/COPYING",
+    "url": "https://raw.githubusercontent.com/mingw-w64/mingw-w64/d999af62247693a8b5b25a98d67316c8bb2dcd37/mingw-w64-libraries/winpthreads/COPYING",
+    "sha256": "63263614cdd29f2f93cba85e992f041b31f9fc7b4033692f31269489a8a1b177"
+  },
+  "recipePatch": {
+    "path": "target/ocr-source-audit/patches/winpthreads/0001-Define-__-de-register_frame_info-in-fake-libgcc_s.patch",
+    "url": "https://raw.githubusercontent.com/msys2/MINGW-packages/f3abd233556bddf5daa772db7825d90f9033d62c/mingw-w64-winpthreads/0001-Define-__-de-register_frame_info-in-fake-libgcc_s.patch",
+    "expectedSha256": "2e779bcc60a1422b23e0cfdb5c0f6851f2382592bb4675d08a6bdef78d5e5c10"
+  },
+  "extracted": []
+}

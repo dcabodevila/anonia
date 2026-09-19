@@ -1,0 +1,44 @@
+{
+  "component": "libiconv",
+  "candidateVersion": "1.19",
+  "url": "https://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.19.tar.gz",
+  "expectedSha256": "88dd96a8c0464eca144fc791ae60cd31cd8ee78321e67397e25fc095c4a19aa6",
+  "archiveReused": true,
+  "bytes": 5921103,
+  "sha256": "88dd96a8c0464eca144fc791ae60cd31cd8ee78321e67397e25fc095c4a19aa6",
+  "archivePath": "target/ocr-source-audit/archives/libiconv/libiconv-1.19.tar.gz",
+  "status": "archived_and_license_texts_extracted",
+  "archiveMemberCount": 1142,
+  "extracted": [
+    {
+      "sourceMember": "libiconv-1.19/COPYING.LIB",
+      "path": "packaging/windows/ocr-evidence/licenses/libiconv/libiconv-1.19__COPYING.LIB",
+      "bytes": 26419,
+      "sha256": "20e50fe7aae3e56378ebf0417d9de904f55a0e61e4df315333e632a4d3555d95"
+    },
+    {
+      "sourceMember": "libiconv-1.19/AUTHORS",
+      "path": "packaging/windows/ocr-evidence/licenses/libiconv/libiconv-1.19__AUTHORS",
+      "bytes": 31,
+      "sha256": "ed10ef2a01effb12849006d43262ffde5cf72a7d5423bbc8aa66fc6959774c0c"
+    },
+    {
+      "sourceMember": "libiconv-1.19/libcharset/COPYING.LIB",
+      "path": "packaging/windows/ocr-evidence/licenses/libiconv/libiconv-1.19__libcharset__COPYING.LIB",
+      "bytes": 26419,
+      "sha256": "20e50fe7aae3e56378ebf0417d9de904f55a0e61e4df315333e632a4d3555d95"
+    },
+    {
+      "sourceMember": "libiconv-1.19/libcharset/AUTHORS",
+      "path": "packaging/windows/ocr-evidence/licenses/libiconv/libiconv-1.19__libcharset__AUTHORS",
+      "bytes": 31,
+      "sha256": "ed10ef2a01effb12849006d43262ffde5cf72a7d5423bbc8aa66fc6959774c0c"
+    },
+    {
+      "sourceMember": "libiconv-1.19/COPYING",
+      "path": "packaging/windows/ocr-evidence/licenses/libiconv/libiconv-1.19__COPYING",
+      "bytes": 35147,
+      "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+    }
+  ]
+}

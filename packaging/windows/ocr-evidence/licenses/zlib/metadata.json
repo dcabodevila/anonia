@@ -1,0 +1,32 @@
+{
+  "component": "zlib",
+  "candidateVersion": "1.3.2",
+  "url": "https://github.com/madler/zlib/releases/download/v1.3.2/zlib-1.3.2.tar.xz",
+  "expectedSha256": "d7a0654783a4da529d1bb793b7ad9c3318020af77667bcae35f95d0e42a792f3",
+  "archiveReused": true,
+  "bytes": 1320064,
+  "sha256": "d7a0654783a4da529d1bb793b7ad9c3318020af77667bcae35f95d0e42a792f3",
+  "archivePath": "target/ocr-source-audit/archives/zlib/zlib-1.3.2.tar.xz",
+  "status": "archived_and_license_texts_extracted",
+  "archiveMemberCount": 291,
+  "extracted": [
+    {
+      "sourceMember": "zlib-1.3.2/LICENSE",
+      "path": "packaging/windows/ocr-evidence/licenses/zlib/zlib-1.3.2__LICENSE",
+      "bytes": 1002,
+      "sha256": "e32ff4e00d9d94930537635291da39e7e612703334bf6fde8c7f1686fe8a45a2"
+    },
+    {
+      "sourceMember": "zlib-1.3.2/contrib/dotzlib/LICENSE_1_0.txt",
+      "path": "packaging/windows/ocr-evidence/licenses/zlib/zlib-1.3.2__contrib__dotzlib__LICENSE_1_0.txt",
+      "bytes": 1359,
+      "sha256": "36266a8fd073568394cb81cdb2b124f7fdae2c64c1a7ed09db34b4d22efa2951"
+    },
+    {
+      "sourceMember": "zlib-1.3.2/contrib/minizip/LICENSE.Info-Zip",
+      "path": "packaging/windows/ocr-evidence/licenses/zlib/zlib-1.3.2__contrib__minizip__LICENSE.Info-Zip",
+      "bytes": 3509,
+      "sha256": "fc686023047ce5ce3a18a9b8a777156f0e475929d3de06bac279f3c025d2b2ca"
+    }
+  ]
+}
