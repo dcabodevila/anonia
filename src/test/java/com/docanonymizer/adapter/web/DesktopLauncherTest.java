@@ -57,6 +57,7 @@ class DesktopLauncherTest {
                 .redirectErrorStream(true).start();
         String plan = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertEquals(0, process.waitFor(), plan);
+        assertTrue(plan.contains("0.2.0"), "installer version missing: " + plan);
         for (String expected : List.of("--type", "exe", "--win-per-user-install", "--win-menu",
                 "--win-shortcut", "--win-console", "--main-class",
                 "com.docanonymizer.adapter.web.DesktopLauncher", "doc-anonymizer.jar",

@@ -9,7 +9,7 @@ $jar = Join-Path $target 'doc-anonymizer.jar'
 $inputDirectory = Join-Path $target ('windows-input-' + [guid]::NewGuid().ToString('N'))
 $outputDirectory = Join-Path $target 'windows-installer'
 $packageArguments = @(
-    '--type', 'exe', '--name', 'DocAnonymizer', '--app-version', '0.1.0',
+    '--type', 'exe', '--name', 'DocAnonymizer', '--app-version', '0.2.0',
     '--vendor', 'DocAnonymizer', '--description', 'Anonimizador local de documentos',
     '--input', $inputDirectory, '--dest', $outputDirectory,
     '--main-jar', 'doc-anonymizer.jar',
