@@ -2,6 +2,8 @@
 
 **Versión 0.2.0** — Prototipo: **PDF y fotos → Markdown desidentificado**, 100 % offline.
 
+> **Instalación en Windows:** siga la [guía de instalación para clientes](packaging/windows/INSTALAR-WINDOWS.md). Para PDF con capa de texto, instale la aplicación directamente. Para imágenes JPEG/PNG, instale primero Tesseract OCR administrado externamente con español (`spa`) y valide `--list-langs`; después instale la aplicación. Java está incluido en el instalador. El procesamiento de documentos no usa red externa.
+
 Toma un PDF con capa de texto, detecta identificadores personales, los sustituye por
 etiquetas estables (`[PERSONA_001]`, `[DNI_002]`) y verifica sobre el fichero final que
 ningún valor detectado sobrevive. Si algún control falla, **no escribe el Markdown**.
