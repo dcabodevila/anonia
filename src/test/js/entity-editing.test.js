@@ -293,6 +293,47 @@ function fakeDom() {
   return { node, nodes };
 }
 
+test('successful analysis compacts the replacement dropzone while a failed replacement restores its full affordance', async () => {
+  const { nodes } = fakeDom();
+  global.fetch = async () => ({ ok: true, json: async () => ({
+    jobId: 'dropzone-success', text: '', pageCount: 1, elapsedMs: 1, types: [], detections: []
+  }) });
+
+  await app.analyze({ name: 'contrato.pdf' });
+  assert.equal(nodes.get('dropzone').classList.contains('compact'), true);
+  assert.equal(nodes.get('drop-title').textContent, 'Documento seleccionado: contrato.pdf. Arrastra otro PDF o ');
+
+  global.fetch = async () => ({ ok: false, json: async () => ({ error: 'PDF inválido' }) });
+  await app.analyze({ name: 'fallido.pdf' });
+  assert.equal(nodes.get('dropzone').classList.contains('compact'), false);
+  assert.equal(nodes.get('drop-title').textContent, 'Arrastra un PDF aquí o ');
+});
+
+test('discarded entity rows state the preserved text and name checkbox group effects', async () => {
+  const { nodes } = fakeDom();
+  global.fetch = async () => ({ ok: true, json: async () => ({
+    jobId: 'discarded-state', text: 'María García / María García', pageCount: 1, elapsedMs: 1,
+    types: ['PERSONA'],
+    detections: [
+      { id: 'p1', type: 'PERSONA', start: 0, end: 12, entityKey: 'person' },
+      { id: 'p2', type: 'PERSONA', start: 15, end: 27, entityKey: 'person' }
+    ]
+  }) });
+
+  await app.analyze('document');
+
+  let row = nodes.get('entities').children.at(-1);
+  assert.equal(row.children[0].attributes['aria-label'],
+    'Anonimizar María García; grupo de 2 apariciones. Desmarcar para conservar el texto.');
+
+  row.children[0].listeners.change();
+  row = nodes.get('entities').children.at(-1);
+  assert.equal(row.className, 'entity off');
+  assert.ok(row.children[1].children.some(child => child.textContent === 'Se conserva en el texto'));
+  assert.equal(row.children[0].attributes['aria-label'],
+    'Se conserva María García en el texto; grupo de 2 apariciones. Marcar para anonimizar.');
+});
+
 test('Enter then blur saves displayed occurrence once; independent checkbox and Escape work', () => {
   const { node } = fakeDom();
   const button = node();
@@ -525,9 +566,9 @@ test('comparison collapses only entity controls while result actions remain avai
   assert.equal(nodes.get('entity-controls').hidden, true);
   assert.equal(nodes.get('entity-controls').inert, true);
   assert.equal(nodes.get('entity-controls').attributes['aria-hidden'], 'true');
-  assert.equal(nodes.get('result-actions').hidden, undefined);
-  assert.equal(nodes.get('result-actions').inert, undefined);
-  assert.equal(nodes.get('result-actions').attributes['aria-hidden'], undefined);
+  assert.equal(nodes.get('result-actions').hidden, false);
+  assert.equal(nodes.get('result-actions').inert, false);
+  assert.equal(nodes.get('result-actions').attributes['aria-hidden'], 'false');
   assert.equal(nodes.get('compare').attributes['aria-pressed'], 'true');
   assert.equal(nodes.get('compare-label').textContent, 'Salir de comparación');
 
@@ -539,9 +580,9 @@ test('comparison collapses only entity controls while result actions remain avai
   assert.equal(nodes.get('entity-controls').hidden, false);
   assert.equal(nodes.get('entity-controls').inert, false);
   assert.equal(nodes.get('entity-controls').attributes['aria-hidden'], 'false');
-  assert.equal(nodes.get('result-actions').hidden, undefined);
-  assert.equal(nodes.get('result-actions').inert, undefined);
-  assert.equal(nodes.get('result-actions').attributes['aria-hidden'], undefined);
+  assert.equal(nodes.get('result-actions').hidden, true);
+  assert.equal(nodes.get('result-actions').inert, true);
+  assert.equal(nodes.get('result-actions').attributes['aria-hidden'], 'true');
   assert.equal(nodes.get('compare').attributes['aria-pressed'], 'false');
   assert.equal(nodes.get('compare-label').textContent, 'Comparar');
 });
