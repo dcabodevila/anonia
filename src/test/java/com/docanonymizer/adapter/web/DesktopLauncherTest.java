@@ -49,7 +49,7 @@ class DesktopLauncherTest {
     }
 
     @org.junit.jupiter.api.condition.EnabledOnOs(org.junit.jupiter.api.condition.OS.WINDOWS)
-    @Test void packagingPlanUsesIsolatedInputBundledRuntimeAndDesktopEntrypoint() throws Exception {
+    @Test void packagingPlanUsesIsolatedJarInputAndDesktopEntrypoint() throws Exception {
         Path script = Path.of("packaging/windows/build-installer.ps1");
         assertTrue(Files.exists(script), "packaging script must exist");
         Process process = new ProcessBuilder("powershell.exe", "-NoProfile", "-NonInteractive",
@@ -67,11 +67,12 @@ class DesktopLauncherTest {
         String source = Files.readString(script);
         assertTrue(source.contains("mvn -o package"));
         assertTrue(source.contains("Copy-Item -LiteralPath $jar -Destination $inputDirectory"));
-        assertTrue(source.contains("OcrBundleRoot"));
-        assertTrue(source.contains("bundle-manifest.json"));
-        assertTrue(source.contains("thirdPartyLicenseEvidence"));
-        assertTrue(source.contains("tessdata/spa.traineddata"));
-        assertTrue(source.contains("THIRD_PARTY_NOTICES"));
+        assertFalse(source.contains("OcrBundleRoot"));
+        assertFalse(source.contains("Stage-OcrBundle"));
+        assertFalse(source.contains("bundle-manifest.json"));
+        assertFalse(source.contains("thirdPartyLicenseEvidence"));
+        assertFalse(source.contains("tessdata/spa.traineddata"));
+        assertFalse(source.contains("THIRD_PARTY_NOTICES"));
         assertFalse(source.contains("Get-Command tesseract.exe"));
         assertTrue(source.contains("WiX Toolset v3*"));
         assertTrue(source.contains("$env:PATH = $originalPath"));

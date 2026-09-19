@@ -1,56 +1,73 @@
 # Instalador Windows
 
 Genera un instalador EXE por usuario con Java incluido, acceso directo y entrada
-en el menú Inicio. El equipo de destino no necesita instalar Java.
+en el menú Inicio. El instalador incluye solo la aplicación y el runtime Java: **no
+redistribuye ni instala Tesseract ni modelos OCR**. El equipo de destino no necesita
+instalar Java, pero necesita un Tesseract local con español (`spa`) para procesar
+fotos JPEG/PNG.
 
 ## Generar
 
-En Windows se necesitan JDK 21 con `jpackage` (`JAVA_HOME`), Maven en `PATH`,
-WiX Toolset 3.x y una **fuente OCR curada**. El script detecta WiX en `Program Files
-(x86)` y modifica `PATH` solo durante su ejecución. Maven trabaja offline: las
+En Windows se necesitan JDK 21 con `jpackage` (`JAVA_HOME`), Maven en `PATH` y
+WiX Toolset 3.x. El script detecta WiX en `Program Files (x86)` y modifica `PATH`
+solo durante su ejecución; lo restaura al terminar. Maven trabaja offline: las
 dependencias deben estar ya disponibles en la caché local.
-
-La fuente OCR debe contener un inventario explícito y solo estos elementos de ejecución:
-
-```text
-<ocr-bundle>/
-  bundle-manifest.json
-  tesseract.exe
-  <runtime dependency>.dll
-  tessdata/spa.traineddata
-  licenses/THIRD_PARTY_NOTICES...
-  licenses/<license evidence files>
-```
-
-`bundle-manifest.json` debe declarar listas no vacías `runtimeFiles` y `licenseFiles`,
-y `thirdPartyLicenseEvidence`. `runtimeFiles` debe incluir exactamente `tesseract.exe`,
-una o más DLL en la raíz y `tessdata/spa.traineddata`; `licenseFiles` y la evidencia
-de terceros deben vivir bajo `licenses/`, y la evidencia debe comenzar por
-`licenses/THIRD_PARTY_NOTICES`. El script rechaza cualquier ejecutable adicional,
-documentación ajena a licencias, imágenes de usuarios o ruta fuera de ese inventario.
 
 Desde la raíz del repositorio:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\packaging\windows\build-installer.ps1 `
-  -OcrBundleRoot C:\ruta\a\ocr-bundle
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\packaging\windows\build-installer.ps1
 ```
-
-La alternativa `DOC_ANONYMIZER_OCR_BUNDLE` solo aporta ese directorio a la ejecución;
-el script no cambia variables de entorno de forma persistente. No descarga ni incorpora
-binarios en el repositorio. La instalación local conocida de Tesseract no es una fuente
-curada válida por sí sola: faltan el inventario y evidencia completa de avisos/licencias
-de dependencias. Este control de presencia **no determina** que la redistribución cumpla
-las licencias; la procedencia y la revisión legal siguen pendientes.
 
 El script ejecuta `mvn -o package` con pruebas y genera
 `target/windows-installer/DocAnonymizer-0.1.0.exe`. Usa un directorio nuevo
-`target/windows-input-<identificador>` que contiene únicamente el JAR sombreado y
-`ocr/`; por ello jpackage instala `app/ocr` junto al JAR, no todo `target`. Estos
-directorios se conservan para diagnóstico. `-Plan` muestra los argumentos de jpackage
-sin compilar ni crear archivos. El EXE no está firmado; Windows puede mostrar una
-advertencia de SmartScreen. La generación, instalación y apertura real del navegador
-requieren validación separada; las pruebas unitarias no sustituyen esa comprobación.
+`target/windows-input-<identificador>` que contiene únicamente el JAR sombreado;
+por ello jpackage no instala todo `target` ni un directorio `app/ocr`. Estos
+directorios se conservan para diagnóstico. `-Plan` muestra los argumentos de
+jpackage sin compilar ni crear archivos.
+
+No descargue ni instale software desde este flujo. El EXE no está firmado; Windows
+puede mostrar una advertencia de SmartScreen. La generación, instalación y apertura
+real del navegador requieren validación separada; las pruebas unitarias no sustituyen
+esa comprobación.
+
+## Configurar OCR en el equipo de destino
+
+Instale Tesseract y el idioma español por medios administrados por el usuario. Antes
+de usar la aplicación, compruebe localmente que `spa` está disponible:
+
+```powershell
+& 'C:\Program Files\Tesseract-OCR\tesseract.exe' --list-langs
+```
+
+La lista debe incluir `spa`. Esta comprobación no envía imágenes ni datos a la red, y
+la aplicación no realiza descargas ni instalaciones automáticas.
+
+### Ruta explícita para una apertura desde PowerShell
+
+Para abrir la aplicación desde la misma consola con una ruta explícita, defina
+`TESSERACT_COMMAND` solo para ese proceso y lance el ejecutable desde ella:
+
+```powershell
+$env:TESSERACT_COMMAND = 'C:\Program Files\Tesseract-OCR\tesseract.exe'
+& 'C:\Users\<usuario>\AppData\Local\DocAnonymizer\DocAnonymizer.exe'
+```
+
+La variable anterior es temporal: termina al cerrar esa consola y **no configura el
+acceso directo del escritorio**. Tampoco modifica la configuración persistente de
+Windows.
+
+### Alternativa: PATH administrado por el usuario
+
+Como alternativa, el usuario puede añadir la carpeta de Tesseract a su `PATH` de
+usuario mediante la administración habitual de Windows. Cierre y vuelva a abrir la
+aplicación —incluido cualquier acceso directo o consola ya abiertos— para que el
+nuevo proceso herede el `PATH`. El instalador no modifica `PATH`,
+`TESSERACT_COMMAND`, `TESSDATA_PREFIX` ni otra variable de entorno persistente.
+
+Las instalaciones antiguas de la aplicación pueden conservar un runtime legado en
+`app/ocr`; el runtime mantiene esa compatibilidad al resolver OCR. Los instaladores
+nuevos no lo incluyen y usan la ruta explícita o `PATH` cuando no hay bundle legado.
 
 ## Usar y detener
 
@@ -64,12 +81,12 @@ navegador no detiene el servidor. No hay bandeja del sistema ni servicio.
 Detenga el proceso antes de desinstalar o actualizar. No se garantiza terminar
 una operación en curso al detenerlo: espere a que finalice antes de salir.
 
-Si falla el navegador, abra manualmente la URL impresa. Si el puerto está
-ocupado, cierre la otra instancia o ejecute el lanzador instalado desde una
-consola con otro puerto: `DocAnonymizer.exe 8081`. Ante un error de inicio el
-proceso termina con código 1 sin abrir el navegador; ejecútelo desde una consola
-para conservar el mensaje de error. Cada apertura del acceso directo intenta
-iniciar una instancia nueva; no reutiliza procesos existentes.
+Si falla el navegador, abra manualmente la URL impresa. Si el puerto está ocupado,
+cierre la otra instancia o ejecute el lanzador instalado desde una consola con otro
+puerto: `DocAnonymizer.exe 8081`. Ante un error de inicio el proceso termina con
+código 1 sin abrir el navegador; ejecútelo desde una consola para conservar el
+mensaje de error. Cada apertura del acceso directo intenta iniciar una instancia
+nueva; no reutiliza procesos existentes.
 
-El punto de entrada de escritorio es independiente. El manifiesto del JAR,
-la CLI y el arranque de Docker no cambian.
+El punto de entrada de escritorio es independiente. El manifiesto del JAR, la CLI y
+el arranque de Docker no cambian.

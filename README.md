@@ -67,23 +67,39 @@ Produce `ejemplo.anon.md` (el documento) y `ejemplo.report.md` (informe técnico
 
 ### OCR local para fotos JPEG/PNG
 
-La aplicación Windows empaquetada busca primero `app/ocr` junto al JAR que la ejecuta,
-mediante su URI de `CodeSource` (por tanto funciona aunque la ruta tenga espacios o cambie
-el directorio de trabajo). El bundle incluye `tesseract.exe`, sus DLL, `tessdata/spa.traineddata`
-y evidencia de licencias bajo `ocr/licenses`; el proceso pasa explícitamente
-`--tessdata-dir` al ejecutable incluido. Un bundle detectado pero incompleto bloquea el OCR:
-no se sustituye silenciosamente por una instalación externa.
+Los instaladores Windows nuevos no incluyen ni redistribuyen Tesseract, sus DLL ni el modelo
+`spa`. Instale Tesseract y el idioma español por medios administrados por el usuario y
+compruebe localmente que la instalación contiene el idioma:
 
-Para desarrollo o instalaciones sin bundle, instala Tesseract localmente y el modelo español
-`spa`. El archivo `spa.traineddata` debe estar en el directorio `tessdata` de la instalación
-o en un directorio configurado mediante `TESSDATA_PREFIX`. La aplicación ejecuta Tesseract
-con `-l spa` y no descarga modelos ni envía imágenes a la red. La propiedad Java
-`doc.anonymizer.tesseract.command` tiene prioridad explícita para desarrolladores. Cuando no
-hay bundle ni propiedad, `TESSERACT_COMMAND` puede indicar el ejecutable local o un lanzador
-de Windows `.cmd` o `.bat`; los lanzadores se ejecutan mediante el intérprete de comandos de
-Windows. El instalador no cambia `PATH`, `TESSDATA_PREFIX` ni otra variable de entorno de
-forma persistente. Los errores de OCR no incluyen el contenido de la imagen ni rutas
-configuradas.
+```powershell
+& 'C:\Program Files\Tesseract-OCR\tesseract.exe' --list-langs
+```
+
+La lista debe incluir `spa`. La aplicación ejecuta Tesseract con `-l spa`; no descarga
+modelos, no instala software y no envía imágenes a la red.
+
+El resolvedor conserva este orden: la propiedad Java explícita
+`doc.anonymizer.tesseract.command`, un bundle legado `app/ocr` junto al JAR, la variable de
+entorno `TESSERACT_COMMAND` y, por último, `tesseract.exe` en `PATH`. La propiedad es para
+desarrollo. `TESSERACT_COMMAND` puede indicar un ejecutable local o un lanzador de Windows
+`.cmd` o `.bat`; los lanzadores se ejecutan mediante el intérprete de comandos de Windows.
+El soporte del bundle legado mantiene funcionales instalaciones antiguas, pero no se envía en
+los instaladores nuevos.
+
+Para una apertura desde PowerShell con ruta explícita, defina la variable y arranque el
+lanzador desde la misma consola:
+
+```powershell
+$env:TESSERACT_COMMAND = 'C:\Program Files\Tesseract-OCR\tesseract.exe'
+& 'C:\Users\<usuario>\AppData\Local\DocAnonymizer\DocAnonymizer.exe'
+```
+
+Esto solo afecta a ese proceso y no configura el acceso directo del escritorio ni variables
+persistentes. Como alternativa, el usuario puede administrar Tesseract en su `PATH` de
+usuario mediante Windows; cierre y vuelva a abrir la aplicación o el acceso directo para que
+el proceso nuevo herede el cambio. El instalador no cambia `PATH`, `TESSDATA_PREFIX`,
+`TESSERACT_COMMAND` ni otra variable de entorno de forma persistente. Los errores de OCR no
+incluyen el contenido de la imagen ni rutas configuradas.
 
 ### Códigos de salida
 
