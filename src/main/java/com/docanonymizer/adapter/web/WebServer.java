@@ -57,7 +57,8 @@ public final class WebServer {
 
     public static void main(String[] args) throws IOException {
         String host = envOrDefault("DOC_ANONYMIZER_HOST", "127.0.0.1");
-        int port = Integer.parseInt(envOrDefault("DOC_ANONYMIZER_PORT", "8080"));
+        int port = Integer.parseInt(envOrDefault("DOC_ANONYMIZER_PORT",
+                envOrDefault("PORT", "8080")));
         if (args.length >= 1) {
             port = Integer.parseInt(args[0]);
         }
