@@ -69,8 +69,6 @@ function init() {
     renderEntities();
     updateLocationControls();
   });
-  el('previous-occurrence').addEventListener('click', () => navigateLocation(-1));
-  el('next-occurrence').addEventListener('click', () => navigateLocation(1));
   document.querySelectorAll('.tab').forEach((tab) => {
     tab.addEventListener('click', () => selectTab(tab.dataset.tab));
     tab.addEventListener('keydown', handleTabKeydown);
@@ -249,6 +247,7 @@ function renderEntities() {
     const active = state.activeEntityKey === entityKey;
     const row = document.createElement('div');
     row.className = 'entity' + (off ? ' off' : '') + (active ? ' active' : '');
+    row.dataset.entityKey = entityKey;
 
     const groupScope = entity.count === 1 ? '1 aparición' : entity.count + ' apariciones';
     const entityName = normalize(entity.best);
@@ -276,13 +275,8 @@ function renderEntities() {
 
     const meta = document.createElement('div');
     meta.className = 'entity-meta';
-    const edited = state.editedOrder.has(entity.bestId);
-    const position = state.originals.get(entity.bestId).start + 1;
-    const occurrences = entity.count === 1 ? '1 aparicion' : entity.count + ' apariciones';
-    meta.textContent = edited
-      ? 'Seleccion editada · posicion original ' + position + ' · ' + occurrences
-      : entity.count === 1 ? occurrences
-        : occurrences + ' exactas; el texto las edita juntas';
+    const occurrenceCount = occurrenceIds(entityKey).length;
+    meta.textContent = occurrenceCount === 1 ? '1 aparición' : occurrenceCount + ' apariciones';
     const discarded = off ? document.createElement('div') : null;
     if (discarded) {
       discarded.className = 'entity-state';
@@ -303,6 +297,25 @@ function renderEntities() {
     main.append(value, meta);
     if (discarded) main.append(discarded);
     main.append(locate);
+    if (active && occurrenceCount > 1) {
+      const occurrenceActions = document.createElement('div');
+      occurrenceActions.className = 'entity-occurrence-actions';
+      for (const [direction, label, target] of [
+        [-1, 'Anterior', 'previous:' + entityKey], [1, 'Siguiente', 'next:' + entityKey]
+      ]) {
+        const action = document.createElement('button');
+        action.type = 'button';
+        action.className = 'entity-occurrence-button';
+        action.dataset.focusTarget = target;
+        action.textContent = label;
+        action.addEventListener('click', () => {
+          state.focusTarget = action.dataset.focusTarget;
+          navigateLocation(direction);
+        });
+        occurrenceActions.append(action);
+      }
+      main.append(occurrenceActions);
+    }
 
     const chip = document.createElement('select');
     chip.className = 'chip';
@@ -337,13 +350,10 @@ function activeEntityIsFiltered() {
 
 function updateLocationControls() {
   const status = el('location-status');
-  const previous = el('previous-occurrence');
-  const next = el('next-occurrence');
+  if (!status) return;
   const ids = occurrenceIds(state.activeEntityKey);
   if (!ids.length) {
     status.textContent = 'Selecciona Ubicar para recorrer sus apariciones.';
-    previous.disabled = true;
-    next.disabled = true;
     return;
   }
   const index = Math.max(0, ids.indexOf(state.activeOccurrenceId));
@@ -352,8 +362,6 @@ function updateLocationControls() {
   status.textContent = normalize(entity.best) + ': aparición ' + (index + 1) + ' de ' + ids.length
     + (state.lastNavigationWrapped ? '. Vuelta al ' + (index === 0 ? 'inicio.' : 'final.') : '.')
     + (hiddenByFilter ? ' La fila no coincide con el filtro actual; ajusta o limpia los filtros.' : '');
-  previous.disabled = false;
-  next.disabled = false;
 }
 
 function restoreFocus() {
@@ -369,12 +377,55 @@ function restoreFocus() {
   if (filter && typeof filter.focus === 'function') filter.focus();
 }
 
-function refreshLocation() {
+function refreshLocation({ focusEntity = false } = {}) {
   if (!state.comparing && state.activeTab !== 'document') selectTab('document');
   renderEntities();
-  renderDocument();
+  renderDocument({ scrollActiveLocation: !focusEntity });
   updateLocationControls();
-  restoreFocus();
+  if (focusEntity) scheduleActiveEntityRowFocus(state.activeEntityKey, state.activeOccurrenceId);
+  else restoreFocus();
+}
+
+function scheduleActiveEntityRowFocus(entityKey, occurrenceId) {
+  const finalize = () => {
+    // A later navigation supersedes this deferred marker activation.
+    if (state.activeEntityKey === entityKey && state.activeOccurrenceId === occurrenceId) {
+      focusActiveEntityRow(entityKey);
+    }
+  };
+  // Let click default handling complete before moving focus and the entity scroll region.
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(finalize);
+  else Promise.resolve().then(finalize);
+}
+
+function focusActiveEntityRow(entityKey = state.activeEntityKey) {
+  if (typeof document === 'undefined' || !activeEntityIsFiltered()) return false;
+  const controls = [...document.querySelectorAll('[data-focus-target]')];
+  const locate = controls.find(control => control.dataset.focusTarget === 'locate:' + entityKey);
+  if (!locate) return false;
+
+  // Focus first without moving the page; the appropriate scroll region moves immediately below.
+  locate.focus({ preventScroll: true });
+  const row = [...document.querySelectorAll('[data-entity-key]')]
+    .find(candidate => candidate.dataset.entityKey === entityKey);
+  if (!row) return true;
+
+  const narrowLayout = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    && window.matchMedia('(max-width: 1100px)').matches;
+  const entityContainer = el('entities');
+  if (!narrowLayout && entityContainer && typeof entityContainer.scrollTo === 'function'
+      && typeof row.getBoundingClientRect === 'function' && typeof entityContainer.getBoundingClientRect === 'function') {
+    const rowBounds = row.getBoundingClientRect();
+    const containerBounds = entityContainer.getBoundingClientRect();
+    entityContainer.scrollTo({
+      top: Math.max(0, entityContainer.scrollTop + rowBounds.top - containerBounds.top
+        - (containerBounds.height - rowBounds.height) / 2),
+      behavior: 'auto'
+    });
+  } else if (typeof row.scrollIntoView === 'function') {
+    row.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
+  }
+  return true;
 }
 
 function navigateLocation(direction) {
@@ -590,12 +641,12 @@ function isHighlightActivation(event) {
   return event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar';
 }
 
-function toggleFromHighlight(detection) {
-  // The document is rebuilt after a review edit, so retain a source anchor first.
+function activateHighlightLocation(detection) {
+  // Document markers only locate an occurrence. Selection remains an explicit checkbox action.
   state.activeEntityKey = detection.entityKey;
   state.activeOccurrenceId = detection.id;
-  state.focusTarget = 'highlight:' + detection.id;
-  toggleEntity(detection.entityKey);
+  state.lastNavigationWrapped = false;
+  refreshLocation({ focusEntity: true });
 }
 
 function makeHighlight(text, detection, active) {
@@ -608,12 +659,17 @@ function makeHighlight(text, detection, active) {
   mark.tabIndex = 0;
   mark.dataset.focusTarget = 'highlight:' + detection.id;
   mark.setAttribute('role', 'button');
-  mark.setAttribute('aria-label', 'Alternar anonimización de ' + normalize(text));
-  mark.addEventListener('click', () => toggleFromHighlight(detection));
+  mark.setAttribute('aria-label', 'Ubicar y revisar ' + normalize(text));
+  // Do not let the pointer's default focus retake the rerendered marker after locating.
+  mark.addEventListener('mousedown', event => event.preventDefault());
+  mark.addEventListener('click', event => {
+    event.preventDefault();
+    activateHighlightLocation(detection);
+  });
   mark.addEventListener('keydown', event => {
     if (!isHighlightActivation(event)) return;
     event.preventDefault();
-    toggleFromHighlight(detection);
+    activateHighlightLocation(detection);
   });
   return mark;
 }
@@ -628,7 +684,7 @@ function scrollToActiveLocation(container) {
 
 // Effective tags remain the substitution projection. A location-only marker exposes
 // rejected or nested occurrences without turning them into accepted substitutions.
-function renderDocument() {
+function renderDocument({ scrollActiveLocation = true } = {}) {
   const container = el('doctext');
   container.innerHTML = '';
   const ordered = effectiveDetections();
@@ -677,7 +733,7 @@ function renderDocument() {
       container.append(document.createTextNode(text));
     }
   }
-  scrollToActiveLocation(container);
+  if (scrollActiveLocation) scrollToActiveLocation(container);
 }
 
 function colorOf(type) {
@@ -936,7 +992,7 @@ async function copyMarkdown() {
 if (typeof document !== 'undefined') init();
 if (typeof module !== 'undefined') module.exports = {
   state, normalize, narrow, groupEntities, changeText, changeType, reviewBody,
-  editInline, invalidateResult, apply, analyze, effectiveDetections, renderDocument,
+  editInline, invalidateResult, apply, analyze, effectiveDetections, renderDocument, renderEntities,
   selectTab, toggleCompare, download, downloadWithWarnings, filteredEntities, setEntityFilters,
   selectEntityLocation, navigateEntityOccurrence, occurrenceIds, isHighlightActivation, restoreFocus,
   copyMarkdown, previewMarkdown
