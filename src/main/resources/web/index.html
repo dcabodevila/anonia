@@ -3,15 +3,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Anonia</title>
+  <title>anonimuse</title>
   <link rel="stylesheet" href="/app.css">
 </head>
 <body>
 
 <header class="topbar">
   <div class="brand">
-    <span class="dot"></span>
-    <h1>Anonia</h1>
+    <h1 class="brand-lockup">
+      <img class="brand-symbol" src="/anonimuse-logo.png" width="604" height="557" alt="">
+      <span class="wordmark-backdrop"><img class="brand-wordmark" src="/anonimuse.png" width="873" height="164" alt="anonimuse"></span>
+    </h1>
     <span class="tag">PDF y fotos &rarr; Markdown anonimizado</span>
   </div>
   <div class="offline">100% local &middot; sin red</div>
@@ -21,6 +23,7 @@
   <section id="dropzone" class="dropzone">
     <input type="file" id="file" accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png" hidden>
     <div class="drop-inner">
+      <img class="drop-brand" src="/anonimuse-logo.png" width="604" height="557" alt="">
       <svg class="drop-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
         <path d="M7.5 18.5h9a4.5 4.5 0 0 0 .7-8.95A6 6 0 0 0 5.7 8.2 4 4 0 0 0 7.5 18.5Zm4.5-8v7m0-7-2.5 2.5M12 10.5l2.5 2.5" />
       </svg>
@@ -37,7 +40,7 @@
   </section>
 
   <section id="workspace" class="workspace hidden">
-    <div class="stats" id="stats"></div>
+
     <div class="panes">
       <section class="pane-main" id="pane-main" aria-label="Documento y resultado">
         <div class="main-tabbar">
@@ -56,7 +59,7 @@
           <section class="pane tabpanel pane-doc" id="tab-document" role="tabpanel" aria-labelledby="tab-document-control">
             <div class="pane-head">
               <h2>Documento Original</h2>
-              <span class="hint">Pulsa cualquier marca para aceptarla o descartarla</span>
+              <span class="hint">Pulsa cualquier marca para ubicarla y revisar la selección</span>
             </div>
             <div id="doctext" class="doctext"></div>
           </section>
@@ -80,19 +83,16 @@
       <aside class="pane pane-side" id="pane-side" aria-label="Entidades a anonimizar">
         <div class="pane-head"><h2>Entidades</h2><span class="hint">Revisa cada selección</span></div>
         <div class="side-content" id="entity-controls">
+          <div class="stats" id="stats"></div>
           <div class="actions">
             <button type="button" id="apply" class="primary"><svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m13 3-1 6 5-1-8 13 1-7-5 1z" /></svg>Anonimizar</button>
             <button type="button" id="add-entity" class="add-entity" aria-label="Añadir entidad" title="Añadir entidad"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
           </div>
-          <p class="entity-guide">Cada fila agrupa coincidencias iguales. El tipo define la etiqueta y su color; descartar una fila conserva el texto original.</p>
           <div class="entity-filters" aria-label="Filtrar entidades">
             <label><span>Buscar</span><input type="search" id="entity-search" autocomplete="off" placeholder="Texto de la entidad"></label>
             <label><span>Tipo</span><select id="entity-type-filter"><option value="">Todos los tipos</option></select></label>
           </div>
-          <div class="location-toolbar" aria-label="Ubicar coincidencias seleccionadas">
-            <span id="location-status" role="status" aria-live="polite">Selecciona Ubicar para recorrer sus apariciones.</span>
-            <div class="location-actions"><button type="button" id="previous-occurrence" class="ghost" disabled>Anterior</button><button type="button" id="next-occurrence" class="ghost" disabled>Siguiente</button></div>
-          </div>
+          <span id="location-status" class="visually-hidden" role="status" aria-live="polite">Selecciona Ubicar para recorrer sus apariciones.</span>
           <div id="entities" class="entities"></div>
         </div>
       </aside>

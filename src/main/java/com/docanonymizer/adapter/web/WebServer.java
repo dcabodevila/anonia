@@ -70,7 +70,7 @@ public final class WebServer {
         return value == null || value.isBlank() ? fallback : value;
     }
 
-    public void start() throws IOException {
+    public HttpServer start() throws IOException {
         HttpServer server = HttpServer.create(new InetSocketAddress(bindAddress, port), 0);
         server.setExecutor(Executors.newFixedThreadPool(THREADS));
 
@@ -84,6 +84,7 @@ public final class WebServer {
         System.out.println("doc-anonymizer escuchando en http://" + bindAddress + ":" + port);
         System.out.println("Revision local: los valores en claro se muestran en la UI y "
                 + "no salen del proceso.");
+        return server;
     }
 
     // ---------------------------------------------------------------- analyze
@@ -223,6 +224,8 @@ public final class WebServer {
             case "/", "/index.html" -> "/web/index.html";
             case "/app.css" -> "/web/app.css";
             case "/app.js" -> "/web/app.js";
+            case "/anonimuse.png" -> "/web/anonimuse.png";
+            case "/anonimuse-logo.png" -> "/web/anonimuse-logo.png";
             default -> null;
         };
         if (resource == null) {
@@ -244,6 +247,9 @@ public final class WebServer {
         }
         if (resource.endsWith(".js")) {
             return "application/javascript; charset=utf-8";
+        }
+        if (resource.endsWith(".png")) {
+            return "image/png";
         }
         return "text/html; charset=utf-8";
     }

@@ -95,14 +95,22 @@ function renderedDom() {
   const node = () => {
     let children = [];
     return {
-      dataset: {}, attributes: {}, style: {}, listeners: {}, classList: makeClassList(), focusCount: 0,
+      dataset: {}, attributes: {}, style: {}, listeners: {}, classList: makeClassList(), focusCount: 0, scrollTop: 0,
       get children() { return children; }, set children(value) { children = value; },
       get innerHTML() { return ''; }, set innerHTML(value) { children = []; },
       append(...items) { children.push(...items); },
       setAttribute(name, value) { this.attributes[name] = String(value); },
       addEventListener(name, listener) { this.listeners[name] = listener; },
-      focus() { this.focusCount++; }, select() {},
-      querySelector() { return undefined; }
+      focus(options) { this.focusCount++; this.focusOptions = options; }, select() {},
+      scrollTo(options) { this.scrollToCalls = (this.scrollToCalls || []).concat(options); },
+      scrollIntoView(options) { this.scrollIntoViewCalls = (this.scrollIntoViewCalls || []).concat(options); },
+      getBoundingClientRect() { return { top: 20, height: 40 }; },
+      querySelector(selector) {
+        const occurrence = selector.match(/^\[data-occurrence-id="(.+)"\]$/);
+        if (!occurrence) return undefined;
+        return this.children.find(child => typeof child !== 'string'
+          && child.dataset.occurrenceId === occurrence[1]);
+      }
     };
   };
   global.document = {
@@ -126,22 +134,154 @@ function renderedDom() {
 }
 
 const renderedText = node => node.children.map(child => typeof child === 'string' ? child : child.textContent).join('');
+const controlsByTarget = () => [...document.querySelectorAll('[data-focus-target]')]
+  .reduce((controls, control) => Object.assign(controls, { [control.dataset.focusTarget]: control }), {});
 
-test('Enter toggles a real rendered highlight and restores focus to its rejected location marker', () => {
+test('only the active multi-occurrence row renders local navigation that restores button focus and announces wrapping', () => {
+  const nodes = renderedDom();
+  fixture('Ana / Ana / Calle', [
+    ['p1', 'PERSONA', 0, 3, 'person'], ['p2', 'PERSONA', 6, 9, 'person'],
+    ['a1', 'DIRECCION', 12, 17, 'address']
+  ]);
+  app.selectEntityLocation('person');
+  app.renderEntities();
+
+  const personRow = [...document.querySelectorAll('[data-entity-key]')]
+    .find(row => row.dataset.entityKey === 'person');
+  assert.equal(personRow.children[1].children[1].textContent, '2 apariciones');
+  let controls = controlsByTarget();
+  assert.ok(controls['previous:person']);
+  assert.ok(controls['next:person']);
+  assert.equal(controls['previous:address'], undefined);
+  assert.equal(controls['next:address'], undefined);
+
+  controls['next:person'].listeners.click();
+  controls = controlsByTarget();
+  assert.equal(state.activeOccurrenceId, 'p2');
+  assert.equal(controls['next:person'].focusCount, 1);
+  assert.equal(nodes.get('doctext').children.find(child => typeof child !== 'string'
+    && child.dataset.occurrenceId === 'p2').scrollIntoViewCalls[0].behavior, 'smooth');
+
+  controls['next:person'].listeners.click();
+  assert.equal(state.activeOccurrenceId, 'p1');
+  assert.match(nodes.get('location-status').textContent, /Vuelta al inicio\./);
+
+  controls = controlsByTarget();
+  controls['previous:person'].listeners.click();
+  controls = controlsByTarget();
+  assert.equal(state.activeOccurrenceId, 'p2');
+  assert.equal(controls['previous:person'].focusCount, 1);
+  assert.match(nodes.get('location-status').textContent, /Vuelta al final\./);
+  delete global.document;
+  delete global.getComputedStyle;
+});
+
+for (const [input, eventName] of [[
+  'click', 'click'
+], [
+  'Enter', 'keydown'
+], [
+  ' ', 'keydown'
+]]) test('marker ' + input + ' navigation skips marker scroll and finalizes matching row focus and scroll', () => {
+  const nodes = renderedDom();
+  const frames = [];
+  global.requestAnimationFrame = callback => { frames.push(callback); return frames.length; };
+  fixture('María García', [['p1', 'PERSONA', 0, 12, 'person']]);
+  state.revision = 7;
+  state.markdown = 'already generated';
+  state.warningMarkdown = 'warning export';
+  state.warningDownloadEligible = true;
+  app.renderDocument();
+  const original = nodes.get('doctext').children[0];
+  const before = JSON.stringify([state.detections, [...state.rejected], state.edits, state.revision,
+    state.markdown, state.warningMarkdown, state.warningDownloadEligible]);
+  let prevented = 0;
+
+  if (eventName === 'click') original.listeners.click({ preventDefault() { prevented++; } });
+  else original.listeners.keydown({ key: input, preventDefault() { prevented++; } });
+
+  const locate = [...document.querySelectorAll('[data-focus-target]')]
+    .find(control => control.dataset.focusTarget === 'locate:person');
+  const row = [...document.querySelectorAll('[data-entity-key]')]
+    .find(candidate => candidate.dataset.entityKey === 'person');
+  assert.equal(JSON.stringify([state.detections, [...state.rejected], state.edits, state.revision,
+    state.markdown, state.warningMarkdown, state.warningDownloadEligible]), before);
+  assert.equal(state.activeEntityKey, 'person');
+  assert.equal(state.activeOccurrenceId, 'p1');
+  assert.equal(prevented, 1);
+  assert.equal(nodes.get('doctext').scrollIntoViewCalls, undefined);
+  assert.equal(locate.focusCount, 0);
+  assert.equal(frames.length, 1);
+
+  frames.shift()();
+
+  assert.equal(locate.focusCount, 1);
+  assert.deepEqual(locate.focusOptions, { preventScroll: true });
+  assert.deepEqual(nodes.get('entities').scrollToCalls, [{ top: 0, behavior: 'auto' }]);
+  assert.match(nodes.get('location-status').textContent, /María García: aparición 1 de 1/);
+  assert.equal(renderedText(nodes.get('doctext')), state.text);
+  assert.ok(row);
+  delete global.requestAnimationFrame;
+  delete global.document;
+  delete global.getComputedStyle;
+});
+
+test('marker navigation page-scrolls the matching row on narrow layouts after focus finalization', () => {
+  const nodes = renderedDom();
+  const frames = [];
+  global.requestAnimationFrame = callback => { frames.push(callback); return frames.length; };
+  global.window = { matchMedia: () => ({ matches: true }) };
+  fixture('María García', [['p1', 'PERSONA', 0, 12, 'person']]);
+  app.renderDocument();
+
+  nodes.get('doctext').children[0].listeners.click({ preventDefault() {} });
+  frames.shift()();
+
+  const row = [...document.querySelectorAll('[data-entity-key]')]
+    .find(candidate => candidate.dataset.entityKey === 'person');
+  assert.deepEqual(row.scrollIntoViewCalls, [{ block: 'center', inline: 'nearest', behavior: 'auto' }]);
+  assert.equal(nodes.get('entities').scrollToCalls, undefined);
+  delete global.window;
+  delete global.requestAnimationFrame;
+  delete global.document;
+  delete global.getComputedStyle;
+});
+
+test('explicit entity navigation continues to scroll the active document occurrence', () => {
   const nodes = renderedDom();
   fixture('María García', [['p1', 'PERSONA', 0, 12, 'person']]);
-  state.revision = 0;
+  app.selectEntityLocation('person');
+
+  app.renderDocument();
+
+  const location = nodes.get('doctext').children.find(child => typeof child !== 'string'
+    && child.dataset.occurrenceId === 'p1');
+  assert.deepEqual(location.scrollIntoViewCalls, [{ block: 'center', inline: 'nearest', behavior: 'smooth' }]);
+  delete global.document;
+  delete global.getComputedStyle;
+});
+
+test('pointer marker activation preserves filters and announces when its selected row is hidden', () => {
+  const nodes = renderedDom();
+  fixture('María García / María García', [
+    ['p1', 'PERSONA', 0, 12, 'person'], ['p2', 'PERSONA', 15, 27, 'person']
+  ]);
+  state.revision = 9;
+  state.markdown = 'ready';
+  app.setEntityFilters('sin coincidencias', '');
   app.renderDocument();
   const original = nodes.get('doctext').children[0];
 
-  original.listeners.keydown({ key: 'Enter', preventDefault() {} });
+  original.listeners.click({ preventDefault() {} });
 
-  const marker = nodes.get('doctext').children.find(child => typeof child !== 'string'
-    && child.dataset.focusTarget === 'highlight:p1');
-  assert.equal(state.rejected.has('person'), true);
+  assert.equal(state.revision, 9);
+  assert.equal(state.markdown, 'ready');
+  assert.equal(state.rejected.has('person'), false);
   assert.equal(state.activeOccurrenceId, 'p1');
-  assert.equal(marker.focusCount, 1);
-  assert.equal(renderedText(nodes.get('doctext')), state.text);
+  assert.match(nodes.get('location-status').textContent, /no coincide con el filtro actual/);
+  assert.equal(nodes.get('entities').children.length, 0);
+  assert.equal(controlsByTarget()['previous:person'], undefined);
+  assert.equal(controlsByTarget()['next:person'], undefined);
   delete global.document;
   delete global.getComputedStyle;
 });

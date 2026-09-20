@@ -175,9 +175,7 @@ test('collapsed retained spans count as one visible occurrence and edited meta k
   assert.deepEqual(effectiveIds(), ['b']);
 
   const meta = nodes.get('entities').children[0].children[1].children[1].textContent;
-  assert.deepEqual([state.entities.get('codes').count, meta], [
-    1, 'Seleccion editada · posicion original 1 · 1 aparicion'
-  ]);
+  assert.deepEqual([state.entities.get('codes').count, meta], [1, '1 aparición']);
 
   fixture('10812/10812 | 10812', [
     ['a', 'CP', '10812', 'codes'], ['b', 'CP', '10812', 'codes', 6],
@@ -347,7 +345,7 @@ test('Enter then blur saves displayed occurrence once; independent checkbox and 
   const rows = document.getElementById('entities').children;
   const selectedRow = rows.find(row => row.children[1].children[0].textContent === 'Maria');
   assert.ok(selectedRow);
-  assert.match(selectedRow.children[1].children[1].textContent, /Seleccion editada.*1/);
+  assert.equal(selectedRow.children[1].children[1].textContent, '1 aparición');
   selectedRow.children[0].listeners.change();
   assert.deepEqual(state.edits[1], ['reject', 'a', 'true']);
   assert.equal(state.rejected.has(key('b')), false);
