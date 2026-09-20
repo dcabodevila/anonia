@@ -1,6 +1,6 @@
 # doc-anonymizer
 
-**Versión 0.3.0** — Prototipo: **PDF y fotos → Markdown desidentificado**, 100 % offline.
+**Versión 0.3.1** — Prototipo: **PDF y fotos → Markdown desidentificado**, 100 % offline.
 
 > **Instalación en Windows:** siga la [guía de instalación para clientes](packaging/windows/INSTALAR-WINDOWS.md). Para PDF con capa de texto, instale la aplicación directamente. Para imágenes JPEG/PNG, instale primero Tesseract OCR administrado externamente con español (`spa`) y valide `--list-langs`; después instale la aplicación. Java está incluido en el instalador. El procesamiento de documentos no usa red externa.
 

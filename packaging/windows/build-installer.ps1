@@ -10,7 +10,7 @@ $inputDirectory = Join-Path $target ('windows-input-' + [guid]::NewGuid().ToStri
 $outputDirectory = Join-Path $target 'windows-installer'
 $resourceDirectory = Join-Path $PSScriptRoot 'jpackage-resources'
 $packageArguments = @(
-    '--type', 'exe', '--name', 'DocAnonymizer', '--app-version', '0.3.0',
+    '--type', 'exe', '--name', 'DocAnonymizer', '--app-version', '0.3.1',
     '--vendor', 'DocAnonymizer', '--description', 'Anonimizador local de documentos',
     '--input', $inputDirectory, '--dest', $outputDirectory,
     '--resource-dir', $resourceDirectory,

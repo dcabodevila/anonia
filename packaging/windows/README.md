@@ -15,7 +15,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\packaging\windows\buil
 ```
 
 El script ejecuta `mvn -o package` con pruebas y genera
-`target/windows-installer/DocAnonymizer-0.3.0.exe`. Usa un directorio nuevo
+`target/windows-installer/DocAnonymizer-0.3.1.exe`. Usa un directorio nuevo
 `target/windows-input-<identificador>` que contiene únicamente el JAR sombreado;
 por ello jpackage no instala todo `target` ni un directorio `app/ocr`. Estos
 directorios se conservan para diagnóstico. `-Plan` muestra los argumentos de
