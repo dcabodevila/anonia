@@ -57,7 +57,7 @@ class DesktopLauncherTest {
                 .redirectErrorStream(true).start();
         String plan = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertEquals(0, process.waitFor(), plan);
-        assertTrue(plan.contains("0.2.0"), "installer version missing: " + plan);
+        assertTrue(plan.contains("0.3.0"), "installer version missing: " + plan);
         for (String expected : List.of("--type", "exe", "--win-per-user-install", "--win-menu",
                 "--win-shortcut", "--win-console", "--main-class",
                 "com.docanonymizer.adapter.web.DesktopLauncher", "doc-anonymizer.jar",
@@ -76,8 +76,8 @@ class DesktopLauncherTest {
                 + "<Component Id=\"TesseractCommandEnvironment\".*"),
                 "Tesseract environment component must be nested under TARGETDIR");
         assertTrue(wix.contains("<ComponentRef Id=\"TesseractCommandEnvironment\"/>"));
-        assertTrue(wix.contains("<util:Environment Id=\"TesseractCommand\""));
-        assertFalse(wix.contains("<Environment Id=\"TesseractCommand\""));
+        assertTrue(wix.contains("<Environment Id=\"TesseractCommand\""));
+        assertFalse(wix.contains("<util:Environment"));
         assertTrue(wix.contains("Name=\"TESSERACT_COMMAND\""));
         assertTrue(wix.contains("Value=\"" + tesseractCommand + "\""));
         assertTrue(wix.contains("Action=\"set\""));

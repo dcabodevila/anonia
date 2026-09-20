@@ -44,7 +44,7 @@ import java.util.stream.Collectors;
  */
 public final class AnonymizationPipeline {
 
-    public static final String TOOL_VERSION = "0.2.0";
+    public static final String TOOL_VERSION = "0.3.0";
 
     /** Estado intermedio entre la deteccion y la decision humana. */
     public record Analysis(

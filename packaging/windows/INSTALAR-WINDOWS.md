@@ -1,6 +1,6 @@
 # Instalar DocAnonymizer en Windows
 
-Recibirá el instalador `DocAnonymizer-0.2.0.exe`. Elija la ruta antes de instalar:
+Recibirá el instalador `DocAnonymizer-0.3.0.exe`. Elija la ruta antes de instalar:
 
 - **Solo documentos PDF con capa de texto:** instale DocAnonymizer directamente.
 - **Imágenes JPEG o PNG:** primero instale y configure Tesseract OCR administrado externamente con el idioma español (`spa`); después instale DocAnonymizer.
@@ -11,7 +11,7 @@ El instalador incluye Java. No incluye ni descarga Tesseract ni sus modelos OCR.
 
 ### Si solo procesará PDF
 
-1. Localice el archivo recibido `DocAnonymizer-0.2.0.exe`.
+1. Localice el archivo recibido `DocAnonymizer-0.3.0.exe`.
 2. Ejecute el instalador y siga las indicaciones de Windows.
 3. Cuando Windows finalice el asistente, la instalación habrá terminado. Cierre y vuelva a abrir DocAnonymizer o el acceso directo para que reciba la variable de usuario actualizada; después, confirme que se abre correctamente antes de usarlo para procesar PDF.
 
@@ -25,14 +25,14 @@ El instalador incluye Java. No incluye ni descarga Tesseract ni sus modelos OCR.
    ```
 
    **Resultado esperado:** la lista incluye `spa`. Si no aparece, complete la configuración de Tesseract antes de continuar.
-3. Ejecute `DocAnonymizer-0.2.0.exe` y siga las indicaciones de Windows. El instalador reemplaza cualquier valor de usuario anterior de `TESSERACT_COMMAND` por `C:\Program Files\Tesseract-OCR\tesseract.exe`.
+3. Ejecute `DocAnonymizer-0.3.0.exe` y siga las indicaciones de Windows. El instalador reemplaza cualquier valor de usuario anterior de `TESSERACT_COMMAND` por `C:\Program Files\Tesseract-OCR\tesseract.exe`.
 4. Cierre y vuelva a abrir DocAnonymizer o el acceso directo para que reciba la variable actualizada. Si Tesseract está en otra ruta, configúrela después de instalar; una actualización posterior volverá a establecer la ruta predeterminada. Consulte la [configuración completa de Tesseract](INSTALAR-OCR.md).
 
 ## Qué incluye cada componente
 
 | Componente | Cómo se obtiene | Para qué se necesita |
 |---|---|---|
-| DocAnonymizer y Java | El instalador `DocAnonymizer-0.2.0.exe` | Procesar PDF con capa de texto y ejecutar la aplicación. |
+| DocAnonymizer y Java | El instalador `DocAnonymizer-0.3.0.exe` | Procesar PDF con capa de texto y ejecutar la aplicación. |
 | Tesseract y `spa` | Instalación externa administrada por el usuario u organización | Extraer texto de imágenes JPEG/PNG. |
 
 El procesamiento de documentos se realiza localmente y no usa servicios ni conexiones externas de red. Tesseract tampoco se instala automáticamente al instalar DocAnonymizer. Al desinstalar DocAnonymizer, se elimina el valor de `TESSERACT_COMMAND` administrado por el instalador.

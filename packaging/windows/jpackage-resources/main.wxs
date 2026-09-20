@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- JDK 21.0.12 jpackage main.wxs template, customized for WiX Toolset 3.14. -->
-<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
-     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
 
   <?ifdef JpIsSystemWide ?>
     <?define JpInstallScope="perMachine"?>
@@ -73,7 +72,7 @@
     <!-- Standard required root and per-user environment component. -->
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Component Id="TesseractCommandEnvironment" Guid="{6F5C5EE2-6E1C-4FAF-97A4-D76C93541E47}">
-        <util:Environment Id="TesseractCommand" Name="TESSERACT_COMMAND"
+        <Environment Id="TesseractCommand" Name="TESSERACT_COMMAND"
                           Value="C:\Program Files\Tesseract-OCR\tesseract.exe"
                           Action="set" System="no" Permanent="no" />
       </Component>
