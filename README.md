@@ -97,11 +97,14 @@ $env:TESSERACT_COMMAND = 'C:\Program Files\Tesseract-OCR\tesseract.exe'
 ```
 
 Esto solo afecta a ese proceso y no configura el acceso directo del escritorio ni variables
-persistentes. Como alternativa, el usuario puede administrar Tesseract en su `PATH` de
-usuario mediante Windows; cierre y vuelva a abrir la aplicación o el acceso directo para que
-el proceso nuevo herede el cambio. El instalador no cambia `PATH`, `TESSDATA_PREFIX`,
-`TESSERACT_COMMAND` ni otra variable de entorno de forma persistente. Los errores de OCR no
-incluyen el contenido de la imagen ni rutas configuradas.
+persistentes. En cada instalación o actualización, el instalador configura para el usuario
+actual `TESSERACT_COMMAND` con el valor exacto
+`C:\Program Files\Tesseract-OCR\tesseract.exe`, aunque Tesseract aún no esté instalado, y
+reemplaza cualquier valor de usuario anterior. Al desinstalar DocAnonymizer, elimina ese valor
+administrado por el instalador. Cierre y vuelva a abrir la aplicación o el acceso directo tras
+instalar o actualizar para que el proceso nuevo reciba la variable. El instalador no instala ni
+incluye Tesseract, no cambia `PATH` ni `TESSDATA_PREFIX`, y no escribe configuración de
+máquina. Los errores de OCR no incluyen el contenido de la imagen ni rutas configuradas.
 
 ### Códigos de salida
 

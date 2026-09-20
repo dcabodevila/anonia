@@ -65,6 +65,25 @@ class DesktopLauncherTest {
             assertTrue(plan.contains(expected), expected + " missing: " + plan);
         }
         assertFalse(plan.contains("--runtime-image"), "jpackage must create bundled runtime");
+        assertTrue(plan.contains("--resource-dir"), "jpackage resource directory missing: " + plan);
+        assertTrue(plan.contains("jpackage-resources"), "jpackage resource directory missing: " + plan);
+        assertTrue(plan.contains("ce0936d4-f914-4f47-9052-5b286df59f57"));
+        Path mainWxs = Path.of("packaging/windows/jpackage-resources/main.wxs");
+        assertTrue(Files.isRegularFile(mainWxs), "WiX main.wxs override must exist");
+        String wix = Files.readString(mainWxs);
+        String tesseractCommand = "C:\\Program Files\\Tesseract-OCR\\tesseract.exe";
+        assertTrue(wix.matches("(?s).*<Directory Id=\"TARGETDIR\" Name=\"SourceDir\">\\s*"
+                + "<Component Id=\"TesseractCommandEnvironment\".*"),
+                "Tesseract environment component must be nested under TARGETDIR");
+        assertTrue(wix.contains("<ComponentRef Id=\"TesseractCommandEnvironment\"/>"));
+        assertTrue(wix.contains("<util:Environment Id=\"TesseractCommand\""));
+        assertFalse(wix.contains("<Environment Id=\"TesseractCommand\""));
+        assertTrue(wix.contains("Name=\"TESSERACT_COMMAND\""));
+        assertTrue(wix.contains("Value=\"" + tesseractCommand + "\""));
+        assertTrue(wix.contains("Action=\"set\""));
+        assertTrue(wix.contains("System=\"no\""));
+        assertTrue(wix.contains("Permanent=\"no\""));
+        assertFalse(wix.contains("Name=\"PATH\""));
         String source = Files.readString(script);
         assertTrue(source.contains("mvn -o package"));
         assertTrue(source.contains("Copy-Item -LiteralPath $jar -Destination $inputDirectory"));

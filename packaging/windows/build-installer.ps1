@@ -8,10 +8,12 @@ $jar = Join-Path $target 'doc-anonymizer.jar'
 # Directorio nuevo en cada ejecucion: nunca incluye PDFs, informes ni JAR antiguos.
 $inputDirectory = Join-Path $target ('windows-input-' + [guid]::NewGuid().ToString('N'))
 $outputDirectory = Join-Path $target 'windows-installer'
+$resourceDirectory = Join-Path $PSScriptRoot 'jpackage-resources'
 $packageArguments = @(
     '--type', 'exe', '--name', 'DocAnonymizer', '--app-version', '0.2.0',
     '--vendor', 'DocAnonymizer', '--description', 'Anonimizador local de documentos',
     '--input', $inputDirectory, '--dest', $outputDirectory,
+    '--resource-dir', $resourceDirectory,
     '--main-jar', 'doc-anonymizer.jar',
     '--main-class', 'com.docanonymizer.adapter.web.DesktopLauncher',
     '--add-modules', 'ALL-MODULE-PATH',

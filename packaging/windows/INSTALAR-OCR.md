@@ -14,18 +14,23 @@ DocAnonymizer no incluye Tesseract ni los modelos OCR en su instalador. Para lee
    ```
 
    **Resultado esperado:** el primer comando muestra la versión de Tesseract y el segundo incluye una línea `spa`.
-3. Configure una de las opciones siguientes y reinicie DocAnonymizer y cualquier consola abierta.
+3. Instale DocAnonymizer. En cada instalación o actualización, el instalador configura `TESSERACT_COMMAND` para el usuario actual con el valor exacto `C:\Program Files\Tesseract-OCR\tesseract.exe`, aunque Tesseract todavía no esté instalado. Reemplaza cualquier valor de usuario anterior.
+4. Cierre y vuelva a abrir DocAnonymizer, sus consolas y el acceso directo para que los procesos nuevos reciban la variable actualizada. Si el acceso directo conserva un entorno anterior, cierre sesión y vuelva a iniciarla antes de probar otra vez.
 
-## Opción recomendada: ruta explícita por usuario
+## Ruta predeterminada administrada por el instalador
 
-Configure `TESSERACT_COMMAND` como variable de entorno **de usuario** mediante la interfaz de Variables de entorno de Windows:
+No necesita crear `TESSERACT_COMMAND` manualmente si Tesseract usa la ruta predeterminada. El instalador establece la variable solo para el usuario actual, no modifica variables globales del sistema ni `PATH`, y tampoco instala ni incluye Tesseract, DLL ni modelos OCR. Al desinstalar DocAnonymizer, elimina el valor de `TESSERACT_COMMAND` que administra.
+
+## Ruta alternativa por usuario
+
+Si Tesseract está en otra carpeta, configure `TESSERACT_COMMAND` como variable de entorno **de usuario** mediante la interfaz de Variables de entorno de Windows:
 
 1. Abra la administración de Variables de entorno de Windows y cree o edite `TESSERACT_COMMAND` para su usuario.
-2. Asigne la ruta completa de `tesseract.exe`, por ejemplo `C:\Program Files\Tesseract-OCR\tesseract.exe`.
+2. Asigne la ruta completa de `tesseract.exe`.
 3. Escriba solo la ruta: no incluya comillas literales en el valor.
-4. Cierre y vuelva a abrir DocAnonymizer y las consolas. Si el acceso directo sigue usando un entorno anterior, cierre sesión y vuelva a iniciarla antes de probar otra vez.
+4. Cierre y vuelva a abrir DocAnonymizer y las consolas.
 
-Esta opción evita depender de qué directorios estén en `PATH` y no modifica variables globales del sistema.
+Una instalación o actualización posterior de DocAnonymizer reemplaza esta ruta alternativa por `C:\Program Files\Tesseract-OCR\tesseract.exe`.
 
 ## Alternativa: añadir Tesseract a `PATH`
 
@@ -67,4 +72,4 @@ El procesamiento de OCR es local: esta prueba no carga documentos en ningún ser
 | Se usa un ejecutable incorrecto o una instancia antigua | Confirme `TESSERACT_COMMAND` con la ruta correcta, cierre la aplicación y todas las consolas, y vuelva a abrirlas. Si inició desde un acceso directo, cierre sesión y vuelva a iniciarla si conserva variables antiguas. |
 | La aplicación parece ignorar la variable o `PATH` | Una instalación antigua puede tener un runtime legado en `app/ocr`, que tiene prioridad por compatibilidad. No lo elimine automáticamente; compruebe primero qué instalación de la aplicación está abriendo y actualícela o solicite soporte si es necesario. |
 
-El instalador de DocAnonymizer no instala Tesseract, modelos OCR ni modifica `TESSERACT_COMMAND`, `PATH` u otras variables de entorno persistentes.
+El instalador de DocAnonymizer no instala Tesseract ni modelos OCR. Administra únicamente `TESSERACT_COMMAND` para el usuario actual: lo establece en `C:\Program Files\Tesseract-OCR\tesseract.exe` en cada instalación o actualización y lo elimina al desinstalar. No modifica `PATH`, `TESSDATA_PREFIX` ni otras variables de entorno persistentes, y no escribe configuración de máquina.

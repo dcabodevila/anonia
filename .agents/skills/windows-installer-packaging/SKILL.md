@@ -23,9 +23,12 @@ existe un diálogo final pendiente de Sí/No.
 ## OCR externo prerequisite
 
 El instalador incluye la aplicación y el runtime Java, pero no Tesseract, DLL de OCR ni
-modelos. No solicites `-OcrBundleRoot`, `DOC_ANONYMIZER_OCR_BUNDLE`, manifiestos ni
-evidencia de redistribución para empaquetar. No instales ni descargues Tesseract desde
-este flujo.
+modelos. En una instalación o actualización, administra `TESSERACT_COMMAND` solo para el
+usuario actual: lo establece como `C:\Program Files\Tesseract-OCR\tesseract.exe`, reemplaza
+el valor de usuario existente y lo elimina al desinstalar. No modifica `PATH` ni
+configuración de máquina. No solicites `-OcrBundleRoot`, `DOC_ANONYMIZER_OCR_BUNDLE`,
+manifiestos ni evidencia de redistribución para empaquetar. No instales ni descargues
+Tesseract desde este flujo.
 
 El usuario administra su instalación local de Tesseract y el idioma español (`spa`). Si
 va a probar OCR en el equipo de destino, debe validar localmente:
@@ -56,7 +59,7 @@ instalado ni que el OCR funcione desde el acceso directo.
    ```
    El script ejecuta `mvn -o package` con pruebas, prepara una entrada aislada con solo el JAR y deja que `jpackage` incluya el runtime Java. No incorpora `app/ocr` al instalador.
 4. Exige salida cero. Inspecciona el EXE realmente creado o modificado desde la hora registrada; anota ruta, tamaño, fechas, metadatos y `Get-FileHash`. Un EXE es una instantánea estática: vuelve a empaquetar tras cualquier cambio. Distingue el instalador del lanzador ya instalado. No sustituyas esto con una prueba que use ejecutables falsos.
-5. Para una prueba manual de OCR, el usuario puede usar `TESSERACT_COMMAND` para una apertura desde PowerShell o administrar la carpeta de Tesseract en `PATH`. `$env:TESSERACT_COMMAND = 'C:\ruta\tesseract.exe'` solo afecta a esa consola y no configura el acceso directo; tras cambiar el `PATH` persistente, reinicia el proceso o acceso directo. El instalador no cambia variables de entorno persistentes.
+5. Para una prueba manual de OCR, el instalador ya habrá establecido `TESSERACT_COMMAND` para el usuario actual con `C:\Program Files\Tesseract-OCR\tesseract.exe`; cierre y abra de nuevo el proceso o acceso directo tras instalar o actualizar. Para una ruta alternativa de una sola consola, `$env:TESSERACT_COMMAND = 'C:\ruta\tesseract.exe'` solo afecta a esa consola. El instalador no instala Tesseract, no modifica `PATH` ni configuración de máquina.
 
 ## Output Contract
 
