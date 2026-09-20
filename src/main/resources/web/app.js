@@ -12,6 +12,7 @@
 
 const state = {
   jobId: null,
+  sourceFilename: null,
   text: '',
   detections: [],
   entities: new Map(),   // entityKey -> {type, sample, ids:[], count}
@@ -80,6 +81,7 @@ function init() {
 
 async function analyze(file) {
   const request = ++state.analysisRequest;
+  state.sourceFilename = file && typeof file.name === 'string' ? file.name : null;
   invalidateResult();
   state.jobId = null;
   resetDropzone();
@@ -806,8 +808,9 @@ async function apply() {
     if (!current()) return;
 
     if (!response.ok) {
-      setResultStatus('error', 'No se pudo generar el resultado',
-        (data.error || 'El servidor no pudo validar la revisión.') + ' Revisa las entidades y vuelve a anonimizar.');
+      console.error('Apply request failed:', data.error || data);
+      setResultStatus('error', 'No se pudo completar la anonimización',
+        'El servidor no pudo completar la anonimización. Revisa las entidades y vuelve a intentarlo.');
       return;
     }
 
@@ -820,9 +823,10 @@ async function apply() {
     renderChecks(data, hasResult);
     selectTab('result');
   } catch (err) {
+    console.error('Apply request failed:', err);
     if (current()) {
-      setResultStatus('error', 'No se pudo generar el resultado',
-        'No se pudo contactar con el servidor. Comprueba que la aplicación siga abierta y vuelve a anonimizar.');
+      setResultStatus('error', 'No se pudo completar la anonimización',
+        'No se pudo contactar con el servidor. Comprueba que la aplicación siga abierta y vuelve a intentarlo.');
     }
   } finally {
     if (request === state.applyRequest) el('apply').disabled = false;
@@ -837,7 +841,7 @@ function previewMarkdown(markdown) {
 
 function renderResult(data, hasResult) {
   const deliverable = data.deliverable && hasResult;
-  el('markdown').textContent = deliverable
+  el('markdown').textContent = hasResult
     ? previewMarkdown(data.markdown)
     : 'ANONIMIZACIÓN BLOQUEADA: el resultado no se entrega.\n\n'
       + 'Revisa el estado del resultado para conocer el control que falló.';
@@ -989,12 +993,22 @@ function showError(message) {
   box.classList.remove('hidden');
 }
 
+function markdownDownloadFilename(sourceFilename) {
+  const filename = typeof sourceFilename === 'string' ? sourceFilename.trim() : '';
+  if (!filename || /[\\/\u0000-\u001F]/u.test(filename)) return 'documento-anonimused.md';
+  const dot = filename.lastIndexOf('.');
+  const stem = dot > 0 ? filename.slice(0, dot) : filename;
+  return stem && stem !== '.' && stem !== '..'
+    ? stem + '-anonimused.md'
+    : 'documento-anonimused.md';
+}
+
 function saveMarkdown(markdown) {
   const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = 'documento.anon.md';
+  link.download = markdownDownloadFilename(state.sourceFilename);
   link.click();
   URL.revokeObjectURL(url);
 }

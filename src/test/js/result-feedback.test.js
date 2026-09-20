@@ -26,9 +26,15 @@ function fakeDom() {
       click() {}, focus() {}
     };
   };
+  nodes.createdElements = [];
   global.document = {
     getElementById(id) { if (!nodes.has(id)) nodes.set(id, node()); return nodes.get(id); },
-    createElement: node,
+    createElement(tagName) {
+      const element = node();
+      element.tagName = tagName;
+      nodes.createdElements.push(element);
+      return element;
+    },
     createTextNode: value => value,
     querySelectorAll: () => []
   };
@@ -42,6 +48,7 @@ beforeEach(() => {
   state.markdown = '';
   state.warningMarkdown = '';
   state.warningDownloadEligible = false;
+  state.sourceFilename = null;
   state.resultStatus = 'pending';
   state.resultFindings = [];
   state.revision = 0;
@@ -50,11 +57,11 @@ beforeEach(() => {
   state.editError = null;
 });
 
-test('blocked findings persist even when no warning Markdown can be downloaded', async () => {
+test('blocked findings still display the partial anonymized text and keep warning download available', async () => {
   const nodes = fakeDom();
   state.jobId = 'job';
   global.fetch = async () => ({ ok: true, json: async () => ({
-    deliverable: false, markdown: '', substitutions: 0, entities: 0,
+    deliverable: false, markdown: '# Resultado parcial\n\nTexto protegido', substitutions: 1, entities: 1,
     findings: [{ control: 'C3', severity: 'BLOCKING', detail: 'Dato residual' }]
   }) });
 
@@ -62,9 +69,71 @@ test('blocked findings persist even when no warning Markdown can be downloaded',
 
   assert.equal(state.resultStatus, 'blocked');
   assert.deepEqual(state.resultFindings, [{ control: 'C3', severity: 'BLOCKING', detail: 'Dato residual' }]);
+  assert.equal(nodes.get('markdown').textContent, '# Resultado parcial\n\nTexto protegido');
   assert.match(nodes.get('result-status').textContent, /C3: Dato residual/);
-  assert.equal(nodes.get('warning-download').disabled, true);
-  assert.equal(app.downloadWithWarnings(), false);
+  assert.equal(nodes.get('warning-download').disabled, false);
+  assert.equal(nodes.get('download').disabled, true);
+  assert.equal(app.downloadWithWarnings(), true);
+});
+
+test('analyzing a file retains its source filename for later downloads', async () => {
+  fakeDom();
+  global.fetch = async () => ({ ok: true, json: async () => ({
+    jobId: 'job', text: '', detections: [], types: [], pageCount: 1, elapsedMs: 1
+  }) });
+
+  await app.analyze({ name: 'contrato.pdf' });
+
+  assert.equal(state.sourceFilename, 'contrato.pdf');
+});
+
+test('Markdown downloads use the source stem for safe and warning results', (t) => {
+  const nodes = fakeDom();
+  state.markdown = '# Safe result';
+  state.warningMarkdown = '# Warning result';
+  state.warningDownloadEligible = true;
+  const originalBlob = global.Blob;
+  const originalUrl = global.URL;
+  global.Blob = class {};
+  global.URL = { createObjectURL: () => 'blob:test', revokeObjectURL() {} };
+  t.after(() => { global.Blob = originalBlob; global.URL = originalUrl; });
+
+  state.sourceFilename = 'contrato.pdf';
+  assert.equal(app.download(), true);
+  assert.equal(app.downloadWithWarnings(), true);
+  assert.deepEqual(nodes.createdElements.filter(element => element.tagName === 'a')
+    .map(element => element.download), ['contrato-anonimused.md', 'contrato-anonimused.md']);
+
+  state.sourceFilename = 'informe.final.pdf';
+  assert.equal(app.download(), true);
+  assert.equal(nodes.createdElements.at(-1).download, 'informe.final-anonimused.md');
+
+  state.sourceFilename = '';
+  assert.equal(app.download(), true);
+  assert.equal(nodes.createdElements.at(-1).download, 'documento-anonimused.md');
+
+  state.sourceFilename = 'unsafe/path.pdf';
+  assert.equal(app.download(), true);
+  assert.equal(nodes.createdElements.at(-1).download, 'documento-anonimused.md');
+});
+
+test('server failures show a friendly message and are logged for diagnosis', async () => {
+  const nodes = fakeDom();
+  state.jobId = 'job';
+  const errors = [];
+  const originalError = console.error;
+  console.error = (...args) => errors.push(args);
+  try {
+    global.fetch = async () => ({ ok: false, json: async () => ({ error: 'NullPointerException: internal details' }) });
+    await app.apply();
+  } finally {
+    console.error = originalError;
+  }
+
+  assert.match(nodes.get('result-status').textContent, /No se pudo completar la anonimización/);
+  assert.doesNotMatch(nodes.get('result-status').textContent, /NullPointerException/);
+  assert.equal(errors.length, 1);
+  assert.match(String(errors[0][1]), /NullPointerException/);
 });
 
 test('a successful relevant retry replaces only its result error', async () => {
