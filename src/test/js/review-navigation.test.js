@@ -148,7 +148,7 @@ test('only the active multi-occurrence row renders local navigation that restore
 
   const personRow = [...document.querySelectorAll('[data-entity-key]')]
     .find(row => row.dataset.entityKey === 'person');
-  assert.equal(personRow.children[1].children[1].textContent, '2 apariciones');
+  assert.equal(personRow.children[1].children[2].textContent, '2 apariciones');
   let controls = controlsByTarget();
   assert.ok(controls['previous:person']);
   assert.ok(controls['next:person']);
@@ -279,7 +279,8 @@ test('pointer marker activation preserves filters and announces when its selecte
   assert.equal(state.rejected.has('person'), false);
   assert.equal(state.activeOccurrenceId, 'p1');
   assert.match(nodes.get('location-status').textContent, /no coincide con el filtro actual/);
-  assert.equal(nodes.get('entities').children.length, 0);
+  assert.equal(nodes.get('entities').children.length, 1);
+  assert.equal(nodes.get('entities').children[0].className, 'entity add-entity-row');
   assert.equal(controlsByTarget()['previous:person'], undefined);
   assert.equal(controlsByTarget()['next:person'], undefined);
   delete global.document;

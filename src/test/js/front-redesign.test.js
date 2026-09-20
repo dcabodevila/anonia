@@ -90,16 +90,30 @@ test('the workspace keeps Entidades fixed and exposes accessible main Documento 
   assert.match(css, /@media \(max-width: 850px\)[\s\S]*\.pane-main\.comparing\s+\.main-tabpanels\s*\{[\s\S]*grid-template-columns:\s*1fr/);
 });
 
+test('entity menu gives type and occurrence controls dedicated full-width rows', () => {
+  assert.match(css, /\.entity\.add-entity-row\s*\{[\s\S]*display:\s*block[\s\S]*width:\s*100%/);
+  assert.match(css, /\.add-entity-row\s+\.add-entity\s*\{[\s\S]*width:\s*100%[\s\S]*justify-content:\s*center[\s\S]*min-height:\s*(?:4[4-9]|[5-9]\d)px/);
+  assert.match(css, /\.entity\s*\{[\s\S]*display:\s*grid[\s\S]*grid-template-columns:\s*44px\s+minmax\(0,\s*1fr\)/);
+  assert.match(css, /\.entity-main\s*\{[\s\S]*grid-template-areas:\s*"value value"\s*"type type"[\s\S]*"meta locate"[\s\S]*"occurrence occurrence"/);
+  assert.match(css, /\.entity-value\s*\{[\s\S]*grid-area:\s*value[\s\S]*width:\s*100%/);
+  assert.match(css, /\.chip\s*\{[\s\S]*grid-area:\s*type[\s\S]*width:\s*100%/);
+  assert.match(css, /\.entities\s*\{[\s\S]*max-height:\s*min\(var\(--entity-list-viewport-max-height\),\s*calc\(var\(--entity-list-visible-rows\)\s*\*\s*var\(--entity-row-block-size\)\s*\+\s*var\(--entity-list-block-padding\)\)\)[\s\S]*overflow:\s*auto/);
+  assert.match(css, /--entity-list-viewport-max-height:\s*clamp\(14rem,\s*calc\(100dvh\s*-\s*440px\),\s*42rem\)/);
+  assert.match(css, /@media \(max-width:600px\)[\s\S]*--entity-list-viewport-max-height:\s*clamp\(16rem,\s*58dvh,\s*46rem\)/);
+  assert.doesNotMatch(css, /grid-template-areas:\s*"value meta locate"/);
+  assert.doesNotMatch(css, /grid-template-columns:\s*44px\s+minmax\(0,\s*1fr\)\s+minmax/);
+});
+
 test('viewport hardening keeps scroll regions usable and compact controls from overflowing', () => {
   assert.match(css, /\.doctext\s*\{[\s\S]*height:\s*clamp\(14rem,\s*calc\(100dvh\s*-\s*280px\),\s*62rem\)/);
-  assert.match(css, /\.entities\s*\{[\s\S]*max-height:\s*clamp\(10rem,\s*calc\(100dvh\s*-\s*525px\),\s*34rem\)/);
+  assert.match(css, /--entity-list-viewport-max-height:\s*clamp\(14rem,\s*calc\(100dvh\s*-\s*440px\),\s*42rem\)/);
   assert.match(css, /\.pane:focus-within\s*\{[\s\S]*overflow:\s*visible/);
   assert.match(css, /\.entity\s*\{[\s\S]*min-width:\s*0[\s\S]*max-width:\s*100%/);
   assert.match(css, /\.entity\s*>\s*\*\s*\{[\s\S]*min-width:\s*0/);
   assert.match(css, /select\.chip\s*\{[\s\S]*min-width:\s*0[\s\S]*max-width:\s*100%[\s\S]*flex-shrink:\s*1/);
   assert.match(css, /\.entity-locate\s*\{[\s\S]*min-inline-size:\s*44px/);
   assert.match(css, /#entity-controls \.stats\s*\{[\s\S]*max-inline-size:\s*100%/);
-  assert.match(css, /@media \(max-width: 1100px\)[\s\S]*\.entity\s*\{[\s\S]*grid-template-columns:\s*44px\s+minmax\(0,\s*1fr\)\s+minmax\(0,\s*min\(128px,\s*100%\)\)/);
+  assert.match(css, /@media \(max-width:1100px\)[\s\S]*\.entity\s*\{[\s\S]*grid-template-columns:\s*44px\s+minmax\(0,\s*1fr\)/);
   assert.match(css, /@media \(max-width: 680px\)[\s\S]*\.topbar\s*\{[\s\S]*flex-wrap:\s*wrap/);
   assert.match(css, /@media \(max-width: 680px\)[\s\S]*\.main-tabbar\s*\{[\s\S]*flex-wrap:\s*wrap/);
   assert.match(css, /@media \(max-width: 680px\)[\s\S]*\.entity-filters\s*\{[\s\S]*grid-template-columns:\s*1fr/);
@@ -179,6 +193,6 @@ test('inline entity editor fills its main track without inheriting checkbox sizi
   assert.match(editor, /min-width:\s*0/);
   assert.match(editor, /min-height:\s*44px/);
 
-  assert.match(css, /@media \(max-width: 1100px\)[\s\S]*\.entity\s*\{[\s\S]*grid-template-columns:\s*44px\s+minmax\(0,\s*1fr\)\s+minmax\(0,\s*min\(128px,\s*100%\)\)/);
-  assert.match(css, /@media \(min-width: 1101px\) and \(pointer: fine\)[\s\S]*\.entity\s*\{[\s\S]*grid-template-columns:\s*36px\s+minmax\(0,\s*1fr\)\s+minmax\(92px,\s*auto\)[\s\S]*\.entity\s*>\s*input\s*\{[^}]*inline-size:\s*36px[^}]*block-size:\s*36px/);
+  assert.match(css, /@media \(max-width:1100px\)[\s\S]*\.entity\s*\{[\s\S]*grid-template-columns:\s*44px\s+minmax\(0,\s*1fr\)/);
+  assert.match(css, /@media \(min-width:\s*1101px\) and \(pointer:\s*fine\)[\s\S]*\.entity\s*\{[\s\S]*grid-template-columns:\s*36px\s+minmax\(0,\s*1fr\)[\s\S]*\.entity\s*>\s*input\s*\{[^}]*inline-size:\s*36px[^}]*block-size:\s*36px/);
 });

@@ -13,6 +13,7 @@ beforeEach(() => {
   state.warningMarkdown = '';
   state.warningDownloadEligible = false;
   state.jobId = null;
+  state.manualEntityDraft = false;
   fixture('Maria  Garcia | Maria Garcia Lopez | Garcia', [
     ['a', 'PERSONA', 'Maria  Garcia', 'source'],
     ['b', 'PERSONA', 'Maria Garcia Lopez', 'source'],
@@ -174,7 +175,7 @@ test('collapsed retained spans count as one visible occurrence and edited meta k
   assert.deepEqual(state.detections.map(d => d.id), ['a', 'b']);
   assert.deepEqual(effectiveIds(), ['b']);
 
-  const meta = nodes.get('entities').children[0].children[1].children[1].textContent;
+  const meta = nodes.get('entities').children[1].children[1].children[2].textContent;
   assert.deepEqual([state.entities.get('codes').count, meta], [1, '1 aparición']);
 
   fixture('10812/10812 | 10812', [
@@ -267,7 +268,7 @@ function fakeDom() {
   const nodes = new Map();
   function node() {
     const classes = new Set();
-    return { classList: {
+    const element = { classList: {
       add(...names) { names.forEach(name => classes.add(name)); },
       remove(...names) { names.forEach(name => classes.delete(name)); },
       toggle(name, force) {
@@ -278,14 +279,29 @@ function fakeDom() {
       contains(name) { return classes.has(name); }
     }, style: {}, dataset: {}, attributes: {}, children: [],
       listeners: {}, append(...children) { this.children.push(...children); },
-      setAttribute(name, value) { this.attributes[name] = String(value); }, focus() {}, select() {}, click() {},
+      setAttribute(name, value) { this.attributes[name] = String(value); },
+      focus() { this.focused = (this.focused || 0) + 1; }, select() {},
+      click() { if (this.onclick) this.onclick(); },
       replaceWith(other) { this.replacement = other; },
       addEventListener(name, fn) { this.listeners[name] = fn; },
       querySelector() { return node(); } };
+    Object.defineProperty(element, 'innerHTML', {
+      get() { return ''; },
+      set() { this.children = []; }
+    });
+    return element;
   }
+  const descendants = root => root.children.flatMap(child =>
+    child && typeof child === 'object' ? [child, ...descendants(child)] : []);
   global.document = {
     getElementById(id) { if (!nodes.has(id)) nodes.set(id, node()); return nodes.get(id); },
-    createElement: node, createTextNode: value => value, querySelectorAll: () => []
+    createElement: node, createTextNode: value => value,
+    querySelectorAll(selector) {
+      const all = [...nodes.values()].flatMap(root => [root, ...descendants(root)]);
+      if (selector === '[data-focus-target]') return all.filter(element => element.dataset.focusTarget);
+      if (selector === '[data-entity-key]') return all.filter(element => element.dataset.entityKey);
+      return [];
+    }
   };
   global.getComputedStyle = () => ({ getPropertyValue: () => '' });
   return { node, nodes };
@@ -343,9 +359,9 @@ test('Enter then blur saves displayed occurrence once; independent checkbox and 
   input.listeners.blur();
   assert.deepEqual(state.edits, [['text', 'a', 'Maria']]);
   const rows = document.getElementById('entities').children;
-  const selectedRow = rows.find(row => row.children[1].children[0].textContent === 'Maria');
+  const selectedRow = rows.find(row => row.dataset.entityKey && row.children[1].children[0].textContent === 'Maria');
   assert.ok(selectedRow);
-  assert.equal(selectedRow.children[1].children[1].textContent, '1 aparición');
+  assert.equal(selectedRow.children[1].children[2].textContent, '1 aparición');
   selectedRow.children[0].listeners.change();
   assert.deepEqual(state.edits[1], ['reject', 'a', 'true']);
   assert.equal(state.rejected.has(key('b')), false);
@@ -386,12 +402,12 @@ test('rendering projects accepted outer once and reveals inner when rejected', (
   assert.equal(container.children.map(c => typeof c === 'string' ? c : c.textContent).join(''), state.text);
 });
 
-test('manual creation finds all eligible occurrences once and produces a CODIGO review operation', () => {
+test('manual creation finds all eligible occurrences once and defaults to TEXTO', () => {
   fixture('REF-1 | REF-1 | REF-12', []);
 
   assert.equal(app.addManualEntity('REF-1'), true);
   assert.deepEqual(state.detections.map(detection => [detection.id, detection.type, detection.start, detection.end]), [
-    ['manual:1', 'CODIGO', 0, 5], ['manual:1:8:13', 'CODIGO', 8, 13]
+    ['manual:1', 'TEXTO', 0, 5], ['manual:1:8:13', 'TEXTO', 8, 13]
   ]);
   assert.equal(state.entities.get('manual:1').count, 2);
   assert.equal(app.reviewBody(), 'review-v1\nadd\tmanual%3A1\tREF-1');
@@ -424,29 +440,93 @@ test('manual creation uses the same Unicode digit boundary as server exact occur
   assert.deepEqual(state.detections.map(detection => [detection.start, detection.end]), [[10, 15]]);
 });
 
-test('manual draft defaults to CODIGO, commits once on Enter then blur, and reports no source match', () => {
+test('manual add row leads the list, keeps blur inert, and commits once through Save or Enter with focus', () => {
   const { nodes } = fakeDom();
   fixture('REF-1 | REF-1', []);
 
-  app.startManualEntity();
-  const draft = nodes.get('entities').children.at(-1);
-  const input = draft.children[0].children[0];
-  assert.equal(draft.children[1].textContent, 'CODIGO');
+  app.renderEntities();
+  let row = nodes.get('entities').children[0];
+  assert.equal(row.className, 'entity add-entity-row');
+  assert.equal(row.children.length, 1);
+  assert.equal(row.children[0].textContent, 'Añadir entidad anonimizar');
+  assert.equal(row.children[0].attributes['aria-label'], 'Añadir entidad anonimizar');
+
+  row.children[0].click();
+  row = nodes.get('entities').children[0];
+  const main = row.children[0];
+  const input = main.children[0];
+  const save = main.children[2];
+  assert.equal(row.className, 'entity add-entity-row active');
+  assert.equal(main.style.gridColumn, '1 / -1');
+  assert.equal(input.attributes['aria-label'], 'Texto a anonimizar; Enter guarda, Escape cancela');
+  assert.equal(save.textContent, 'Guardar');
+
   input.value = 'REF-1';
-  input.listeners.keydown({ key: 'Enter', preventDefault() {} });
-  input.listeners.blur();
+  assert.equal(input.listeners.blur, undefined);
+  assert.equal(state.edits.length, 0);
+  assert.equal(nodes.get('entities').children[0], row);
+
+  save.listeners.click();
+  save.listeners.click();
   assert.equal(state.edits.length, 1);
   assert.equal(state.detections.length, 2);
+  const created = nodes.get('entities').children[1];
+  assert.equal(created.children[1].children[0].focused, 1);
 
   app.startManualEntity();
-  const unmatched = nodes.get('entities').children.at(-1).children[0].children[0];
-  unmatched.value = 'AUSENTE';
-  unmatched.listeners.blur();
-  assert.equal(document.getElementById('error').textContent, 'Ningún elemento encontrado');
-  assert.equal(state.detections.length, 2);
+  const enterInput = nodes.get('entities').children[0].children[0].children[0];
+  enterInput.value = 'REF-1';
+  enterInput.listeners.keydown({ key: 'Enter', preventDefault() {} });
+  enterInput.listeners.keydown({ key: 'Enter', preventDefault() {} });
+  assert.equal(state.edits.length, 1);
+
+  app.startManualEntity();
+  const cancelInput = nodes.get('entities').children[0].children[0].children[0];
+  cancelInput.listeners.keydown({ key: 'Escape', preventDefault() {} });
+  assert.equal(nodes.get('entities').children[0].className, 'entity add-entity-row');
+  assert.equal(state.edits.length, 1);
 });
 
-test('backend-provided CODIGO is a selectable manual classification', async () => {
+function detachLegacyAddButtonAfterItsFirstRender() {
+  const legacyButton = document.getElementById('add-entity');
+  const getElementById = document.getElementById.bind(document);
+  let attached = true;
+  document.getElementById = id => {
+    if (id !== 'add-entity') return getElementById(id);
+    const button = attached ? legacyButton : null;
+    attached = false;
+    return button;
+  };
+}
+
+test('manual add remains render-safe after its toolbar button is reparented', () => {
+  const { nodes } = fakeDom();
+  detachLegacyAddButtonAfterItsFirstRender();
+  fixture('REF-1', []);
+
+  app.renderEntities();
+  const addButton = nodes.get('entities').children[0].children[0];
+
+  assert.doesNotThrow(() => addButton.click());
+  assert.equal(nodes.get('entities').children[0].className, 'entity add-entity-row active');
+  assert.doesNotThrow(() => app.renderEntities());
+});
+
+test('a second successful analysis does not report a false connection error after the add row renders', async () => {
+  const { nodes } = fakeDom();
+  detachLegacyAddButtonAfterItsFirstRender();
+  global.fetch = async () => ({ ok: true, json: async () => ({
+    jobId: 'replacement', text: '', pageCount: 1, elapsedMs: 1, types: [], detections: []
+  }) });
+
+  await app.analyze({ name: 'first.pdf' });
+  await app.analyze({ name: 'replacement.pdf' });
+
+  assert.equal(nodes.get('error').classList.contains('hidden'), true);
+  assert.equal(nodes.get('workspace').classList.contains('hidden'), false);
+});
+
+test('TEXTO is available once in filters and entity chips when analysis omits it', async () => {
   const { nodes } = fakeDom();
   global.fetch = async () => ({ ok: true, json: async () => ({
     jobId: 'code-review', text: 'Maria Garcia', pageCount: 1, elapsedMs: 1,
@@ -456,8 +536,11 @@ test('backend-provided CODIGO is a selectable manual classification', async () =
 
   await app.analyze('document');
 
-  const chip = nodes.get('entities').children[0].children[2];
-  assert.deepEqual(chip.children.map(option => option.value), ['PERSONA', 'CODIGO']);
+  assert.deepEqual(state.types, ['PERSONA', 'CODIGO', 'TEXTO']);
+  const filter = nodes.get('entity-type-filter');
+  assert.deepEqual(filter.children.map(option => option.value), ['PERSONA', 'CODIGO', 'TEXTO']);
+  const chip = nodes.get('entities').children[1].children[1].children[1];
+  assert.deepEqual(chip.children.map(option => option.value), ['PERSONA', 'CODIGO', 'TEXTO']);
   chip.value = 'CODIGO';
   chip.listeners.change();
   assert.equal(detection('person-1').type, 'CODIGO');

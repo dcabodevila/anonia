@@ -22,7 +22,7 @@ const state = {
   types: [], edits: [], revision: 0, analysisRequest: 0, applyRequest: 0, copyRequest: 0,
   activeTab: 'document', comparing: false,
   entitySearch: '', entityTypeFilter: '', activeEntityKey: null, activeOccurrenceId: null,
-  lastNavigationWrapped: false, focusTarget: null
+  lastNavigationWrapped: false, focusTarget: null, manualEntityDraft: false
 };
 
 const el = (id) => document.getElementById(id);
@@ -55,7 +55,6 @@ function init() {
   });
 
   el('apply').addEventListener('click', apply);
-  el('add-entity').addEventListener('click', startManualEntity);
   el('download').addEventListener('click', download);
   el('warning-download').addEventListener('click', downloadWithWarnings);
   el('copy').addEventListener('click', copyMarkdown);
@@ -100,7 +99,7 @@ async function analyze(file) {
     state.jobId = data.jobId;
     state.text = data.text;
     state.detections = data.detections;
-    state.types = data.types;
+    state.types = [...new Set([...data.types, 'TEXTO'])];
     state.edits = [];
     state.rejected = new Set();
     state.entitySearch = '';
@@ -108,6 +107,7 @@ async function analyze(file) {
     state.activeEntityKey = null;
     state.activeOccurrenceId = null;
     state.lastNavigationWrapped = false;
+    state.manualEntityDraft = false;
     state.markdown = '';
     groupEntities();
 
@@ -239,10 +239,91 @@ function renderEntityFilters() {
   el('entity-search').value = state.entitySearch;
 }
 
+function createManualEntityAddButton() {
+  const addButton = document.createElement('button');
+  addButton.className = 'add-entity';
+  addButton.type = 'button';
+  addButton.textContent = 'Añadir entidad anonimizar';
+  addButton.onclick = startManualEntity;
+  addButton.setAttribute('aria-label', 'Añadir entidad anonimizar');
+  addButton.setAttribute('title', 'Añadir entidad anonimizar');
+  const icon = document.createElement('svg');
+  icon.setAttribute('viewBox', '0 0 24 24');
+  icon.setAttribute('aria-hidden', 'true');
+  const path = document.createElement('path');
+  path.setAttribute('d', 'M12 5v14M5 12h14');
+  icon.append(path);
+  addButton.append(icon);
+  return addButton;
+}
+
+function renderManualEntityAddRow() {
+  const row = document.createElement('div');
+  row.className = 'entity add-entity-row' + (state.manualEntityDraft ? ' active' : '');
+
+  if (!state.manualEntityDraft) {
+    const addButton = createManualEntityAddButton();
+    row.append(addButton);
+    return row;
+  }
+
+  const main = document.createElement('div');
+  main.className = 'entity-main';
+  main.style.gridColumn = '1 / -1';
+  const input = document.createElement('input');
+  input.className = 'entity-editor';
+  input.placeholder = 'Texto a anonimizar';
+  input.setAttribute('aria-label', 'Texto a anonimizar; Enter guarda, Escape cancela');
+  const meta = document.createElement('div');
+  meta.className = 'entity-meta';
+  meta.textContent = 'TEXTO. Se añadirán todas las apariciones exactas.';
+  const save = document.createElement('button');
+  save.type = 'button';
+  save.className = 'primary';
+  save.textContent = 'Guardar';
+  save.setAttribute('aria-label', 'Guardar entidad manual');
+  main.append(input, meta, save);
+  row.append(main);
+
+  let finished = false;
+  const finish = saveDraft => {
+    if (finished) return;
+    if (!saveDraft) {
+      finished = true;
+      state.manualEntityDraft = false;
+      renderEntities();
+      return;
+    }
+    const editCount = state.edits.length;
+    if (!addManualEntity(input.value)) {
+      if (normalize(input.value)) showError('Ningún elemento encontrado');
+      return;
+    }
+    finished = true;
+    state.manualEntityDraft = false;
+    const add = state.edits.length > editCount ? state.edits.at(-1) : state.edits
+      .find(([action, , value]) => action === 'add' && value === normalize(input.value));
+    state.focusTarget = add ? 'edit:' + add[1] : null;
+    showError(null);
+    refreshReview();
+  };
+  save.addEventListener('click', () => finish(true));
+  input.addEventListener('keydown', event => {
+    if (event.isComposing) return;
+    if (event.key === 'Enter' || event.key === 'Escape') {
+      event.preventDefault();
+      finish(event.key === 'Enter');
+    }
+  });
+  input.focus();
+  return row;
+}
+
 function renderEntities() {
   renderEntityFilters();
   const container = el('entities');
   container.innerHTML = '';
+  container.append(renderManualEntityAddRow());
   const sorted = filteredEntities();
 
   for (const [entityKey, entity] of sorted) {
@@ -276,6 +357,24 @@ function renderEntities() {
     value.title = 'Editar texto: ' + entity.best;
     value.addEventListener('click', () => editInline(value, entityKey));
 
+    const chip = document.createElement('select');
+    chip.className = 'chip';
+    chip.dataset.focusTarget = 'type:' + entityKey;
+    chip.setAttribute('aria-label', 'Tipo de ' + normalize(entity.best));
+    for (const type of state.types) {
+      const option = document.createElement('option');
+      option.value = type;
+      option.textContent = type;
+      option.selected = type === entity.type;
+      chip.append(option);
+    }
+    chip.style.color = colorOf(entity.type);
+    chip.addEventListener('change', () => {
+      state.focusTarget = chip.dataset.focusTarget;
+      changeType(entityKey, chip.value);
+      refreshReview();
+    });
+
     const meta = document.createElement('div');
     meta.className = 'entity-meta';
     const occurrenceCount = occurrenceIds(entityKey).length;
@@ -297,7 +396,7 @@ function renderEntities() {
       selectEntityLocation(entityKey);
       refreshLocation();
     });
-    main.append(value, meta);
+    main.append(value, chip, meta);
     if (discarded) main.append(discarded);
     main.append(locate);
     if (active && occurrenceCount > 1) {
@@ -320,31 +419,10 @@ function renderEntities() {
       main.append(occurrenceActions);
     }
 
-    const chip = document.createElement('select');
-    chip.className = 'chip';
-    chip.dataset.focusTarget = 'type:' + entityKey;
-    chip.setAttribute('aria-label', 'Tipo de ' + normalize(entity.best));
-    for (const type of state.types) {
-      const option = document.createElement('option');
-      option.value = type;
-      option.textContent = type;
-      option.selected = type === entity.type;
-      chip.append(option);
-    }
-    chip.style.color = colorOf(entity.type);
-    chip.addEventListener('change', () => {
-      state.focusTarget = chip.dataset.focusTarget;
-      changeType(entityKey, chip.value);
-      refreshReview();
-    });
-
-    row.append(checkbox, main, chip);
+    row.append(checkbox, main);
     container.append(row);
   }
 
-  if (sorted.length === 0) {
-    container.innerHTML = '<p class="entity-meta">No hay entidades que coincidan con los filtros.</p>';
-  }
 }
 
 function activeEntityIsFiltered() {
@@ -608,7 +686,7 @@ function addManualEntity(input) {
   ranges.forEach(([start, end], index) => {
     const detectionId = index === 0 ? id : id + ':' + start + ':' + end;
     state.detections.push({
-      id: detectionId, type: 'CODIGO', start, end, entityKey: id,
+      id: detectionId, type: 'TEXTO', start, end, entityKey: id,
       provenance: 'MANUAL', confidence: 1
     });
     state.originals.set(detectionId, Object.freeze({ start, end }));
@@ -619,48 +697,9 @@ function addManualEntity(input) {
 }
 
 function startManualEntity() {
-  const container = el('entities');
-  const row = document.createElement('div');
-  row.className = 'entity';
-  const main = document.createElement('div');
-  main.className = 'entity-main';
-  const input = document.createElement('input');
-  input.className = 'entity-editor';
-  input.placeholder = 'Texto a anonimizar';
-  input.setAttribute('aria-label', 'Texto a anonimizar; Enter guarda, Escape cancela');
-  const meta = document.createElement('div');
-  meta.className = 'entity-meta';
-  meta.textContent = 'Se añadirán todas las apariciones exactas.';
-  main.append(input, meta);
-  const type = document.createElement('span');
-  type.className = 'chip';
-  type.textContent = 'CODIGO';
-  type.setAttribute('aria-label', 'Tipo predeterminado: CODIGO');
-  type.style.color = colorOf('CODIGO');
-  row.append(main, type);
-  container.append(row);
-
-  let finished = false;
-  const finish = save => {
-    if (finished) return;
-    finished = true;
-    if (save && addManualEntity(input.value)) {
-      showError(null);
-      refreshReview();
-      return;
-    }
-    if (save && normalize(input.value)) showError('Ningún elemento encontrado');
-    renderEntities();
-  };
-  input.addEventListener('blur', () => finish(true));
-  input.addEventListener('keydown', event => {
-    if (event.isComposing) return;
-    if (event.key === 'Enter' || event.key === 'Escape') {
-      event.preventDefault();
-      finish(event.key === 'Enter');
-    }
-  });
-  input.focus();
+  if (state.manualEntityDraft) return;
+  state.manualEntityDraft = true;
+  renderEntities();
 }
 
 function editInline(button, key) {
