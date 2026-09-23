@@ -36,6 +36,20 @@ class ReviewEditsTest {
         return pipeline.complete(input, ReviewEdits.replay(input, "review-v1\n" + String.join("\n", operations)));
     }
 
+    @Test void capitalizationVariantsRejectTogetherButTextEditsRemainSourceSpecific() {
+        String text = "MARIA GARCIA | Maria Garcia | Maria Garcia Lopez";
+        var input = analysis(text,
+                at(text, "a", DetectionType.PERSON, "MARIA GARCIA", "person", 0),
+                at(text, "b", DetectionType.PERSON, "Maria Garcia", "person", 0),
+                at(text, "c", DetectionType.PERSON, "Maria Garcia Lopez", "person", 0));
+        assertEquals(List.of("c"), ids(apply(input, "reject\ta\ttrue")));
+        var edited = apply(input, edit("a", "GARCIA"));
+        assertEquals(List.of("GARCIA", "Maria Garcia", "Maria Garcia Lopez"),
+                edited.stream().map(Detection::value).toList());
+        assertEquals(edited.get(0).entityKey(), edited.get(1).entityKey());
+        assertNotEquals(edited.get(0).entityKey(), edited.get(2).entityKey());
+    }
+
     @Test void rejectedHiddenPersonDoesNotBlockPipelineExport() {
         String expand = edit("a", "Calle Maria Garcia");
         for (String[] operations : List.of(new String[]{expand, "reject\tp\ttrue"},

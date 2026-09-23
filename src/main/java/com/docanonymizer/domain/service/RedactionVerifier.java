@@ -146,8 +146,8 @@ public final class RedactionVerifier {
             for (String token : NamePolicy.significantTokens(fullName)) {
                 if (!TextFolding.findWholeWordOccurrences(markdown, token).isEmpty()) {
                     findings.add(Finding.blocking(C3,
-                            "un token de PERSONA (entidad " + identifier.of(entityKey)
-                                    + ") sigue apareciendo suelto: la propagacion no lo cubrio"));
+                            "un fragmento de nombre de una entidad aceptada (entidad " + identifier.of(entityKey)
+                                    + ") permanece en el resultado; revise las sustituciones antes de entregarlo"));
                 }
             }
         });

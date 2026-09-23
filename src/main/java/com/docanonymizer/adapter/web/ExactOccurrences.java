@@ -5,6 +5,7 @@ import com.docanonymizer.domain.service.AnonymizationPipeline;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -50,7 +51,7 @@ final class ExactOccurrences {
         detections.forEach(detection -> entityKeys.add(detection.entityKey()));
         java.util.Map<String, String> groups = new java.util.LinkedHashMap<>();
         for (Detection detection : detections) {
-            String sourceValue = detection.entityKey() + "\u0000" + normalize(detection.value());
+            String sourceValue = detection.entityKey() + "\u0000" + normalize(detection.value()).toLowerCase(Locale.ROOT);
             String key = groups.get(sourceValue);
             if (key == null) {
                 key = detection.entityKey();

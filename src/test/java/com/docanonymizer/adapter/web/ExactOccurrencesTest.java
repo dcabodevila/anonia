@@ -28,6 +28,17 @@ class ExactOccurrencesTest {
         assertEquals(expanded.candidates(), ExactOccurrences.expand(expanded).candidates());
     }
 
+    @Test void capitalizationVariantsShareReviewIdentityWithoutMergingDifferentNames() {
+        String text = "MARIA GARCIA | Maria Garcia | Maria Garcia Lopez";
+        var analysis = new AnonymizationPipeline.Analysis(text, List.of(
+                detection(text, "a", DetectionType.PERSON, "MARIA GARCIA", "person", 0),
+                detection(text, "b", DetectionType.PERSON, "Maria Garcia", "person", 0),
+                detection(text, "c", DetectionType.PERSON, "Maria Garcia Lopez", "person", 0)), "hash", 1);
+        var expanded = ExactOccurrences.expand(analysis).candidates();
+        assertEquals(expanded.get(0).entityKey(), expanded.get(1).entityKey());
+        assertNotEquals(expanded.get(0).entityKey(), expanded.get(2).entityKey());
+    }
+
     @Test void preservesAnExplicitDifferentTypeAtTheSameExactRange() {
         String text = "10812 | 10812";
         var analysis = new AnonymizationPipeline.Analysis(text, List.of(

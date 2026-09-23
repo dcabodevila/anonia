@@ -11,6 +11,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Pattern;
 
@@ -40,7 +41,7 @@ final class ReviewEdits {
         var entityKeys = new java.util.HashSet<String>();
         analysis.candidates().forEach(d -> entityKeys.add(d.entityKey()));
         for (Detection candidate : analysis.candidates()) {
-            String sourceValue = candidate.entityKey() + "\u0000" + normalize(candidate.value());
+            String sourceValue = candidate.entityKey() + "\u0000" + normalize(candidate.value()).toLowerCase(Locale.ROOT);
             String key = sourceValueGroups.get(sourceValue);
             if (key == null) {
                 key = candidate.entityKey();

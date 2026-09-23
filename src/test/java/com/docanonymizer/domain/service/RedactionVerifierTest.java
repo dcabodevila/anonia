@@ -30,6 +30,32 @@ class RedactionVerifierTest {
     }
 
     @Test
+    void explicitRejectedPersonDoesNotTriggerC3ButAcceptedPersonStillDoes() {
+        Detection rejected = person("Maria Garcia Lopez");
+        Detection accepted = new Detection("accepted", DetectionType.PERSON, 30, 46,
+                "Ana Torres Ruiz", "accepted-key", Provenance.REGEX, .9);
+        var report = verifier.verify("[PERSONA_001] y Garcia", List.of(), Map.of(),
+                List.of(rejected), java.util.Set.of(rejected.id()));
+        assertFalse(hasControl(report, "C3-TOKENS-DE-NOMBRE"));
+        var acceptedReport = verifier.verify("[PERSONA_002] y Torres", List.of(accepted),
+                Map.of("accepted-key", "[PERSONA_002]"), List.of(rejected, accepted),
+                java.util.Set.of(rejected.id()));
+        assertTrue(hasControl(acceptedReport, "C3-TOKENS-DE-NOMBRE"));
+        assertTrue(acceptedReport.blocking().stream().filter(f -> f.control().equals("C3-TOKENS-DE-NOMBRE"))
+                .allMatch(f -> f.detail().contains("aceptada") && !f.detail().contains("Torres")));
+    }
+
+    @Test
+    void rejectedPersonAbsorbedByAcceptedAddressDoesNotTriggerC3() {
+        Detection rejected = person("Maria Garcia Lopez");
+        Detection address = new Detection("address", DetectionType.ADDRESS, 0, 25,
+                "Maria Garcia Lopez calle", "address", Provenance.REGEX, .9);
+        var report = verifier.verify("[DIRECCION_001] y Garcia", List.of(address),
+                Map.of("address", "[DIRECCION_001]"), List.of(rejected), java.util.Set.of(rejected.id()));
+        assertFalse(hasControl(report, "C3-TOKENS-DE-NOMBRE"));
+    }
+
+    @Test
     void retainsPersonTokenChecksAfterTypeChange() {
         Detection original = person("Maria Garcia Lopez");
         Detection edited = new Detection(original.id(), DetectionType.EMAIL, original.start(),
