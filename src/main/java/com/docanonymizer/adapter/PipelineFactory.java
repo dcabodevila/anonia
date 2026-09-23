@@ -5,9 +5,13 @@ import com.docanonymizer.adapter.detector.CustomerReferenceDetector;
 import com.docanonymizer.adapter.detector.DeterministicDetectors;
 import com.docanonymizer.adapter.detector.GazetteerPersonDetector;
 import com.docanonymizer.adapter.detector.LiteralOrganizationDetector;
+import com.docanonymizer.adapter.detector.LiteralRuleDetector;
 import com.docanonymizer.adapter.detector.PostalCodeDetector;
 import com.docanonymizer.adapter.detector.StructuralPersonDetector;
 import com.docanonymizer.adapter.gazetteer.ResourceGazetteer;
+import com.docanonymizer.adapter.gazetteer.UserRules;
+import com.docanonymizer.domain.port.GazetteerPort;
+import com.docanonymizer.domain.service.CanonicalForm;
 import com.docanonymizer.adapter.ocr.LocalDocumentTextExtractor;
 import com.docanonymizer.adapter.review.AutoAcceptReview;
 import com.docanonymizer.domain.port.DetectorPort;
@@ -51,8 +55,20 @@ public final class PipelineFactory {
         detectors.add(new PostalCodeDetector());
         detectors.add(new AddressDetector());
         detectors.add(new StructuralPersonDetector());
-        detectors.add(new GazetteerPersonDetector(new ResourceGazetteer()));
-        detectors.add(new LiteralOrganizationDetector(List.of("Banco Pastor", "Banco Popular")));
+        UserRules rules = UserRules.loadDefault();
+        ResourceGazetteer defaults = new ResourceGazetteer();
+        var names = rules.people().stream().map(CanonicalForm::forCompare).collect(java.util.stream.Collectors.toSet());
+        GazetteerPort gazetteer = new GazetteerPort() {
+            @Override public boolean isGivenName(String token) {
+                return defaults.isGivenName(token) || names.contains(CanonicalForm.forCompare(token));
+            }
+            @Override public int size() { return defaults.size() + names.size(); }
+        };
+        detectors.add(new GazetteerPersonDetector(gazetteer));
+        List<String> organizations = new ArrayList<>(List.of("Banco Pastor", "Banco Popular"));
+        organizations.addAll(rules.organizations());
+        detectors.add(new LiteralOrganizationDetector(organizations));
+        detectors.add(new LiteralRuleDetector(rules.terms()));
         return List.copyOf(detectors);
     }
 }

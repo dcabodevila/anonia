@@ -1,6 +1,10 @@
 package com.docanonymizer.adapter;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.docanonymizer.domain.model.DetectionType;
+import com.docanonymizer.domain.service.DetectionEngine;
 
 import com.docanonymizer.domain.service.AnonymizationPipeline;
 import java.awt.image.BufferedImage;
@@ -17,6 +21,73 @@ class PipelineFactoryTest {
 
     @TempDir
     Path temporaryDirectory;
+
+    @Test
+    void customTermIsOptInAndPreservesExactSpan() throws Exception {
+        Path rules = temporaryDirectory.resolve("rules.txt");
+        Files.writeString(rules, "term: Oposición\n");
+        String previous = System.getProperty("doc.anonymizer.rules");
+        try {
+            System.setProperty("doc.anonymizer.rules", rules.toString());
+            String text = "La Oposición y preOposición";
+            var found = new DetectionEngine(PipelineFactory.defaultDetectors()).detect(text);
+            assertTrue(found.stream().anyMatch(d -> d.type() == DetectionType.TERM
+                    && d.value().equals("Oposición") && d.start() == 3 && d.end() == 12));
+            assertTrue(found.stream().noneMatch(d -> d.value().equals("preOposición")));
+        } finally {
+            if (previous == null) System.clearProperty("doc.anonymizer.rules");
+            else System.setProperty("doc.anonymizer.rules", previous);
+        }
+    }
+
+    @Test
+    void legalWordsAreNotDefaultEntityCandidates() throws Exception {
+        Path rules = temporaryDirectory.resolve("empty-rules.txt");
+        Files.writeString(rules, "");
+        String previous = System.getProperty("doc.anonymizer.rules");
+        try {
+            System.setProperty("doc.anonymizer.rules", rules.toString());
+            String text = "Oposición oposición INSTANCIA Instancia primera instancia Audiencia Juzgado Fecha";
+            var found = new DetectionEngine(PipelineFactory.defaultDetectors()).detect(text);
+            assertTrue(found.isEmpty(), () -> "Unexpected default candidates: " + found);
+        } finally {
+            if (previous == null) System.clearProperty("doc.anonymizer.rules");
+            else System.setProperty("doc.anonymizer.rules", previous);
+        }
+    }
+
+    @Test
+    void customRulesAreAdditiveAndIsolatedBetweenPipelines() throws Exception {
+        Path rules = temporaryDirectory.resolve("rules.txt");
+        Files.writeString(rules, "person: Íñigo\norganization: Banco Santander\n"
+                + "term: Oposición\nterm: INSTANCIA\nterm: primera\nterm: Audiencia\n"
+                + "term: Juzgado\nterm: Fecha\n");
+        String previous = System.getProperty("doc.anonymizer.rules");
+        String text = "Íñigo García Pérez; Banco Santander; Banco Pastor; "
+                + "Oposición INSTANCIA primera Audiencia Juzgado Fecha; Santanderismo";
+        try {
+            System.setProperty("doc.anonymizer.rules", rules.toString());
+            var configured = new DetectionEngine(PipelineFactory.defaultDetectors());
+            Files.writeString(rules, "# changed after construction\n");
+            var found = configured.detect(text);
+            assertTrue(found.stream().anyMatch(d -> d.type() == DetectionType.PERSON
+                    && d.value().equals("Íñigo García Pérez")));
+            assertTrue(found.stream().anyMatch(d -> d.type() == DetectionType.ORGANIZATION
+                    && d.value().equals("Banco Santander")));
+            assertTrue(found.stream().anyMatch(d -> d.type() == DetectionType.ORGANIZATION
+                    && d.value().equals("Banco Pastor")));
+            for (String term : java.util.List.of("Oposición", "INSTANCIA", "primera", "Audiencia", "Juzgado", "Fecha")) {
+                assertTrue(found.stream().anyMatch(d -> d.type() == DetectionType.TERM
+                        && d.value().equals(term)), term);
+            }
+            assertTrue(new DetectionEngine(PipelineFactory.defaultDetectors()).detect(text).stream()
+                    .noneMatch(d -> d.type() == DetectionType.TERM
+                            || d.value().equals("Banco Santander")));
+        } finally {
+            if (previous == null) System.clearProperty("doc.anonymizer.rules");
+            else System.setProperty("doc.anonymizer.rules", previous);
+        }
+    }
 
     @Test
     void routesPngPhotosThroughLocalSpanishOcr() throws Exception {

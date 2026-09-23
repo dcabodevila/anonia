@@ -67,6 +67,30 @@ Produce `ejemplo.anon.md` (el documento) y `ejemplo.report.md` (informe técnico
 | `--show-detections` | Lista las detecciones por consola. **Muestra datos personales en claro**; es el sustituto de la interfaz de revisión, no un modo de diagnóstico |
 | `--dry-run` | Procesa y verifica sin escribir nada |
 
+### Reglas locales de detección
+
+Cree manualmente el archivo UTF-8 `~/.doc-anonymizer/rules.txt` (no se crea automáticamente),
+o indique otra ruta al iniciar Java con `-Ddoc.anonymizer.rules=/ruta/rules.txt`.
+El archivo se lee una vez al construir el pipeline web o CLI; reinicie la aplicación
+tras editarlo. Si se indica una ruta explícita inexistente o ilegible, el arranque falla
+con la ruta; una línea mal formada informa también su número.
+
+```text
+# Las líneas vacías y los comentarios completos se ignoran.
+person: Íñigo
+organization: Banco Santander
+term: Oposición
+term: INSTANCIA
+```
+
+Una regla por línea: clave minúscula exacta `person`, `organization` o `term`, dos puntos,
+un espacio y valor no vacío. `person` añade un nombre de pila al diccionario para detectar
+nombres completos con apellidos; `organization` y `term` detectan frases literales completas
+sin coincidir dentro de palabras. Se ignoran diferencias entre mayúsculas y minúsculas;
+los espacios entre palabras pueden variar. Los términos explícitos reciben `[TERMINO_###]`,
+las organizaciones `[ORGANIZACION_###]`. Sin archivo se mantienen solo las reglas incluidas.
+Las reglas no desactivan otras detecciones, y la revisión existente sigue disponible.
+
 ### OCR local para fotos JPEG/PNG
 
 Los instaladores Windows nuevos no incluyen ni redistribuyen Tesseract, sus DLL ni el modelo
