@@ -76,6 +76,23 @@ test('blocked findings still display the partial anonymized text and keep warnin
   assert.equal(app.downloadWithWarnings(), true);
 });
 
+test('blocked preview offers explicit risky copy without enabling safe download', async () => {
+  const nodes = fakeDom();
+  state.jobId = 'job';
+  global.fetch = async () => ({ ok: true, json: async () => ({
+    deliverable: false, markdown: '# Resultado parcial', findings: [{ control: 'C3', detail: 'Riesgo' }]
+  }) });
+  await app.apply();
+  assert.equal(nodes.get('download').disabled, true);
+  assert.equal(nodes.get('copy').disabled, false);
+  assert.match(nodes.get('copy-label').textContent, /riesgo/i);
+  assert.match(nodes.get('warning-note').textContent, /copiar/i);
+  let copied;
+  global.navigator = { clipboard: { writeText: async value => { copied = value; } } };
+  await app.copyMarkdown();
+  assert.equal(copied, '# Resultado parcial');
+});
+
 test('analyzing a file retains its source filename for later downloads', async () => {
   fakeDom();
   global.fetch = async () => ({ ok: true, json: async () => ({

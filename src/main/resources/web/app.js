@@ -33,6 +33,7 @@ function init() {
   const dropzone = el('dropzone');
   const fileInput = el('file');
 
+  el('brand-home').addEventListener('click', goHome);
   el('browse').addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', () => {
     if (fileInput.files.length) analyze(fileInput.files[0]);
@@ -125,6 +126,36 @@ async function analyze(file) {
   } finally {
     if (request === state.analysisRequest) el('loading').classList.add('hidden');
   }
+}
+
+function goHome() {
+  ++state.analysisRequest;
+  invalidateResult();
+  state.jobId = null;
+  state.sourceFilename = null;
+  state.text = '';
+  state.detections = [];
+  state.entities = new Map();
+  state.rejected = new Set();
+  state.types = [];
+  state.edits = [];
+  state.entitySearch = '';
+  state.entityTypeFilter = '';
+  state.activeEntityKey = null;
+  state.activeOccurrenceId = null;
+  state.manualEntityDraft = false;
+  state.focusTarget = null;
+  el('file').value = '';
+  el('doctext').textContent = '';
+  el('entities').textContent = '';
+  el('stats').textContent = '';
+  el('entity-search').value = '';
+  el('entity-type-filter').value = '';
+  el('toast-region').textContent = '';
+  el('workspace').classList.add('hidden');
+  el('loading').classList.add('hidden');
+  showError(null);
+  resetDropzone();
 }
 
 function resetDropzone() {
@@ -940,9 +971,10 @@ function renderResult(data, hasResult) {
     ? previewMarkdown(data.markdown)
     : 'ANONIMIZACIÓN BLOQUEADA: el resultado no se entrega.\n\n'
       + 'Revisa el estado del resultado para conocer el control que falló.';
-  el('warning-note').textContent = 'Este archivo puede contener datos personales residuales. Descárgalo solo si aceptas ese riesgo.';
+  el('warning-note').textContent = 'Este resultado puede contener datos personales residuales. Descargar o copiar implica aceptar ese riesgo; no es seguro para entregar.';
   el('download').disabled = !deliverable;
-  el('copy').disabled = !deliverable;
+  el('copy').disabled = !deliverable && !state.warningDownloadEligible;
+  el('copy-label').textContent = state.warningDownloadEligible ? 'Copiar con riesgo' : 'Copiar';
   el('warning-download').disabled = !state.warningDownloadEligible;
   el('warning-download').classList.toggle('hidden', !state.warningDownloadEligible);
   el('warning-note').classList.toggle('hidden', !state.warningDownloadEligible);
@@ -1002,6 +1034,7 @@ function resetResultPanels() {
   el('warning-download').classList.add('hidden');
   el('warning-note').classList.add('hidden');
   el('copy').disabled = true;
+  el('copy-label').textContent = 'Copiar';
 }
 
 // -------------------------------------------------------------------- misc
@@ -1121,23 +1154,28 @@ function downloadWithWarnings() {
 }
 
 async function copyMarkdown() {
-  if (!state.markdown) return;
+  const warning = state.warningDownloadEligible && !!state.warningMarkdown;
+  const markdown = warning ? state.warningMarkdown : state.markdown;
+  if (!markdown) return;
   const revision = state.revision;
-  const markdown = state.markdown;
   const request = ++state.copyRequest;
   const current = () => revision === state.revision
-    && markdown === state.markdown && request === state.copyRequest;
+    && markdown === (warning ? state.warningMarkdown : state.markdown)
+    && warning === (state.warningDownloadEligible && !!state.warningMarkdown)
+    && request === state.copyRequest;
+  const label = warning ? 'Copiar con riesgo' : 'Copiar';
   try {
     await navigator.clipboard.writeText(markdown);
     if (!current()) return;
     el('copy-label').textContent = 'Copiado';
     setTimeout(() => {
-      if (current()) el('copy-label').textContent = 'Copiar';
+      if (current()) el('copy-label').textContent = label;
     }, 1500);
   } catch (err) {
     if (current()) {
       setResultStatus('error', 'No se pudo copiar el resultado',
-        'El navegador bloqueó el acceso al portapapeles. Usa «Descargar .md» para guardar el resultado.');
+        warning ? 'El navegador bloqueó el portapapeles. El resultado sigue bloqueado y puede contener datos personales.'
+          : 'El navegador bloqueó el acceso al portapapeles. Usa «Descargar .md» para guardar el resultado.');
     }
   }
 }
