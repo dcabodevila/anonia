@@ -593,7 +593,7 @@ test('a successful blocked result enables only warning-gated exports', async () 
   assert.equal(state.warningMarkdown, 'resultado con datos residuales');
   assert.equal(document.getElementById('download').disabled, true);
   assert.equal(document.getElementById('copy').disabled, false);
-  assert.equal(document.getElementById('copy-label').textContent, 'Copiar con riesgo');
+  assert.equal(document.getElementById('copy-label').textContent, 'Copiar');
   assert.equal(document.getElementById('warning-download').disabled, false);
   assert.equal(app.downloadWithWarnings(), true);
 });

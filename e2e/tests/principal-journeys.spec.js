@@ -187,7 +187,7 @@ test.describe('principal anonymization journeys against the local Java server', 
     expect(clipboard).not.toContain('juan.perez@example.com');
   });
 
-  test('blocks ordinary delivery but exports the explicit warning artifact', async ({ page }) => {
+  test('blocks ordinary delivery but copies preview and exports the explicit warning artifact', async ({ page, context }) => {
     await open(page);
     await upload(page);
     const person = entity(page, 'Juan Perez Lopez');
@@ -196,9 +196,21 @@ test.describe('principal anonymization journeys against the local Java server', 
     await page.locator('#apply').click();
     await expect(page.locator('#result-status')).toContainText('Anonimización bloqueada');
     await expect(page.locator('#download')).toBeDisabled();
-    await expect(page.locator('#copy')).toBeDisabled();
+    await expect(page.locator('#copy')).toBeEnabled();
+    await expect(page.locator('#copy-label')).toHaveText('Copiar');
+    await expect(page.locator('#warning-note')).toContainText('copiar');
     await expect(page.locator('#warning-download')).toBeEnabled();
     const preview = await page.locator('#markdown').innerText();
+    const { baseUrl } = await server();
+    try {
+      await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: baseUrl });
+    } catch (error) {
+      test.info().annotations.push({ type: 'environment', description: String(error) });
+      test.skip('Chromium clipboard permissions are unavailable in this environment.');
+    }
+    await page.locator('#copy').click();
+    await expect(page.locator('#copy-label')).toHaveText('Copiado');
+    expect((await page.evaluate(() => navigator.clipboard.readText())).replace(/\r\n/g, '\n')).toBe(preview);
     const warning = await saveDownload(page, page.locator('#warning-download'), 'warning-download.md');
     expect(warning).toContain('[PERSONA_');
     expect(warning).toContain(preview);

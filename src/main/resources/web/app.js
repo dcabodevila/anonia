@@ -974,7 +974,7 @@ function renderResult(data, hasResult) {
   el('warning-note').textContent = 'Este resultado puede contener datos personales residuales. Descargar o copiar implica aceptar ese riesgo; no es seguro para entregar.';
   el('download').disabled = !deliverable;
   el('copy').disabled = !deliverable && !state.warningDownloadEligible;
-  el('copy-label').textContent = state.warningDownloadEligible ? 'Copiar con riesgo' : 'Copiar';
+  el('copy-label').textContent = 'Copiar';
   el('warning-download').disabled = !state.warningDownloadEligible;
   el('warning-download').classList.toggle('hidden', !state.warningDownloadEligible);
   el('warning-note').classList.toggle('hidden', !state.warningDownloadEligible);
@@ -1163,7 +1163,7 @@ async function copyMarkdown() {
     && markdown === (warning ? state.warningMarkdown : state.markdown)
     && warning === (state.warningDownloadEligible && !!state.warningMarkdown)
     && request === state.copyRequest;
-  const label = warning ? 'Copiar con riesgo' : 'Copiar';
+  const label = 'Copiar';
   try {
     await navigator.clipboard.writeText(markdown);
     if (!current()) return;
