@@ -28,6 +28,9 @@ public final class SpanishNamePatterns {
     public static final String NAME_WORD =
             "(?:[A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]+|[A-ZÁÉÍÓÚÜÑ]{2,})";
 
+    /** Abbreviated María is valid only as a component of a full name. */
+    private static final String MARIA_ABBREVIATION = "Mª";
+
     /**
      * Particulas que van en minuscula dentro de un nombre o un nombre de via.
      *
@@ -47,9 +50,14 @@ public final class SpanishNamePatterns {
      * Nombre completo: al menos dos palabras. Exigir dos evita que cualquier palabra
      * capitalizada a principio de frase se convierta en un candidato.
      */
+    private static final String NAME_TAIL =
+            SOFT_SPACE + "(?:" + PARTICLE + SOFT_SPACE + ")?" + NAME_WORD;
+
     public static final String FULL_NAME =
-            NAME_WORD + "(?:" + SOFT_SPACE + "(?:" + PARTICLE + SOFT_SPACE + ")?"
-                    + NAME_WORD + "){1,4}";
+            "(?:" + MARIA_ABBREVIATION + SOFT_SPACE + NAME_WORD + NAME_TAIL
+                    + "|" + NAME_WORD + SOFT_SPACE + MARIA_ABBREVIATION + NAME_TAIL
+                    + "|" + NAME_WORD + NAME_TAIL + ")"
+                    + "(?:" + NAME_TAIL + "){0,3}";
 
     /**
      * Tratamientos que preceden a una persona.

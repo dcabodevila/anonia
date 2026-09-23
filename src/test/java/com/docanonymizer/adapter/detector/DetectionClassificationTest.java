@@ -65,6 +65,23 @@ class DetectionClassificationTest {
                 .anyMatch(detection -> detection.type().name().equals("CODIGO")));
     }
 
+    @Test
+    void detectsGivenNamesAndMariaAbbreviationWithSurnamesAsWholePersons() {
+        for (String name : List.of("Lola García Pérez", "Ángela Ruiz Molina",
+                "Natividad López Díaz", "Mª José García Pérez", "José Mª García Pérez")) {
+            String source = "comparece " + name + ".";
+            List<Detection> persons = engine.detect(source).stream()
+                    .filter(detection -> detection.type() == DetectionType.PERSON).toList();
+            assertEquals(List.of(name), persons.stream().map(Detection::value).toList(), source);
+            assertEquals(source.indexOf(name), persons.get(0).start(), source);
+            assertEquals(source.indexOf(name) + name.length(), persons.get(0).end(), source);
+        }
+        for (String source : List.of("Lola", "Ángela", "Natividad", "Mª", "José Mª")) {
+            assertFalse(engine.detect(source).stream()
+                    .anyMatch(detection -> detection.type() == DetectionType.PERSON), source);
+        }
+    }
+
     private record ExpectedDetection(DetectionType type, String value, int start) { }
     private record NegativeDetection(String source, DetectionType type) { }
 }
