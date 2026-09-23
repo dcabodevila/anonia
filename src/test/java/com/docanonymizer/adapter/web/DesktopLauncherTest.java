@@ -49,6 +49,30 @@ class DesktopLauncherTest {
     }
 
     @org.junit.jupiter.api.condition.EnabledOnOs(org.junit.jupiter.api.condition.OS.WINDOWS)
+    @Test void msiPlanUsesSameProductIdentityAndRenamesFreshOutputWithoutOverwriting() throws Exception {
+        Path script = Path.of("packaging/windows/build-installer.ps1");
+        Process process = new ProcessBuilder("powershell.exe", "-NoProfile", "-NonInteractive",
+                "-ExecutionPolicy", "Bypass", "-File", script.toString(), "-Plan", "-Msi")
+                .redirectErrorStream(true).start();
+        String plan = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        assertEquals(0, process.waitFor(), plan);
+        for (String expected : List.of("--type", "msi", "--name", "anonimuse",
+                "--win-per-user-install", "--win-upgrade-uuid",
+                "ce0936d4-f914-4f47-9052-5b286df59f57", "--resource-dir", "jpackage-resources",
+                "com.docanonymizer.adapter.web.DesktopLauncher")) {
+            assertTrue(plan.contains(expected), expected + " missing: " + plan);
+        }
+        assertFalse(plan.contains("\"exe\""), "MSI plan must not select EXE: " + plan);
+        String source = Files.readString(script);
+        assertTrue(source.contains("if ($Msi) { 'msi' } else { 'exe' }"));
+        assertTrue(source.contains("anonimuse-0.3.1.$extension"));
+        assertTrue(source.contains("anonimuse-installer.$extension"));
+        assertTrue(source.contains("Move-Item -LiteralPath $generatedInstaller -Destination $installer -ErrorAction Stop"));
+        assertTrue(source.contains("Test-Path -LiteralPath $generatedInstaller"));
+        assertTrue(source.contains("Test-Path -LiteralPath $installer"));
+    }
+
+    @org.junit.jupiter.api.condition.EnabledOnOs(org.junit.jupiter.api.condition.OS.WINDOWS)
     @Test void packagingPlanUsesIsolatedJarInputBundledRuntimeAndDesktopEntrypoint() throws Exception {
         Path script = Path.of("packaging/windows/build-installer.ps1");
         assertTrue(Files.exists(script), "packaging script must exist");
@@ -58,6 +82,9 @@ class DesktopLauncherTest {
         String plan = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertEquals(0, process.waitFor(), plan);
         assertTrue(plan.contains("0.3.1"), "installer version missing: " + plan);
+        assertTrue(plan.contains("anonimuse"), "application name missing: " + plan);
+        assertTrue(plan.contains("--icon"), "Windows icon option missing: " + plan);
+        assertTrue(plan.contains("anonimuse-logo.ico"), "Windows .ico icon missing: " + plan);
         for (String expected : List.of("--type", "exe", "--win-per-user-install", "--win-menu",
                 "--win-shortcut", "--win-console", "--main-class",
                 "com.docanonymizer.adapter.web.DesktopLauncher", "doc-anonymizer.jar",
@@ -85,7 +112,15 @@ class DesktopLauncherTest {
         assertTrue(wix.contains("Permanent=\"no\""));
         assertFalse(wix.contains("Name=\"PATH\""));
         String source = Files.readString(script);
+        assertTrue(source.contains("src/main/resources/web/anonimuse-logo.png"),
+                "Windows icon must derive from the application logo PNG");
         assertTrue(source.contains("mvn -o package"));
+        assertTrue(source.contains("anonimuse-installer.$extension"),
+                "packaging must publish the exact installer filename for the selected format");
+        assertTrue(source.contains("Move-Item -LiteralPath $generatedInstaller -Destination $installer -ErrorAction Stop"),
+                "packaging must rename the freshly generated installer");
+        assertTrue(source.contains("anonimuse-0.3.1.$extension"),
+                "packaging must identify the jpackage versioned output");
         assertTrue(source.contains("Copy-Item -LiteralPath $jar -Destination $inputDirectory"));
         assertFalse(source.contains("OcrBundleRoot"));
         assertFalse(source.contains("Stage-OcrBundle"));

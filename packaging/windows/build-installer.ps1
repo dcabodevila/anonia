@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([switch]$Plan)
+param([switch]$Plan, [switch]$Msi)
 
 $ErrorActionPreference = 'Stop'
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
@@ -8,9 +8,19 @@ $jar = Join-Path $target 'doc-anonymizer.jar'
 # Directorio nuevo en cada ejecucion: nunca incluye PDFs, informes ni JAR antiguos.
 $inputDirectory = Join-Path $target ('windows-input-' + [guid]::NewGuid().ToString('N'))
 $outputDirectory = Join-Path $target 'windows-installer'
+$extension = if ($Msi) { 'msi' } else { 'exe' }
+$generatedInstaller = Join-Path $outputDirectory "anonimuse-0.3.1.$extension"
+$installer = Join-Path $outputDirectory "anonimuse-installer.$extension"
+# jpackage output is renamed only after checking both selected-format paths.
 $resourceDirectory = Join-Path $PSScriptRoot 'jpackage-resources'
+$sourceLogo = Join-Path $root 'src/main/resources/web/anonimuse-logo.png'
+$icon = Join-Path $PSScriptRoot 'anonimuse-logo.ico'
+if (-not (Test-Path -LiteralPath $icon)) {
+    throw "Falta el ICO derivado del logo fuente ${sourceLogo}: $icon"
+}
 $packageArguments = @(
-    '--type', 'exe', '--name', 'DocAnonymizer', '--app-version', '0.3.1',
+    '--type', $extension, '--name', 'anonimuse', '--app-version', '0.3.1',
+    '--icon', $icon,
     '--vendor', 'DocAnonymizer', '--description', 'Anonimizador local de documentos',
     '--input', $inputDirectory, '--dest', $outputDirectory,
     '--resource-dir', $resourceDirectory,
@@ -50,10 +60,17 @@ try {
     # La entrada aislada contiene solo el JAR; el OCR se resuelve externamente en ejecucion.
     Copy-Item -LiteralPath $jar -Destination $inputDirectory
     $null = New-Item -ItemType Directory -Path $outputDirectory -Force
+    if ((Test-Path -LiteralPath $generatedInstaller) -or (Test-Path -LiteralPath $installer)) {
+        throw "Ya existe un instalador en $outputDirectory. Muévalo antes de generar uno nuevo."
+    }
     # Sin --runtime-image: jpackage crea e incluye su propio runtime Java.
     & $jpackage @packageArguments
     if ($LASTEXITCODE -ne 0) { throw "jpackage fallo: $LASTEXITCODE" }
-    Write-Host "Instalador generado en $outputDirectory"
+    if (-not (Test-Path -LiteralPath $generatedInstaller -PathType Leaf)) {
+        throw "jpackage no genero el instalador esperado: $generatedInstaller"
+    }
+    Move-Item -LiteralPath $generatedInstaller -Destination $installer -ErrorAction Stop
+    Write-Host "Instalador generado en $installer"
 } finally {
     $env:PATH = $originalPath
     Pop-Location
