@@ -4,9 +4,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import com.docanonymizer.adapter.PipelineFactory;
+import com.docanonymizer.adapter.ocr.LocalDocumentTextExtractor;
+import com.docanonymizer.adapter.review.AutoAcceptReview;
 import com.docanonymizer.domain.model.Detection;
 import com.docanonymizer.domain.model.DetectionType;
+import com.docanonymizer.domain.service.AnonymizationPipeline;
 import com.docanonymizer.domain.service.DetectionEngine;
+import com.docanonymizer.domain.service.RunScopedIdentifier;
+import java.time.Clock;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -80,6 +85,64 @@ class DetectionClassificationTest {
             assertFalse(engine.detect(source).stream()
                     .anyMatch(detection -> detection.type() == DetectionType.PERSON), source);
         }
+    }
+
+    @Test
+    void detectsWholeBankNamesAndRendersOrganizationPseudonyms() {
+        String source = "Banco Pastor y Banco Popular; Banco Pastoral y Banco Populares; "
+                + "XBanco Pastor y Banco PopularX.";
+        List<Detection> banks = engine.detect(source).stream()
+                .filter(d -> d.type().name().equals("ORGANIZATION")).toList();
+        assertEquals(List.of("Banco Pastor", "Banco Popular"),
+                banks.stream().map(Detection::value).toList());
+        for (Detection bank : banks) {
+            assertEquals(source.indexOf(bank.value()), bank.start());
+            assertEquals(bank.start() + bank.value().length(), bank.end());
+        }
+        AnonymizationPipeline pipeline = new AnonymizationPipeline(
+                new LocalDocumentTextExtractor(), engine, new AutoAcceptReview(),
+                new RunScopedIdentifier(), Clock.systemUTC());
+        var analysis = new AnonymizationPipeline.Analysis(source, banks, "test", 1);
+        var result = pipeline.complete(analysis, banks);
+        org.junit.jupiter.api.Assertions.assertTrue(result.markdown().contains("[ORGANIZACION_001]"));
+        org.junit.jupiter.api.Assertions.assertTrue(result.markdown().contains("[ORGANIZACION_002]"));
+        org.junit.jupiter.api.Assertions.assertTrue(result.markdown().contains("Banco Pastoral y Banco Populares"));
+    }
+
+    @Test
+    void detectsBankAcrossLineBreakWithOriginalOffsets() {
+        String source = "comparece Banco\nPastor.";
+        List<Detection> banks = engine.detect(source).stream()
+                .filter(d -> d.type() == DetectionType.ORGANIZATION).toList();
+        assertEquals(List.of("Banco\nPastor"), banks.stream().map(Detection::value).toList());
+        assertEquals(source.indexOf("Banco"), banks.get(0).start());
+        assertEquals(source.indexOf("Pastor") + "Pastor".length(), banks.get(0).end());
+    }
+
+    @Test
+    void bankSeparatorVariantsShareEntityIdentityWithoutLosingOffsets() {
+        String source = "Banco Pastor y Banco\nPastor";
+        List<Detection> banks = engine.detect(source).stream()
+                .filter(d -> d.type() == DetectionType.ORGANIZATION).toList();
+        assertEquals(List.of("Banco Pastor", "Banco\nPastor"),
+                banks.stream().map(Detection::value).toList());
+        assertEquals(banks.get(0).entityKey(), banks.get(1).entityKey());
+        assertEquals(source.indexOf("Banco\nPastor"), banks.get(1).start());
+    }
+
+    @Test
+    void organizationWinsWhenPersonCandidateOverlapsItsPhrase() {
+        String source = "Banco Pastor";
+        Detection person = new Detection("person", DetectionType.PERSON, 0, source.length(),
+                source, "person", com.docanonymizer.domain.model.Provenance.REGEX, 0.9);
+        List<Detection> resolved = new DetectionEngine(List.of(
+                new LiteralOrganizationDetector(List.of(source)), new com.docanonymizer.domain.port.DetectorPort() {
+                    public String name() { return "person-fixture"; }
+                    public List<Detection> detect(String text) { return List.of(person); }
+                }))
+                .detect(source);
+        assertEquals(List.of(DetectionType.ORGANIZATION),
+                resolved.stream().map(Detection::type).toList());
     }
 
     private record ExpectedDetection(DetectionType type, String value, int start) { }

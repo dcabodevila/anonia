@@ -270,6 +270,18 @@ class ReviewEditsTest {
                 "type\ta\tCODIGO", "reject\ta\ttrue")));
     }
 
+    @Test void organizationCaseVariantsKeepOneIdentityThroughReviewReplay() {
+        String text = "Banco Pastor | BANCO PASTOR";
+        var input = analysis(text,
+                at(text, "bank", DetectionType.ORGANIZATION, "Banco Pastor", "bank-key", 0),
+                at(text, "bank-upper", DetectionType.ORGANIZATION, "BANCO PASTOR", "bank-key", 0));
+        var reviewed = ReviewEdits.replay(input, "review-v1\n");
+        assertEquals(2, reviewed.effective().size());
+        assertEquals(List.of("Banco Pastor", "BANCO PASTOR"),
+                reviewed.effective().stream().map(Detection::value).toList());
+        assertEquals(1, reviewed.effective().stream().map(Detection::entityKey).distinct().count());
+    }
+
     @Test void expandsAllExactSourceOccurrencesAndEditsTheMatchingBatch() {
         String code = "TRA/2023/36/000/10812";
         String text = code + " | " + code + " | TRA/2023/36/000/108120";

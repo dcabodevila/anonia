@@ -4,6 +4,7 @@ import com.docanonymizer.adapter.detector.AddressDetector;
 import com.docanonymizer.adapter.detector.CustomerReferenceDetector;
 import com.docanonymizer.adapter.detector.DeterministicDetectors;
 import com.docanonymizer.adapter.detector.GazetteerPersonDetector;
+import com.docanonymizer.adapter.detector.LiteralOrganizationDetector;
 import com.docanonymizer.adapter.detector.PostalCodeDetector;
 import com.docanonymizer.adapter.detector.StructuralPersonDetector;
 import com.docanonymizer.adapter.gazetteer.ResourceGazetteer;
@@ -51,6 +52,7 @@ public final class PipelineFactory {
         detectors.add(new AddressDetector());
         detectors.add(new StructuralPersonDetector());
         detectors.add(new GazetteerPersonDetector(new ResourceGazetteer()));
+        detectors.add(new LiteralOrganizationDetector(List.of("Banco Pastor", "Banco Popular")));
         return List.copyOf(detectors);
     }
 }

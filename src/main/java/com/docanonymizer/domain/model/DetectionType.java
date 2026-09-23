@@ -16,6 +16,7 @@ public enum DetectionType {
     PHONE("TELEFONO", 70),
     ADDRESS("DIRECCION", 60),
     POSTAL_CODE("CP", 50),
+    ORGANIZATION("ORGANIZACION", 41),
     PERSON("PERSONA", 40),
     /** Codigo asignado manualmente durante la revision; ningun detector lo emite. */
     CODIGO("CODIGO", 40);

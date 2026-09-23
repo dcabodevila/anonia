@@ -1,10 +1,12 @@
 package com.docanonymizer.adapter.web;
 
 import com.docanonymizer.domain.model.Detection;
+import com.docanonymizer.domain.model.DetectionType;
 import com.docanonymizer.domain.service.AnonymizationPipeline;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -30,7 +32,8 @@ final class ExactOccurrences {
             if (value.isEmpty()) continue;
             for (int[] range : matches(text, value)) {
                 Span span = new Span(range[0], range[1]);
-                if (occupied.contains(span) || joinsDigits(text, span)) continue;
+                if (occupied.contains(span) || joinsDigits(text, span)
+                        || source.type() == DetectionType.ORGANIZATION && !organizationBoundary(text, span)) continue;
                 String id = "exact:" + source.id() + ":" + span.start + ":" + span.end;
                 while (!ids.add(id)) id += ":";
                 detections.add(new Detection(id, source.type(), span.start, span.end,
@@ -50,7 +53,9 @@ final class ExactOccurrences {
         detections.forEach(detection -> entityKeys.add(detection.entityKey()));
         java.util.Map<String, String> groups = new java.util.LinkedHashMap<>();
         for (Detection detection : detections) {
-            String sourceValue = detection.entityKey() + "\u0000" + normalize(detection.value());
+            String value = normalize(detection.value());
+            if (detection.type() == DetectionType.ORGANIZATION) value = value.toLowerCase(Locale.ROOT);
+            String sourceValue = detection.entityKey() + "\u0000" + value;
             String key = groups.get(sourceValue);
             if (key == null) {
                 key = detection.entityKey();
@@ -65,6 +70,15 @@ final class ExactOccurrences {
                     detection.provenance(), detection.confidence()));
         }
         return List.copyOf(split);
+    }
+
+    private static boolean organizationBoundary(String source, Span span) {
+        return (span.start == 0 || !organizationWordCharacter(source.codePointBefore(span.start)))
+                && (span.end == source.length() || !organizationWordCharacter(source.codePointAt(span.end)));
+    }
+
+    private static boolean organizationWordCharacter(int codePoint) {
+        return Character.isLetterOrDigit(codePoint) || codePoint == '_';
     }
 
     private static boolean joinsDigits(String source, Span span) {
