@@ -16,6 +16,15 @@ class StructuralPersonDetectorTest {
         assertPerson("representado por luis martin saez", "luis martin saez");
     }
 
+    @Test
+    void retainsMixedCaseSurnamesAfterHonorific() {
+        assertPerson("D. Juan perez lopez", "Juan perez lopez");
+        assertPerson("D. Juan Perez lopez", "Juan Perez lopez");
+        assertPerson("D. Juan perez lucio", "Juan perez lucio");
+        assertPerson("D. Juan perez aron", "Juan perez aron");
+        assertPerson("D. juan perez lucio", "juan perez lucio");
+    }
+
     private void assertPerson(String source, String expected) {
         List<Detection> detections = detector.detect(source);
         assertEquals(1, detections.size(), source);

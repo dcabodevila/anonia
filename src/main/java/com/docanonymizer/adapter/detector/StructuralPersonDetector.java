@@ -30,12 +30,12 @@ public final class StructuralPersonDetector implements DetectorPort {
 
     /** "D. Juan Perez Lopez", "Dna. Maria Garcia". El tratamiento no entra en la captura. */
     private static final Pattern AFTER_HONORIFIC = Pattern.compile(
-            SpanishNamePatterns.HONORIFIC + SPACE + "(" + SpanishNamePatterns.FULL_NAME + ")",
+            SpanishNamePatterns.HONORIFIC + SPACE + "(" + SpanishNamePatterns.FULL_NAME_AFTER_CUE + ")",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
 
     /** "Maria Garcia Perez, con DNI 12345678Z" y variantes del giro. */
     private static final Pattern BEFORE_ID_DOCUMENT = Pattern.compile(
-            "(" + SpanishNamePatterns.FULL_NAME + ")"
+            "(" + SpanishNamePatterns.FULL_NAME_AFTER_CUE + ")"
                     + "[ \\t]*,?" + SPACE + "(?:mayor de edad[ \\t]*,?" + SPACE + ")?"
                     + BOUNDARY + "(?:con|provisto de|provista de|titular del|titular de)"
                     + SPACE + "(?:D\\.?N\\.?I\\.?|N\\.?I\\.?F\\.?|N\\.?I\\.?E\\.?|documento)"
@@ -47,7 +47,7 @@ public final class StructuralPersonDetector implements DetectorPort {
             BOUNDARY
                     + "(?:representad[oa] por|en nombre de|a favor de|demandante|demandado)"
                     + SPACE + "(?:" + SpanishNamePatterns.HONORIFIC + SPACE + ")?"
-                    + "(" + SpanishNamePatterns.FULL_NAME + ")",
+                    + "(" + SpanishNamePatterns.FULL_NAME_AFTER_CUE + ")",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
 
     private final AtomicInteger sequence = new AtomicInteger();
