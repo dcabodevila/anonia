@@ -50,6 +50,13 @@ class ReviewEditsTest {
         assertNotEquals(edited.get(0).entityKey(), edited.get(2).entityKey());
     }
 
+    @Test void reclassifyingAnEntityAsTextoCompletesTheReview() {
+        // The review UI offers TEXTO for every entity; the server must accept it end to end.
+        var result = completeReview("type	p	TEXTO");
+        assertTrue(result.accepted().stream().anyMatch(d -> d.type().label().equals("TEXTO")));
+        assertTrue(result.markdown().contains("[TEXTO_001]"), result::markdown);
+    }
+
     @Test void rejectedHiddenPersonDoesNotBlockPipelineExport() {
         String expand = edit("a", "Calle Maria Garcia");
         for (String[] operations : List.of(new String[]{expand, "reject\tp\ttrue"},
@@ -265,7 +272,7 @@ class ReviewEditsTest {
                 at(text, "b", DetectionType.PERSON, "Maria Garcia", "person", 14),
                 at(text, "c", DetectionType.PHONE, "612345678", "phone", 0));
         List<String> labels = List.of("DNI", "NIE", "IBAN", "EMAIL", "CLIENTE", "MATRICULA",
-                "TELEFONO", "DIRECCION", "CP", "PERSONA", "CODIGO");
+                "TELEFONO", "DIRECCION", "CP", "PERSONA", "CODIGO", "TEXTO");
 
         for (String label : labels) {
             var changed = apply(input, edit("a", "Maria"), "type\ta\t" + label);

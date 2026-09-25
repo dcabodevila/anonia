@@ -20,7 +20,9 @@ public enum DetectionType {
     TERM("TERMINO", 41),
     PERSON("PERSONA", 40),
     /** Codigo asignado manualmente durante la revision; ningun detector lo emite. */
-    CODIGO("CODIGO", 40);
+    CODIGO("CODIGO", 40),
+    /** Texto libre elegido durante la revision; la interfaz lo ofrece para cualquier entidad. */
+    TEXT("TEXTO", 40);
 
     private final String label;
     private final int priority;
