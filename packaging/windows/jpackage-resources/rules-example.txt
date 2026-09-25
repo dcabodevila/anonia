@@ -1,0 +1,13 @@
+# Optional personal rules. Uncomment and customize lines to activate them.
+# Exclusions affect every document for this account and can leave personal data visible.
+# People
+# person: Jane Example
+# exclude-person: Alex Sample
+
+# Organizations
+# organization: Example Company
+# exclude-organization: Sample Foundation
+
+# Terms
+# term: internal project
+# exclude-term: public reference

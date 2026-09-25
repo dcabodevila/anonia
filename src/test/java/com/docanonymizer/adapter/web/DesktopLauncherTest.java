@@ -48,6 +48,51 @@ class DesktopLauncherTest {
         }
     }
 
+    @Test void installerSeedsOnlyCommentedRulesAndPreservesExistingUserFile() throws Exception {
+        Path resources = Path.of("packaging/windows/jpackage-resources");
+        String wix = Files.readString(resources.resolve("main.wxs"));
+        String sample = Files.readString(resources.resolve("rules-example.txt"));
+        assertTrue(wix.contains("Value=\"[%USERPROFILE]\\.anonimuse\""));
+        assertTrue(wix.contains("Before=\"CostFinalize\""));
+        assertTrue(wix.contains("<FileSearch") && wix.contains("Name=\"rules.txt\""));
+        assertTrue(wix.contains("NOT EXISTING_USER_RULES"));
+        assertTrue(wix.contains("Permanent=\"yes\""));
+        assertTrue(wix.contains("<?include \"STAGED_RULES_OVERRIDE\" ?>"),
+                "WiX include must quote the XML-escaped staged path, which may contain spaces");
+        assertTrue(wix.contains("Source=\"$(var.JpRulesSource)\""));
+        assertTrue(wix.contains("NeverOverwrite=\"yes\""));
+        assertEquals(6, sample.lines().filter(line -> line.matches("^# (person|organization|term|exclude-person|exclude-organization|exclude-term): .+")).count());
+        for (String kind : List.of("person", "organization", "term")) {
+            assertTrue(sample.contains("# " + kind + ": "));
+            assertTrue(sample.contains("# exclude-" + kind + ": "));
+        }
+        assertTrue(sample.lines().allMatch(line -> line.isBlank() || line.stripLeading().startsWith("#")));
+    }
+
+    @org.junit.jupiter.api.condition.EnabledOnOs(org.junit.jupiter.api.condition.OS.WINDOWS)
+    @Test void msiPlanUsesSameProductIdentityAndRenamesFreshOutputWithoutOverwriting() throws Exception {
+        Path script = Path.of("packaging/windows/build-installer.ps1");
+        Process process = new ProcessBuilder("powershell.exe", "-NoProfile", "-NonInteractive",
+                "-ExecutionPolicy", "Bypass", "-File", script.toString(), "-Plan", "-Msi")
+                .redirectErrorStream(true).start();
+        String plan = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        assertEquals(0, process.waitFor(), plan);
+        for (String expected : List.of("--type", "msi", "--name", "anonimuse",
+                "--win-per-user-install", "--win-upgrade-uuid",
+                "ce0936d4-f914-4f47-9052-5b286df59f57", "--resource-dir", "windows-resources-",
+                "com.docanonymizer.adapter.web.DesktopLauncher")) {
+            assertTrue(plan.contains(expected), expected + " missing: " + plan);
+        }
+        assertFalse(plan.contains("\"exe\""), "MSI plan must not select EXE: " + plan);
+        String source = Files.readString(script);
+        assertTrue(source.contains("if ($Msi) { 'msi' } else { 'exe' }"));
+        assertTrue(source.contains("anonimuse-0.4.0.$extension"));
+        assertTrue(source.contains("anonimuse-installer.$extension"));
+        assertTrue(source.contains("Move-Item -LiteralPath $generatedInstaller -Destination $installer -ErrorAction Stop"));
+        assertTrue(source.contains("Test-Path -LiteralPath $generatedInstaller"));
+        assertTrue(source.contains("Test-Path -LiteralPath $installer"));
+    }
+
     @org.junit.jupiter.api.condition.EnabledOnOs(org.junit.jupiter.api.condition.OS.WINDOWS)
     @Test void packagingPlanUsesIsolatedJarInputBundledRuntimeAndDesktopEntrypoint() throws Exception {
         Path script = Path.of("packaging/windows/build-installer.ps1");
@@ -57,7 +102,10 @@ class DesktopLauncherTest {
                 .redirectErrorStream(true).start();
         String plan = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertEquals(0, process.waitFor(), plan);
-        assertTrue(plan.contains("0.3.1"), "installer version missing: " + plan);
+        assertTrue(plan.contains("0.4.0"), "installer version missing: " + plan);
+        assertTrue(plan.contains("anonimuse"), "application name missing: " + plan);
+        assertTrue(plan.contains("--icon"), "Windows icon option missing: " + plan);
+        assertTrue(plan.contains("anonimuse-logo.ico"), "Windows .ico icon missing: " + plan);
         for (String expected : List.of("--type", "exe", "--win-per-user-install", "--win-menu",
                 "--win-shortcut", "--win-console", "--main-class",
                 "com.docanonymizer.adapter.web.DesktopLauncher", "doc-anonymizer.jar",
@@ -66,7 +114,10 @@ class DesktopLauncherTest {
         }
         assertFalse(plan.contains("--runtime-image"), "jpackage must create bundled runtime");
         assertTrue(plan.contains("--resource-dir"), "jpackage resource directory missing: " + plan);
-        assertTrue(plan.contains("jpackage-resources"), "jpackage resource directory missing: " + plan);
+        assertTrue(plan.contains("windows-resources-"), "isolated jpackage resource directory missing: " + plan);
+        String scriptSource = Files.readString(script);
+        assertTrue(scriptSource.contains("<Include><?define JpRulesSource=`\"$escapedSample`\"?></Include>"),
+                "generated WiX include must wrap the source definition in an Include root");
         assertTrue(plan.contains("ce0936d4-f914-4f47-9052-5b286df59f57"));
         Path mainWxs = Path.of("packaging/windows/jpackage-resources/main.wxs");
         assertTrue(Files.isRegularFile(mainWxs), "WiX main.wxs override must exist");
@@ -85,7 +136,15 @@ class DesktopLauncherTest {
         assertTrue(wix.contains("Permanent=\"no\""));
         assertFalse(wix.contains("Name=\"PATH\""));
         String source = Files.readString(script);
+        assertTrue(source.contains("src/main/resources/web/anonimuse-logo.png"),
+                "Windows icon must derive from the application logo PNG");
         assertTrue(source.contains("mvn -o package"));
+        assertTrue(source.contains("anonimuse-installer.$extension"),
+                "packaging must publish the exact installer filename for the selected format");
+        assertTrue(source.contains("Move-Item -LiteralPath $generatedInstaller -Destination $installer -ErrorAction Stop"),
+                "packaging must rename the freshly generated installer");
+        assertTrue(source.contains("anonimuse-0.4.0.$extension"),
+                "packaging must identify the jpackage versioned output");
         assertTrue(source.contains("Copy-Item -LiteralPath $jar -Destination $inputDirectory"));
         assertFalse(source.contains("OcrBundleRoot"));
         assertFalse(source.contains("Stage-OcrBundle"));

@@ -30,6 +30,10 @@ public final class NameSpanRefiner {
     /** Se descarta el candidato entero si al recortar queda con menos palabras. */
     private static final int MIN_NAME_WORDS = 2;
 
+    // Only known prose continuations: suffixes also occur in real surnames (Lucio, Aron).
+    // This is not a general verb classifier.
+    private static final Set<String> PROSE_VERBS = Set.of("suscribio", "abono");
+
     private static final Set<String> ADDRESS_WORDS = Set.of(
             // Castellano
             "calle", "avenida", "avda", "av", "plaza", "plza", "pza", "paseo", "camino",
@@ -65,6 +69,12 @@ public final class NameSpanRefiner {
             if (afterLineBreak && startsNewField(text, word, firstIsUpperCase)) {
                 break;
             }
+            // Known prose continuations can follow a two-word name; arbitrary
+            // lowercase words are retained because they may be surnames.
+            if (!afterLineBreak && i >= MIN_NAME_WORDS
+                    && isKnownProseVerb(text.substring(word[0], word[1]))) {
+                break;
+            }
             keptWords++;
             keptEnd = word[1];
         }
@@ -73,6 +83,10 @@ public final class NameSpanRefiner {
             return -1;
         }
         return keptEnd == end ? end : keptEnd;
+    }
+
+    private static boolean isKnownProseVerb(String word) {
+        return PROSE_VERBS.contains(CanonicalForm.forCompare(word));
     }
 
     private static boolean startsNewField(String text, int[] word, boolean firstIsUpperCase) {

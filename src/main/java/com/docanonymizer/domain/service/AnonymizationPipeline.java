@@ -44,7 +44,7 @@ import java.util.stream.Collectors;
  */
 public final class AnonymizationPipeline {
 
-    public static final String TOOL_VERSION = "0.3.0";
+    public static final String TOOL_VERSION = "0.4.0";
 
     /** Estado intermedio entre la deteccion y la decision humana. */
     public record Analysis(
@@ -62,6 +62,7 @@ public final class AnonymizationPipeline {
     private final DetectionEngine detectionEngine;
     private final ReviewPort review;
     private final Clock clock;
+    private final ExcludedEntities exclusions;
 
     private final TextSanityGuard sanityGuard = new TextSanityGuard();
     private final HeaderFooterStripper headerFooterStripper = new HeaderFooterStripper();
@@ -79,7 +80,18 @@ public final class AnonymizationPipeline {
             ReviewPort review,
             RunScopedIdentifier identifier,
             Clock clock) {
+        this(extractor, detectionEngine, review, identifier, clock, ExcludedEntities.empty());
+    }
+
+    public AnonymizationPipeline(
+            TextExtractorPort extractor,
+            DetectionEngine detectionEngine,
+            ReviewPort review,
+            RunScopedIdentifier identifier,
+            Clock clock,
+            ExcludedEntities exclusions) {
         this.extractor = extractor;
+        this.exclusions = exclusions;
         this.detectionEngine = detectionEngine;
         this.review = review;
         this.clock = clock;
@@ -104,14 +116,23 @@ public final class AnonymizationPipeline {
         }
 
         ExtractedDocument cleaned = headerFooterStripper.strip(extracted).document();
-        String normalized = normalizer.normalize(cleaned.rawText());
+        String source = cleaned.rawText();
+        TextNormalizer.MappedText matching = normalizer.normalizeMapped(source);
+        String normalized = matching.text();
 
         List<Detection> seeds = detectionEngine.detect(normalized);
         List<Detection> withPropagated = mergePropagated(normalized, seeds);
         List<Detection> unified = entityResolver.resolve(withPropagated);
-
-        return new Analysis(
-                normalized, unified, extracted.sourceSha256(), extracted.pageCount());
+        List<Detection> mapped = new ArrayList<>();
+        for (Detection detection : unified) {
+            int start = matching.start(detection.start());
+            int end = matching.end(detection.end());
+            mapped.add(new Detection(detection.id(), detection.type(), start, end,
+                    source.substring(start, end), detection.entityKey(), detection.provenance(),
+                    detection.confidence()));
+        }
+        return new Analysis(source, exclusions.filter(detectionEngine.resolveOverlaps(mapped)),
+                extracted.sourceSha256(), extracted.pageCount());
     }
 
     /** Server-derived review decisions, separate from the non-overlapping substitution projection. */
@@ -141,7 +162,8 @@ public final class AnonymizationPipeline {
                 Instant.now(clock));
         String markdown = renderer.render(substituted, metadata);
 
-        VerificationReport report = verifier.verify(markdown, accepted, pseudonyms, analysis.candidates(), reviewed.rejectedIds());
+        VerificationReport report = verifier.verify(markdown, accepted, pseudonyms, analysis.candidates(),
+                reviewed.rejectedIds(), analysis.normalizedText());
 
         return new AnonymizationResult(
                 markdown, accepted, pseudonyms, report,

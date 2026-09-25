@@ -10,25 +10,44 @@
 
 <header class="topbar">
   <div class="brand">
-    <h1 class="brand-lockup">
+    <h1 class="brand-lockup"><button id="brand-home" type="button" aria-label="anonimuse, volver al inicio" class="brand-home">
       <img class="brand-symbol" src="/anonimuse-logo.png" width="604" height="557" alt="">
       <span class="wordmark-backdrop"><img class="brand-wordmark" src="/anonimuse.png" width="873" height="164" alt="anonimuse"></span>
-    </h1>
+    </button></h1>
     <span class="tag">PDF y fotos &rarr; Markdown anonimizado</span>
   </div>
   <div class="offline">100% local &middot; sin red</div>
 </header>
 
 <main>
-  <section id="dropzone" class="dropzone">
-    <input type="file" id="file" accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png" hidden>
-    <div class="drop-inner">
-      <img class="drop-brand" src="/anonimuse-logo.png" width="604" height="557" alt="">
-      <svg class="drop-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <path d="M7.5 18.5h9a4.5 4.5 0 0 0 .7-8.95A6 6 0 0 0 5.7 8.2 4 4 0 0 0 7.5 18.5Zm4.5-8v7m0-7-2.5 2.5M12 10.5l2.5 2.5" />
-      </svg>
-      <p class="drop-title"><span id="drop-title">Arrastra un PDF aqu&iacute; o una foto </span><button type="button" id="browse" class="link" title="Selecciona un PDF" aria-label="Selecciona un PDF o una foto"><svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L8 8m4-4 4 4M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" /></svg>selecci&oacute;nalo</button></p>
-      <p id="drop-sub" class="drop-sub">PDF con capa de texto, o fotos JPEG/PNG le&iacute;das localmente con Tesseract en espa&ntilde;ol. Podr&aacute;s visualizar los cambios a anonimizar antes de generar el Markdown.</p>
+  <section class="hero">
+    <div class="hero-copy">
+      <h2 class="hero-headline">Elimina los datos sensibles de tus documentos para compartirlos donde quieras</h2>
+      <p class="hero-sub">Anonimuse detecta y oculta nombres, DNI/NIE, IBAN, emails, teléfonos y más, localmente y sin conexión, para que puedas compartir el resultado con confianza.</p>
+      <div class="hero-download">
+        <a class="download-cta" href="https://github.com/dcabodevila/anonia/releases/latest" rel="noopener">
+          <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14" /></svg>
+          Descargar para Windows
+        </a>
+        <p class="hero-download-note">Instalador gratuito · última versión en GitHub</p>
+        <p class="hero-download-why">Para documentos reales: se ejecuta en tu equipo y el archivo nunca sale de él.</p>
+      </div>
+    </div>
+    <div class="hero-try">
+      <section id="dropzone" class="dropzone">
+        <input type="file" id="file" accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png" hidden>
+        <div class="drop-inner">
+          <img class="drop-brand" src="/anonimuse-logo.png" width="604" height="557" alt="">
+          <h3 class="hero-try-heading">Pruébalo en la web</h3>
+          <p class="hero-try-note">Ideal para documentos de ejemplo: en la versión web el archivo se envía al servidor para analizarlo, no lo guardamos ni se lo enviamos a ninguna IA.</p>
+          <p class="hero-local-note">Tu documento se analiza en este equipo y nunca sale de él.</p>
+          <svg class="drop-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M7.5 18.5h9a4.5 4.5 0 0 0 .7-8.95A6 6 0 0 0 5.7 8.2 4 4 0 0 0 7.5 18.5Zm4.5-8v7m0-7-2.5 2.5M12 10.5l2.5 2.5" />
+          </svg>
+          <p class="drop-title"><span id="drop-title">Arrastra un PDF aqu&iacute; o una foto </span><button type="button" id="browse" class="link" title="Selecciona un PDF" aria-label="Selecciona un PDF o una foto"><svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L8 8m4-4 4 4M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" /></svg>selecci&oacute;nalo</button></p>
+          <p id="drop-sub" class="drop-sub">PDF con capa de texto, o fotos JPEG/PNG le&iacute;das localmente con Tesseract en espa&ntilde;ol. Podr&aacute;s visualizar los cambios a anonimizar antes de generar el Markdown.</p>
+        </div>
+      </section>
     </div>
   </section>
 
@@ -95,6 +114,117 @@
           <div id="entities" class="entities"></div>
         </div>
       </aside>
+    </div>
+  </section>
+
+  <section id="landing" class="landing" aria-labelledby="landing-heading">
+    <h2 id="landing-heading" class="visually-hidden">Cómo funciona Anonimuse</h2>
+
+    <div class="landing-feature">
+      <div class="landing-feature-copy">
+        <div class="landing-feature-heading">
+          <span class="landing-step">1</span>
+          <h3>Quita los datos personales de tu documento</h3>
+        </div>
+        <p>Anonimuse detecta nombres, DNI/NIE, IBAN, emails, teléfonos, direcciones, matrículas... en PDF con texto o fotos.</p>
+      </div>
+      <figure class="landing-shot">
+        <span class="landing-window-bar" aria-hidden="true"><span></span><span></span><span></span></span>
+        <img src="/landing/detect.gif" width="1280" height="760" loading="lazy" alt="Anonimuse resaltando automáticamente los datos personales detectados en un documento">
+        <figcaption>Detección automática de datos personales</figcaption>
+      </figure>
+    </div>
+
+    <div class="landing-feature">
+      <div class="landing-feature-copy">
+        <div class="landing-feature-heading">
+          <span class="landing-step">2</span>
+          <h3>Revisa qué se va a ocultar y ajústalo</h3>
+        </div>
+        <p>Te muestra cada dato resaltado en el documento; puedes desmarcarlo, cambiar su tipo, buscar, ubicar cada aparición o añadir los que falten.</p>
+      </div>
+      <figure class="landing-shot">
+        <span class="landing-window-bar" aria-hidden="true"><span></span><span></span><span></span></span>
+        <img src="/landing/review.gif" width="1280" height="760" loading="lazy" alt="Panel de revisión de entidades donde se activan, desactivan y editan las detecciones">
+        <figcaption>Control total sobre cada detección</figcaption>
+      </figure>
+    </div>
+
+    <div class="landing-feature">
+      <div class="landing-feature-copy">
+        <div class="landing-feature-heading">
+          <span class="landing-step">3</span>
+          <h3>Compara con el original</h3>
+        </div>
+        <p>Tras anonimizar, ves el documento original y el anonimizado lado a lado.</p>
+      </div>
+      <figure class="landing-shot">
+        <span class="landing-window-bar" aria-hidden="true"><span></span><span></span><span></span></span>
+        <img src="/landing/compare.gif" width="1280" height="760" loading="lazy" alt="Vista comparativa del documento original y el documento anonimizado lado a lado">
+        <figcaption>Comparación lado a lado</figcaption>
+      </figure>
+    </div>
+
+    <div class="landing-feature">
+      <div class="landing-feature-copy">
+        <div class="landing-feature-heading">
+          <span class="landing-step">4</span>
+          <h3>Descarga o copia el Markdown</h3>
+        </div>
+        <p>Archivo .md listo para pasárselo a tu IA de confianza.</p>
+      </div>
+      <figure class="landing-shot">
+        <span class="landing-window-bar" aria-hidden="true"><span></span><span></span><span></span></span>
+        <img src="/landing/export.gif" width="1280" height="760" loading="lazy" alt="Descarga del documento anonimizado en formato Markdown desde Anonimuse">
+        <figcaption>Exportación a Markdown</figcaption>
+      </figure>
+    </div>
+
+    <div class="landing-feature">
+      <div class="landing-feature-copy">
+        <div class="landing-feature-heading">
+          <span class="landing-step">5</span>
+          <h3>Pégalo en tu IA de confianza</h3>
+        </div>
+        <p>Copia el Markdown anonimizado y pégalo en ChatGPT o en tu asistente habitual: la IA trabaja con etiquetas como [PERSONA_001] en lugar de tus datos reales.</p>
+      </div>
+      <figure class="landing-shot">
+        <span class="landing-window-bar" aria-hidden="true"><span></span><span></span><span></span></span>
+        <img src="/landing/ai.gif" width="1280" height="760" loading="lazy" alt="Grabación de ChatGPT recibiendo el Markdown anonimizado de Anonimuse y respondiendo sobre él">
+        <figcaption>El texto anonimizado, listo en ChatGPT</figcaption>
+      </figure>
+    </div>
+
+    <div class="landing-compare">
+      <h2 class="landing-compare-heading">Prueba en la web, trabaja en tu equipo</h2>
+      <div class="landing-compare-columns">
+        <div class="landing-compare-col">
+          <h3>Versión web (demo)</h3>
+          <dl>
+            <div class="landing-compare-row"><dt>Dónde se procesa</dt><dd>En el servidor de la demo</dd></div>
+            <div class="landing-compare-row"><dt>Qué documentos</dt><dd>Ejemplos o documentos no sensibles</dd></div>
+            <div class="landing-compare-row"><dt>Conexión</dt><dd>Necesita internet</dd></div>
+          </dl>
+        </div>
+        <div class="landing-compare-col landing-compare-col-recommended">
+          <h3>App de escritorio (recomendada)</h3>
+          <dl>
+            <div class="landing-compare-row"><dt>Dónde se procesa</dt><dd>En tu equipo</dd></div>
+            <div class="landing-compare-row"><dt>Qué documentos</dt><dd>Cualquier documento, incluidos los sensibles</dd></div>
+            <div class="landing-compare-row"><dt>Conexión</dt><dd>Funciona sin conexión</dd></div>
+          </dl>
+        </div>
+      </div>
+      <div class="landing-guarantees">
+        <span class="landing-guarantee"><svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v14H7zM14 3v5h5M9 13h6m-6 4h6" /></svg>No guarda información</span>
+        <span class="landing-guarantee"><svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v4M5 7l2.5 2.5M19 7l-2.5 2.5M4 14h16M6 14a6 6 0 0 1 12 0M9 20h6" /></svg>No usa IA para anonimizar</span>
+        <span class="landing-guarantee"><svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10a9 9 0 0 1 18 0M6.5 13.5a5 5 0 0 1 11 0M10 17a2 2 0 0 1 4 0M2 3l20 20" /></svg>Funciona sin conexión en tu equipo</span>
+      </div>
+    </div>
+
+    <div class="landing-cta">
+      <a class="cta cta-secondary" href="#dropzone">Probar con un documento de ejemplo</a>
+      <a class="cta" href="https://github.com/dcabodevila/anonia/releases/latest" rel="noopener">Descargar para Windows</a>
     </div>
   </section>
 </main>

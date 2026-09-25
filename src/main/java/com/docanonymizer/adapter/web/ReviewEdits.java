@@ -11,6 +11,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Pattern;
 
@@ -40,7 +41,7 @@ final class ReviewEdits {
         var entityKeys = new java.util.HashSet<String>();
         analysis.candidates().forEach(d -> entityKeys.add(d.entityKey()));
         for (Detection candidate : analysis.candidates()) {
-            String sourceValue = candidate.entityKey() + "\u0000" + normalize(candidate.value());
+            String sourceValue = candidate.entityKey() + "\u0000" + normalize(candidate.value()).toLowerCase(Locale.ROOT);
             String key = sourceValueGroups.get(sourceValue);
             if (key == null) {
                 key = candidate.entityKey();
@@ -146,7 +147,7 @@ final class ReviewEdits {
             int[] range = ranges.get(index);
             String detectionId = index == 0 ? id : id + ":" + range[0] + ":" + range[1];
             if (detections.containsKey(detectionId)) throw invalid();
-            Detection detection = new Detection(detectionId, DetectionType.CODIGO,
+            Detection detection = new Detection(detectionId, DetectionType.TEXT,
                     range[0], range[1], text.substring(range[0], range[1]), id,
                     Provenance.MANUAL, 1.0);
             detections.put(detectionId, detection);

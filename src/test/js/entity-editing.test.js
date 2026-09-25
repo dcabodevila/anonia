@@ -42,6 +42,25 @@ const key = id => detection(id).entityKey;
 const effectiveIds = () => app.effectiveDetections().map(d => d.id);
 const snapshot = () => JSON.stringify([state.detections, [...state.entities], [...state.rejected], state.edits]);
 
+test('capitalization variants display as one entity and reject together without merging longer names', async () => {
+  const { nodes } = fakeDom();
+  const text = 'MARIA GARCIA | Maria Garcia | Maria Garcia Lopez';
+  global.fetch = async () => ({ ok: true, json: async () => ({
+    jobId: 'case', text, pageCount: 1, elapsedMs: 1, types: ['PERSONA'],
+    detections: [
+      { id: 'a', type: 'PERSONA', start: 0, end: 12, entityKey: 'person' },
+      { id: 'b', type: 'PERSONA', start: 15, end: 27, entityKey: 'person' },
+      { id: 'c', type: 'PERSONA', start: 30, end: 48, entityKey: 'review:c' }
+    ]
+  }) });
+  await app.analyze('document');
+  assert.equal(state.entities.size, 2);
+  assert.equal(state.entities.get('person').count, 2);
+  const row = nodes.get('entities').children.find(child => child.dataset.entityKey === 'person');
+  row.children[0].listeners.change();
+  assert.deepEqual(effectiveIds(), ['c']);
+});
+
 test('whitespace normalization maps exact contiguous source substrings to UTF16 offsets', () => {
   assert.deepEqual(app.narrow('Maria  Garcia', 'Garcia'), [7, 13]);
   assert.deepEqual(app.narrow('  Ana\n Ruiz', 'Ana Ruiz'), [2, 11]);
@@ -284,6 +303,7 @@ function fakeDom() {
       click() { if (this.onclick) this.onclick(); },
       replaceWith(other) { this.replacement = other; },
       addEventListener(name, fn) { this.listeners[name] = fn; },
+      removeEventListener(name, fn) { if (this.listeners[name] === fn) delete this.listeners[name]; },
       querySelector() { return node(); } };
     Object.defineProperty(element, 'innerHTML', {
       get() { return ''; },
@@ -561,7 +581,7 @@ test('older analysis responses cannot overwrite latest upload state', async () =
   assert.equal(document.getElementById('error').textContent, 'latest error');
 });
 
-test('a successful blocked result enables only the explicit warning download', async () => {
+test('a successful blocked result enables only warning-gated exports', async () => {
   fakeDom();
   state.jobId = 'job';
   global.fetch = async () => ({ ok: true, json: async () => ({
@@ -573,7 +593,8 @@ test('a successful blocked result enables only the explicit warning download', a
 
   assert.equal(state.warningMarkdown, 'resultado con datos residuales');
   assert.equal(document.getElementById('download').disabled, true);
-  assert.equal(document.getElementById('copy').disabled, true);
+  assert.equal(document.getElementById('copy').disabled, false);
+  assert.equal(document.getElementById('copy-label').textContent, 'Copiar');
   assert.equal(document.getElementById('warning-download').disabled, false);
   assert.equal(app.downloadWithWarnings(), true);
 });

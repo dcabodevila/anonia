@@ -96,19 +96,19 @@ class SecurityCorpusEndToEndTest {
     }
 
     @Test
-    @DisplayName("un numero con forma de DNI pero digito de control invalido NO se oculta")
+    @DisplayName("un DNI invalido no se clasifica como DNI; sus digitos son CODIGO")
     void invalidChecksumIsNotRedacted() {
-        // Control negativo: si el pipeline ocultase todo lo que se parece a un DNI,
-        // pasaria las pruebas anteriores siendo inutil. La letra de control es lo que
-        // distingue el documento de una persona de una referencia interna.
-        assertTrue(markdown.contains("87654321A"),
-                "una referencia interna no es un dato personal y debe conservarse");
+        assertFalse(result.accepted().stream().anyMatch(d -> d.type() == DetectionType.DNI
+                && d.value().contains("87654321A")));
+        assertTrue(result.accepted().stream().anyMatch(d -> d.type() == DetectionType.CODIGO
+                && d.value().equals("87654321")));
+        assertFalse(markdown.contains("87654321A"));
     }
 
     @ParameterizedTest
     @ValueSource(strings = {
-            "ANTECEDENTES DE HECHO",
-            "FUNDAMENTOS DE DERECHO",
+            "A N T E C E D E N T E S   D E   H E C H O",
+            "F U N D A M E N T O S   D E   D E R E C H O",
             "Codigo Civil",
             "contrato de arrendamiento"})
     @DisplayName("el contenido legitimo del documento se conserva")
@@ -118,11 +118,14 @@ class SecurityCorpusEndToEndTest {
     }
 
     @Test
-    @DisplayName("la normalizacion arregla el guion de fin de linea y el titulo espaciado")
-    void normalizationArtifactsAreFixed() {
-        assertTrue(markdown.contains("manifestaciones"), "no se unio la palabra partida");
-        assertTrue(markdown.contains("ACTA DE MANIFESTACIONES"),
-                "no se junto el titulo escrito letra a letra");
+    @DisplayName("el formato extraido conserva el guion de fin de linea y el titulo espaciado")
+    void extractedFormattingIsPreserved() {
+        assertTrue(markdown.contains("las manifesta-\nciones recogidas"),
+                "la palabra partida debe conservar su salto de linea");
+        assertTrue(markdown.startsWith("A C T A   D E   M A N I F E S T A C I O N E S\n"),
+                "el titulo extraido debe conservar sus espacios y salto de linea");
+        assertTrue(markdown.contains("ciertas.\n\nA N T E C E D E N T E S"),
+                "la linea en blanco entre secciones debe conservarse");
     }
 
     @Test
@@ -164,7 +167,7 @@ class SecurityCorpusEndToEndTest {
     @Test
     @DisplayName("la salida comienza con el documento anonimizado, sin cabecera generada")
     void outputHasNoGeneratedHeader() {
-        assertTrue(markdown.startsWith("## ACTA DE MANIFESTACIONES"),
+        assertTrue(markdown.startsWith("A C T A   D E   M A N I F E S T A C I O N E S\n"),
                 () -> "la salida debe empezar por el cuerpo del documento: " + markdown);
         assertTrue(markdown.contains("[PERSONA_001]"),
                 "el cuerpo debe conservar los reemplazos anonimizados");

@@ -1,6 +1,10 @@
 package com.docanonymizer.domain.service;
 
 import java.text.Normalizer;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Function;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -10,9 +14,8 @@ import java.util.regex.Pattern;
  * un NIF partido por un guion de fin de linea o un nombre con letter-spacing no lo
  * captura ningun patron, y el pipeline exporta creyendo que no habia nada que ocultar.
  *
- * <p>El texto normalizado es el unico sistema de coordenadas del prototipo. Como la
- * salida es Markdown y no un PDF, no hace falta mapear offsets de vuelta al origen:
- * esa es justamente la simplificacion que compro el cambio de alcance.
+ * <p>Detection uses normalized coordinates; mapped normalization projects detections
+ * onto the retained extracted source before review and replacement.
  */
 public final class TextNormalizer {
 
@@ -65,6 +68,121 @@ public final class TextNormalizer {
         text = HORIZONTAL_RUNS.matcher(text).replaceAll(" ");
         text = EXTRA_BLANK_LINES.matcher(text).replaceAll("\n\n");
         return text.strip();
+    }
+
+    /** Normalized matching text with UTF-16 ranges in the original retained source. */
+    public MappedText normalizeMapped(String source) {
+        MappedText mapped = MappedText.identity(source);
+        mapped = normalizeGraphemes(mapped);
+        mapped = replace(mapped, Pattern.compile("\\r\\n|\\r"), part -> "\n");
+        mapped = replace(mapped, Pattern.compile("[\\u00AD\\uFEFF\\u200B-\\u200D]"), part -> "");
+        mapped = replace(mapped, Pattern.compile("[\\u00A0\\u2000-\\u200A\\u202F]"), part -> " ");
+        mapped = replace(mapped, Pattern.compile("[\\u2010-\\u2015\\u2212]"), part -> "-");
+        mapped = replace(mapped, LINE_BREAK_HYPHEN, part -> "" + part.charAt(0) + part.charAt(part.length() - 1));
+        mapped = replace(mapped, Pattern.compile("[^\\n]*"),
+                line -> isLetterSpaced(line) ? joinSpacedLetters(line) : line);
+        mapped = replace(mapped, TRAILING_SPACES, part -> "\n");
+        mapped = replace(mapped, HORIZONTAL_RUNS, part -> " ");
+        mapped = replace(mapped, EXTRA_BLANK_LINES, part -> "\n\n");
+        String text = mapped.text.strip();
+        int from = mapped.text.indexOf(text);
+        if (!text.equals(normalize(source))) {
+            throw new IllegalStateException("Mapped normalization differs from detection normalization");
+        }
+        if (text.isEmpty()) return new MappedText("", new int[0], new int[0]);
+        return mapped.slice(from, from + text.length());
+    }
+
+    private MappedText normalizeGraphemes(MappedText input) {
+        java.text.BreakIterator iterator = java.text.BreakIterator.getCharacterInstance(java.util.Locale.ROOT);
+        iterator.setText(input.text);
+        StringBuilder output = new StringBuilder();
+        List<Integer> starts = new ArrayList<>();
+        List<Integer> ends = new ArrayList<>();
+        for (int from = iterator.first(), to = iterator.next(); to != java.text.BreakIterator.DONE;
+                from = to, to = iterator.next()) {
+            String cluster = Normalizer.normalize(input.text.substring(from, to), Normalizer.Form.NFC);
+            output.append(cluster);
+            for (int i = 0; i < cluster.length(); i++) {
+                starts.add(input.starts[from]);
+                ends.add(input.ends[to - 1]);
+            }
+        }
+        return new MappedText(output.toString(), starts.stream().mapToInt(Integer::intValue).toArray(),
+                ends.stream().mapToInt(Integer::intValue).toArray());
+    }
+
+    public static final class MappedText {
+        private final String text;
+        private final int[] starts;
+        private final int[] ends;
+
+        private MappedText(String text, int[] starts, int[] ends) {
+            this.text = text;
+            this.starts = starts;
+            this.ends = ends;
+        }
+
+        public String text() { return text; }
+        public int start(int index) { return starts[index]; }
+        public int end(int index) { return ends[index - 1]; }
+
+        private MappedText slice(int from, int to) {
+            return new MappedText(text.substring(from, to),
+                    java.util.Arrays.copyOfRange(starts, from, to),
+                    java.util.Arrays.copyOfRange(ends, from, to));
+        }
+
+        private static MappedText identity(String source) {
+            int[] starts = new int[source.length()];
+            int[] ends = new int[source.length()];
+            for (int i = 0; i < source.length(); i++) {
+                starts[i] = i;
+                ends[i] = i + 1;
+            }
+            return new MappedText(source, starts, ends);
+        }
+    }
+
+    private MappedText replace(MappedText input, Pattern pattern, Function<String, String> transform) {
+        Matcher matcher = pattern.matcher(input.text);
+        StringBuilder output = new StringBuilder();
+        List<Integer> starts = new ArrayList<>();
+        List<Integer> ends = new ArrayList<>();
+        int cursor = 0;
+        while (matcher.find()) {
+            appendUnchanged(input, cursor, matcher.start(), output, starts, ends);
+            String replacement = transform.apply(matcher.group());
+            int sourceCursor = matcher.start();
+            for (int i = 0; i < replacement.length(); i++) {
+                char c = replacement.charAt(i);
+                int match = input.text.indexOf(c, sourceCursor);
+                if (match >= matcher.end()) match = -1;
+                int at = match < 0 ? Math.min(sourceCursor, matcher.end() - 1) : match;
+                output.append(c);
+                starts.add(input.starts[at]);
+                ends.add(input.ends[at]);
+                if (match >= 0) sourceCursor = match + 1;
+            }
+            if (!replacement.isEmpty() && matcher.start() < matcher.end()) {
+                int first = starts.size() - replacement.length();
+                starts.set(first, input.starts[matcher.start()]);
+                ends.set(ends.size() - 1, input.ends[matcher.end() - 1]);
+            }
+            cursor = matcher.end();
+        }
+        appendUnchanged(input, cursor, input.text.length(), output, starts, ends);
+        return new MappedText(output.toString(), starts.stream().mapToInt(Integer::intValue).toArray(),
+                ends.stream().mapToInt(Integer::intValue).toArray());
+    }
+
+    private void appendUnchanged(MappedText input, int from, int to, StringBuilder output,
+            List<Integer> starts, List<Integer> ends) {
+        output.append(input.text, from, to);
+        for (int i = from; i < to; i++) {
+            starts.add(input.starts[i]);
+            ends.add(input.ends[i]);
+        }
     }
 
     private String unifyLineEndings(String text) {

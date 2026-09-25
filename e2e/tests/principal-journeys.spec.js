@@ -83,6 +83,65 @@ test.describe('principal anonymization journeys against the local Java server', 
     await expect(page.locator('#tab-result')).toBeVisible();
   });
 
+  test('links proportional reading progress only while comparing', async ({ page }) => {
+    await open(page);
+    await upload(page);
+    await page.locator('#apply').click();
+    await expect(page.locator('#result-status')).toContainText('Anonimización completada');
+    await page.locator('#compare').click();
+    await expect(page.locator('#compare')).toHaveAttribute('aria-pressed', 'true');
+    const original = page.locator('#doctext');
+    const output = page.locator('#markdown');
+    await expect(original).toBeVisible();
+    await expect(output).toBeVisible();
+
+    // Extend only the rendered reading surfaces, leaving the document and result intact.
+    await page.evaluate(() => {
+      for (const id of ['doctext', 'markdown']) {
+        const extension = document.createElement('div');
+        extension.textContent = ('Neutral scroll padding.\n').repeat(250);
+        extension.style.whiteSpace = 'pre-line';
+        document.getElementById(id).append(extension);
+      }
+    });
+    const metrics = async (locator) => locator.evaluate(el => ({
+      top: el.scrollTop, range: el.scrollHeight - el.clientHeight
+    }));
+    const move = async (locator, progress) => locator.evaluate((el, fraction) => {
+      el.scrollTop = (el.scrollHeight - el.clientHeight) * fraction;
+    }, progress);
+    const expectProgress = async (locator, fraction) => {
+      await expect.poll(async () => {
+        const { top, range } = await metrics(locator);
+        return range > 0 ? top / range : -1;
+      }).toBeGreaterThan(fraction - 0.03);
+      const { top, range } = await metrics(locator);
+      expect(range).toBeGreaterThan(100);
+      expect(top / range).toBeLessThan(fraction + 0.03);
+    };
+    expect((await metrics(original)).range).toBeGreaterThan(100);
+    expect((await metrics(output)).range).toBeGreaterThan(100);
+    await move(original, 0.65);
+    await expectProgress(original, 0.65);
+    await expectProgress(output, 0.65);
+    await move(output, 0.25);
+    await expectProgress(output, 0.25);
+    await expectProgress(original, 0.25);
+
+    await page.locator('#compare').click();
+    await expect(page.locator('#compare')).toHaveAttribute('aria-pressed', 'false');
+    await page.locator('#tab-document-control').click();
+    const outputBefore = await metrics(output);
+    await move(original, 0.8);
+    await expectProgress(original, 0.8);
+    expect((await metrics(output)).top).toBeCloseTo(outputBefore.top, 0);
+    await page.locator('#tab-result-control').click();
+    const originalBefore = await metrics(original);
+    await move(output, 0.45);
+    expect((await metrics(output)).top).toBeGreaterThan(0);
+    expect((await metrics(original)).top).toBeCloseTo(originalBefore.top, 0);
+  });
+
   test('filters entities and navigates actual multiple occurrences', async ({ page }) => {
     await open(page);
     await upload(page);
@@ -118,10 +177,11 @@ test.describe('principal anonymization journeys against the local Java server', 
     await upload(page);
     await page.getByRole('button', { name: 'Añadir entidad anonimizar' }).click();
     const manual = page.getByRole('textbox', { name: /Texto a anonimizar/ });
-    await manual.fill('20240415');
+    // A word no detector proposes, so only a saved manual entry could create it.
+    await manual.fill('arrendamiento');
     await manual.press('Escape');
     await expect(page.getByRole('button', { name: 'Añadir entidad anonimizar' })).toBeVisible();
-    await expect(entity(page, '20240415')).toHaveCount(0);
+    await expect(entity(page, 'arrendamiento')).toHaveCount(0);
 
     const email = entity(page, 'juan.perez@example.com');
     await email.locator('.entity-value').click();
@@ -135,7 +195,9 @@ test.describe('principal anonymization journeys against the local Java server', 
     await expect(page.locator('#download')).toBeEnabled();
     const markdown = await page.locator('#markdown').innerText();
     expect(markdown).toContain('[PERSONA_');
-    expect(markdown).toContain('87654321A');
+    // Long digit runs are anonymized as codes even inside alphanumeric references.
+    expect(markdown).not.toContain('87654321');
+    expect(markdown).toContain('[CODIGO_');
     expect(markdown).not.toContain('Juan Perez Lopez');
     expect(markdown).not.toContain('12345678Z');
     expect(markdown).not.toContain('juan.perez@example.com');
@@ -150,9 +212,9 @@ test.describe('principal anonymization journeys against the local Java server', 
     await upload(page);
     await page.getByRole('button', { name: 'Añadir entidad anonimizar' }).click();
     const manual = page.getByRole('textbox', { name: /Texto a anonimizar/ });
-    await manual.fill('20240415');
+    await manual.fill('arrendamiento');
     await page.getByRole('button', { name: 'Guardar' }).click();
-    const added = entity(page, '20240415');
+    const added = entity(page, 'arrendamiento');
     await expect(added).toBeVisible();
     const selection = added.getByRole('checkbox');
     await expect(selection).toBeChecked();
@@ -164,8 +226,8 @@ test.describe('principal anonymization journeys against the local Java server', 
     await page.locator('#apply').click();
     await expect(page.locator('#result-status')).toContainText('Anonimización completada');
     const output = await saveDownload(page, page.locator('#download'), 'manual-download.md');
-    expect(output).not.toContain('20240415');
-    expect(output).toContain('[CODIGO_');
+    expect(output).not.toContain('arrendamiento');
+    expect(output).toContain('[TEXTO_');
   });
 
   test('copies verified output when Chromium clipboard permissions are available', async ({ page, context }) => {
@@ -187,7 +249,7 @@ test.describe('principal anonymization journeys against the local Java server', 
     expect(clipboard).not.toContain('juan.perez@example.com');
   });
 
-  test('blocks ordinary delivery but exports the explicit warning artifact', async ({ page }) => {
+  test('blocks ordinary delivery but copies preview and exports the explicit warning artifact', async ({ page, context }) => {
     await open(page);
     await upload(page);
     const person = entity(page, 'Juan Perez Lopez');
@@ -196,9 +258,21 @@ test.describe('principal anonymization journeys against the local Java server', 
     await page.locator('#apply').click();
     await expect(page.locator('#result-status')).toContainText('Anonimización bloqueada');
     await expect(page.locator('#download')).toBeDisabled();
-    await expect(page.locator('#copy')).toBeDisabled();
+    await expect(page.locator('#copy')).toBeEnabled();
+    await expect(page.locator('#copy-label')).toHaveText('Copiar');
+    await expect(page.locator('#warning-note')).toContainText('copiar');
     await expect(page.locator('#warning-download')).toBeEnabled();
     const preview = await page.locator('#markdown').innerText();
+    const { baseUrl } = await server();
+    try {
+      await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: baseUrl });
+    } catch (error) {
+      test.info().annotations.push({ type: 'environment', description: String(error) });
+      test.skip('Chromium clipboard permissions are unavailable in this environment.');
+    }
+    await page.locator('#copy').click();
+    await expect(page.locator('#copy-label')).toHaveText('Copiado');
+    expect((await page.evaluate(() => navigator.clipboard.readText())).replace(/\r\n/g, '\n')).toBe(preview);
     const warning = await saveDownload(page, page.locator('#warning-download'), 'warning-download.md');
     expect(warning).toContain('[PERSONA_');
     expect(warning).toContain(preview);

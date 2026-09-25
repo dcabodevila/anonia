@@ -36,6 +36,27 @@ class ReviewEditsTest {
         return pipeline.complete(input, ReviewEdits.replay(input, "review-v1\n" + String.join("\n", operations)));
     }
 
+    @Test void capitalizationVariantsRejectTogetherButTextEditsRemainSourceSpecific() {
+        String text = "MARIA GARCIA | Maria Garcia | Maria Garcia Lopez";
+        var input = analysis(text,
+                at(text, "a", DetectionType.PERSON, "MARIA GARCIA", "person", 0),
+                at(text, "b", DetectionType.PERSON, "Maria Garcia", "person", 0),
+                at(text, "c", DetectionType.PERSON, "Maria Garcia Lopez", "person", 0));
+        assertEquals(List.of("c"), ids(apply(input, "reject\ta\ttrue")));
+        var edited = apply(input, edit("a", "GARCIA"));
+        assertEquals(List.of("GARCIA", "Maria Garcia", "Maria Garcia Lopez"),
+                edited.stream().map(Detection::value).toList());
+        assertEquals(edited.get(0).entityKey(), edited.get(1).entityKey());
+        assertNotEquals(edited.get(0).entityKey(), edited.get(2).entityKey());
+    }
+
+    @Test void reclassifyingAnEntityAsTextoCompletesTheReview() {
+        // The review UI offers TEXTO for every entity; the server must accept it end to end.
+        var result = completeReview("type	p	TEXTO");
+        assertTrue(result.accepted().stream().anyMatch(d -> d.type().label().equals("TEXTO")));
+        assertTrue(result.markdown().contains("[TEXTO_001]"), result::markdown);
+    }
+
     @Test void rejectedHiddenPersonDoesNotBlockPipelineExport() {
         String expand = edit("a", "Calle Maria Garcia");
         for (String[] operations : List.of(new String[]{expand, "reject\tp\ttrue"},
@@ -251,7 +272,7 @@ class ReviewEditsTest {
                 at(text, "b", DetectionType.PERSON, "Maria Garcia", "person", 14),
                 at(text, "c", DetectionType.PHONE, "612345678", "phone", 0));
         List<String> labels = List.of("DNI", "NIE", "IBAN", "EMAIL", "CLIENTE", "MATRICULA",
-                "TELEFONO", "DIRECCION", "CP", "PERSONA", "CODIGO");
+                "TELEFONO", "DIRECCION", "CP", "PERSONA", "CODIGO", "TEXTO");
 
         for (String label : labels) {
             var changed = apply(input, edit("a", "Maria"), "type\ta\t" + label);
@@ -268,6 +289,18 @@ class ReviewEditsTest {
                         java.util.Map.of("person", "[CODIGO_001]", "phone", "[TELEFONO_001]")));
         assertEquals(List.of("c"), ids(apply(input, edit("a", "Maria"),
                 "type\ta\tCODIGO", "reject\ta\ttrue")));
+    }
+
+    @Test void organizationCaseVariantsKeepOneIdentityThroughReviewReplay() {
+        String text = "Banco Pastor | BANCO PASTOR";
+        var input = analysis(text,
+                at(text, "bank", DetectionType.ORGANIZATION, "Banco Pastor", "bank-key", 0),
+                at(text, "bank-upper", DetectionType.ORGANIZATION, "BANCO PASTOR", "bank-key", 0));
+        var reviewed = ReviewEdits.replay(input, "review-v1\n");
+        assertEquals(2, reviewed.effective().size());
+        assertEquals(List.of("Banco Pastor", "BANCO PASTOR"),
+                reviewed.effective().stream().map(Detection::value).toList());
+        assertEquals(1, reviewed.effective().stream().map(Detection::entityKey).distinct().count());
     }
 
     @Test void expandsAllExactSourceOccurrencesAndEditsTheMatchingBatch() {
@@ -287,18 +320,18 @@ class ReviewEditsTest {
         assertEquals(List.of(0, code.length() + 3), edited.stream().map(Detection::start).toList());
     }
 
-    @Test void addsManualCodigoAtEveryEligibleOccurrenceForApplyAndVerification() {
+    @Test void addsManualTextoAtEveryEligibleOccurrenceForApplyAndVerification() {
         String code = "TRA/2023/36/000/10812";
         String text = code + " | " + code + " | TRA/2023/36/000/108120";
         var input = analysis(text);
         var reviewed = ReviewEdits.replay(input, "review-v1\nadd\tmanual:1\t" + code);
 
         assertEquals(List.of("manual:1", "manual:1:24:45"), ids(reviewed.effective()));
-        assertTrue(reviewed.effective().stream().allMatch(detection -> detection.type() == DetectionType.CODIGO));
+        assertTrue(reviewed.effective().stream().allMatch(detection -> detection.type().label().equals("TEXTO")));
         var pipeline = new AnonymizationPipeline(null, null, null,
                 new com.docanonymizer.domain.service.RunScopedIdentifier(), java.time.Clock.systemUTC());
         var result = pipeline.complete(input, reviewed);
-        assertTrue(result.markdown().contains("[CODIGO_001] | [CODIGO_001] | TRA/2023/36/000/108120"));
+        assertTrue(result.markdown().contains("[TEXTO_001] | [TEXTO_001] | TRA/2023/36/000/108120"));
         assertFalse(result.deliverable(), () -> result.verification().findings().toString());
     }
 

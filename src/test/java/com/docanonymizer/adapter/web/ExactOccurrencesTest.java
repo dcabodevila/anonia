@@ -28,6 +28,42 @@ class ExactOccurrencesTest {
         assertEquals(expanded.candidates(), ExactOccurrences.expand(expanded).candidates());
     }
 
+    @Test void capitalizationVariantsShareReviewIdentityWithoutMergingDifferentNames() {
+        String text = "MARIA GARCIA | Maria Garcia | Maria Garcia Lopez";
+        var analysis = new AnonymizationPipeline.Analysis(text, List.of(
+                detection(text, "a", DetectionType.PERSON, "MARIA GARCIA", "person", 0),
+                detection(text, "b", DetectionType.PERSON, "Maria Garcia", "person", 0),
+                detection(text, "c", DetectionType.PERSON, "Maria Garcia Lopez", "person", 0)), "hash", 1);
+        var expanded = ExactOccurrences.expand(analysis).candidates();
+        assertEquals(expanded.get(0).entityKey(), expanded.get(1).entityKey());
+        assertNotEquals(expanded.get(0).entityKey(), expanded.get(2).entityKey());
+    }
+
+    @Test void groupsMixedCaseOrganizationOccurrencesWithoutChangingTheirValues() {
+        String text = "Banco Pastor | BANCO PASTOR";
+        var analysis = new AnonymizationPipeline.Analysis(text, List.of(
+                detection(text, "a", DetectionType.ORGANIZATION, "Banco Pastor", "organization:banco pastor", 0),
+                detection(text, "b", DetectionType.ORGANIZATION, "BANCO PASTOR", "organization:banco pastor", 1)), "hash", 1);
+        var expanded = ExactOccurrences.expand(analysis);
+        assertEquals(List.of("Banco Pastor", "BANCO PASTOR"),
+                expanded.candidates().stream().map(Detection::value).toList());
+        assertEquals(expanded.candidates().get(0).entityKey(), expanded.candidates().get(1).entityKey());
+    }
+
+    @Test void expandsOrganizationsOnlyAtWordBoundariesWithOriginalWhitespaceOffsets() {
+        String text = "Banco Pastor | Banco\nPastor | Banco Pastoral | XBanco Pastor | Banco PastorX";
+        var analysis = new AnonymizationPipeline.Analysis(text, List.of(
+                detection(text, "bank", DetectionType.ORGANIZATION, "Banco Pastor",
+                        "organization:banco pastor", 0)), "hash", 1);
+
+        var expanded = ExactOccurrences.expand(analysis);
+        assertEquals(List.of("Banco Pastor", "Banco\nPastor"),
+                expanded.candidates().stream().map(Detection::value).toList());
+        assertEquals(text.indexOf("Banco\nPastor"), expanded.candidates().get(1).start());
+        assertEquals(text.indexOf("Banco\nPastor") + "Banco\nPastor".length(),
+                expanded.candidates().get(1).end());
+    }
+
     @Test void preservesAnExplicitDifferentTypeAtTheSameExactRange() {
         String text = "10812 | 10812";
         var analysis = new AnonymizationPipeline.Analysis(text, List.of(

@@ -12,7 +12,7 @@
   <?define JpInstallerVersion=200 ?>
   <?define JpCompressedMsi=yes ?>
 
-  <?include $(var.JpConfigDir)/overrides.wxi ?>
+  <?include "STAGED_RULES_OVERRIDE" ?>
 
   <?ifdef JpAllowUpgrades ?>
     <?define JpUpgradeVersionOnlyDetectUpgrade="no"?>
@@ -69,6 +69,15 @@
 
     <CustomAction Id="JpFindRelatedProducts" BinaryKey="JpCaDll" DllEntry="FindRelatedProductsEx" />
 
+    <!-- AppSearch detects existing user content before the component is selected. -->
+    <Property Id="EXISTING_USER_RULES">
+      <DirectorySearch Id="FindUserRulesDirectory" Path="[%USERPROFILE]\.anonimuse">
+        <FileSearch Id="FindUserRulesFile" Name="rules.txt" />
+      </DirectorySearch>
+    </Property>
+    <CustomAction Id="SetUserRulesDirectory" Property="ANONIMUSE_RULES_DIR"
+                  Value="[%USERPROFILE]\.anonimuse" />
+
     <!-- Standard required root and per-user environment component. -->
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Component Id="TesseractCommandEnvironment" Guid="{6F5C5EE2-6E1C-4FAF-97A4-D76C93541E47}">
@@ -76,6 +85,14 @@
                           Value="C:\Program Files\Tesseract-OCR\tesseract.exe"
                           Action="set" System="no" Permanent="no" />
       </Component>
+      <Directory Id="ANONIMUSE_RULES_DIR" Name=".anonimuse">
+        <Component Id="UserRulesSample" Guid="{5E3AA17B-6112-4C98-9191-13F79F173CE7}"
+                   Permanent="yes" NeverOverwrite="yes">
+          <Condition>NOT EXISTING_USER_RULES</Condition>
+          <File Id="UserRulesSampleFile" Name="rules.txt" KeyPath="yes"
+                Source="$(var.JpRulesSource)" />
+        </Component>
+      </Directory>
     </Directory>
 
     <Feature Id="DefaultFeature" Title="!(loc.MainFeatureTitle)" Level="1">
@@ -83,6 +100,7 @@
       <ComponentGroupRef Id="Files"/>
       <ComponentGroupRef Id="FileAssociations"/>
       <ComponentRef Id="TesseractCommandEnvironment"/>
+      <ComponentRef Id="UserRulesSample"/>
     </Feature>
 
     <CustomAction Id="JpSetARPINSTALLLOCATION" Property="ARPINSTALLLOCATION" Value="[INSTALLDIR]" />
@@ -110,6 +128,7 @@
     <UIRef Id="JpUI"/>
 
     <InstallExecuteSequence>
+      <Custom Action="SetUserRulesDirectory" Before="CostFinalize">NOT Installed</Custom>
       <Custom Action="JpSetARPINSTALLLOCATION" After="CostFinalize">Not Installed</Custom>
       <Custom Action="JpSetARPCOMMENTS" After="CostFinalize">Not Installed</Custom>
       <Custom Action="JpSetARPCONTACT" After="CostFinalize">Not Installed</Custom>

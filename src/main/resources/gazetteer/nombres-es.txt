@@ -12,6 +12,10 @@
 
 # --- Femeninos ---
 Maria
+Mª
+Lola
+Angela
+Natividad
 Carmen
 Ana
 Isabel

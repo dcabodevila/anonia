@@ -23,6 +23,32 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class WebServerTest {
 
+    @Test void findingsApiOmitsInternalControlCodesAndSensitiveValues() throws Exception {
+        var method = WebServer.class.getDeclaredMethod("findingJson", com.docanonymizer.domain.model.Finding.class);
+        method.setAccessible(true);
+        var finding = com.docanonymizer.domain.model.Finding.blocking(
+                "C1-VALOR-LITERAL", "DNI en línea 2 sigue presente literalmente en la salida");
+        String json = (String) method.invoke(new WebServer("127.0.0.1", 0), finding);
+        assertTrue(json.contains("DNI en línea 2"));
+        assertTrue(json.contains("BLOCKING"));
+        assertTrue(!json.contains("C1-VALOR-LITERAL"));
+        assertTrue(!json.contains("control"));
+        assertTrue(!json.contains("12345678Z"));
+    }
+
+    @Test void findingApiIncludesOnlyNumericOutputRangesWhenPresent() throws Exception {
+        var method = WebServer.class.getDeclaredMethod("findingJson", com.docanonymizer.domain.model.Finding.class);
+        method.setAccessible(true);
+        var finding = new com.docanonymizer.domain.model.Finding("C1", com.docanonymizer.domain.model.Severity.BLOCKING,
+                "DNI residual", 3, 12);
+        String json = (String) method.invoke(new WebServer("127.0.0.1", 0), finding);
+        assertTrue(json.contains("\"outputStart\":3"));
+        assertTrue(json.contains("\"outputEnd\":12"));
+        assertTrue(!json.contains("\"control\""));
+        assertTrue(!((String) method.invoke(new WebServer("127.0.0.1", 0),
+                com.docanonymizer.domain.model.Finding.blocking("C4", "No label"))).contains("outputStart"));
+    }
+
     @Test void usesDocumentPortBeforeRenderPort() throws Exception {
         int documentPort = availablePort();
         int renderPort = availablePort();
@@ -67,6 +93,25 @@ class WebServerTest {
             }
 
             assertEquals(404, get(client, port, "/unapproved.png").statusCode());
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test void servesLandingGifsWithTheirOriginalBytesAndRejectsUnknownNames() throws Exception {
+        int port = availablePort();
+        HttpServer server = new WebServer("127.0.0.1", port).start();
+        try {
+            HttpClient client = HttpClient.newHttpClient();
+
+            for (String name : new String[]{"detect", "review", "compare", "export", "ai"}) {
+                HttpResponse<byte[]> response = get(client, port, "/landing/" + name + ".gif");
+                assertEquals(200, response.statusCode(), name);
+                assertEquals("image/gif", response.headers().firstValue("Content-Type").orElseThrow());
+                assertTrue(Arrays.equals(resourceBytes("/web/landing/" + name + ".gif"), response.body()), name);
+            }
+
+            assertEquals(404, get(client, port, "/landing/unknown.gif").statusCode());
         } finally {
             server.stop(0);
         }

@@ -12,6 +12,19 @@ class TextNormalizerTest {
     private final TextNormalizer normalizer = new TextNormalizer();
 
     @Test
+    void mapsEntireUnicodeGraphemeAndMatchesFullNormalization() {
+        for (String cluster : new String[] {"한", "e\u0301", "\u1100\u1161\u11A8"}) {
+            String source = "prefix " + cluster + " suffix";
+            var mapped = normalizer.normalizeMapped(source);
+            assertEquals(normalizer.normalize(source), mapped.text());
+            int at = mapped.text().indexOf(java.text.Normalizer.normalize(cluster, java.text.Normalizer.Form.NFC));
+            assertEquals(source.indexOf(cluster), mapped.start(at));
+            assertEquals(source.indexOf(cluster) + cluster.length(),
+                    mapped.end(at + java.text.Normalizer.normalize(cluster, java.text.Normalizer.Form.NFC).length()));
+        }
+    }
+
+    @Test
     @DisplayName("une la palabra partida por guion al final de linea")
     void joinsHyphenatedLineBreak() {
         String result = normalizer.normalize("las manifesta-\nciones recogidas");

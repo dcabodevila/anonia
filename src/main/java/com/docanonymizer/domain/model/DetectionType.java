@@ -16,9 +16,13 @@ public enum DetectionType {
     PHONE("TELEFONO", 70),
     ADDRESS("DIRECCION", 60),
     POSTAL_CODE("CP", 50),
+    ORGANIZATION("ORGANIZACION", 41),
+    TERM("TERMINO", 41),
     PERSON("PERSONA", 40),
-    /** Codigo asignado manualmente durante la revision; ningun detector lo emite. */
-    CODIGO("CODIGO", 40);
+    /** Codigo detectado en secuencias numericas o asignado durante la revision. */
+    CODIGO("CODIGO", 40),
+    /** Texto libre elegido durante la revision; la interfaz lo ofrece para cualquier entidad. */
+    TEXT("TEXTO", 40);
 
     private final String label;
     private final int priority;

@@ -26,7 +26,10 @@ public final class SpanishNamePatterns {
      * escritos juridicos alternan "Maria Garcia Perez" y "MARIA GARCIA PEREZ" sin criterio.
      */
     public static final String NAME_WORD =
-            "(?:[A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]+|[A-ZÁÉÍÓÚÜÑ]{2,})";
+            "(?-i:(?:[A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]+|[A-ZÁÉÍÓÚÜÑ]{2,}))";
+
+    /** Abbreviated María is valid only as a component of a full name. */
+    private static final String MARIA_ABBREVIATION = "Mª";
 
     /**
      * Particulas que van en minuscula dentro de un nombre o un nombre de via.
@@ -47,9 +50,18 @@ public final class SpanishNamePatterns {
      * Nombre completo: al menos dos palabras. Exigir dos evita que cualquier palabra
      * capitalizada a principio de frase se convierta en un candidato.
      */
-    public static final String FULL_NAME =
-            NAME_WORD + "(?:" + SOFT_SPACE + "(?:" + PARTICLE + SOFT_SPACE + ")?"
-                    + NAME_WORD + "){1,4}";
+    public static final String FULL_NAME = fullName(NAME_WORD);
+
+    /** Lowercase words are accepted only when a structural cue establishes person context. */
+    public static final String FULL_NAME_AFTER_CUE =
+            fullName("(?:" + NAME_WORD + "|[a-záéíóúüñ]{2,})");
+
+    private static String fullName(String word) {
+        String tail = SOFT_SPACE + "(?:" + PARTICLE + SOFT_SPACE + ")?" + word;
+        return "(?:" + MARIA_ABBREVIATION + SOFT_SPACE + word + tail
+                + "|" + word + SOFT_SPACE + MARIA_ABBREVIATION + tail
+                + "|" + word + tail + ")(?:" + tail + "){0,3}";
+    }
 
     /**
      * Tratamientos que preceden a una persona.

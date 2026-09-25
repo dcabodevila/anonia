@@ -29,10 +29,21 @@ const el = (id) => document.getElementById(id);
 
 // ------------------------------------------------------------------ carga
 
+// A page served from this machine (desktop app or local container) already keeps documents
+// local, so the landing hides the download path and the web-demo warnings.
+const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]', '::1']);
+
+function markLocalRuntime() {
+  if (typeof location === 'undefined' || !document.documentElement) return;
+  if (LOCAL_HOSTS.has(location.hostname)) document.documentElement.dataset.runtime = 'local';
+}
+
 function init() {
+  markLocalRuntime();
   const dropzone = el('dropzone');
   const fileInput = el('file');
 
+  el('brand-home').addEventListener('click', goHome);
   el('browse').addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', () => {
     if (fileInput.files.length) analyze(fileInput.files[0]);
@@ -77,6 +88,8 @@ function init() {
 }
 
 async function analyze(file) {
+  detachComparisonScroll();
+  state.comparing = false;
   const request = ++state.analysisRequest;
   state.sourceFilename = file && typeof file.name === 'string' ? file.name : null;
   invalidateResult();
@@ -125,6 +138,38 @@ async function analyze(file) {
   } finally {
     if (request === state.analysisRequest) el('loading').classList.add('hidden');
   }
+}
+
+function goHome() {
+  detachComparisonScroll();
+  state.comparing = false;
+  ++state.analysisRequest;
+  invalidateResult();
+  state.jobId = null;
+  state.sourceFilename = null;
+  state.text = '';
+  state.detections = [];
+  state.entities = new Map();
+  state.rejected = new Set();
+  state.types = [];
+  state.edits = [];
+  state.entitySearch = '';
+  state.entityTypeFilter = '';
+  state.activeEntityKey = null;
+  state.activeOccurrenceId = null;
+  state.manualEntityDraft = false;
+  state.focusTarget = null;
+  el('file').value = '';
+  el('doctext').textContent = '';
+  el('entities').textContent = '';
+  el('stats').textContent = '';
+  el('entity-search').value = '';
+  el('entity-type-filter').value = '';
+  el('toast-region').textContent = '';
+  el('workspace').classList.add('hidden');
+  el('loading').classList.add('hidden');
+  showError(null);
+  resetDropzone();
 }
 
 function resetDropzone() {
@@ -940,9 +985,10 @@ function renderResult(data, hasResult) {
     ? previewMarkdown(data.markdown)
     : 'ANONIMIZACIÓN BLOQUEADA: el resultado no se entrega.\n\n'
       + 'Revisa el estado del resultado para conocer el control que falló.';
-  el('warning-note').textContent = 'Este archivo puede contener datos personales residuales. Descárgalo solo si aceptas ese riesgo.';
+  el('warning-note').textContent = 'Este resultado puede contener datos personales residuales. Descargar o copiar implica aceptar ese riesgo; no es seguro para entregar.';
   el('download').disabled = !deliverable;
-  el('copy').disabled = !deliverable;
+  el('copy').disabled = !deliverable && !state.warningDownloadEligible;
+  el('copy-label').textContent = 'Copiar';
   el('warning-download').disabled = !state.warningDownloadEligible;
   el('warning-download').classList.toggle('hidden', !state.warningDownloadEligible);
   el('warning-note').classList.toggle('hidden', !state.warningDownloadEligible);
@@ -950,17 +996,58 @@ function renderResult(data, hasResult) {
 
 function renderChecks(data, hasResult) {
   const detail = state.resultFindings.length
-    ? state.resultFindings.map(finding => finding.control + ': ' + finding.detail).join(' ')
+    ? state.resultFindings.map(finding => finding.detail).join(' ')
     : 'La verificación encontró un riesgo. Revisa las entidades y vuelve a anonimizar.';
   if (data.deliverable && hasResult) {
     const message = data.substitutions + ' sustituciones en ' + data.entities + ' entidades. El Markdown está listo para descargar o copiar.';
     setResultStatus('success', 'Anonimización completada', message);
-    showToast('Anonimización completada', message, 'success');
     return;
   }
 
   setResultStatus('blocked', 'Anonimización bloqueada', detail);
-  showToast('Anonimización bloqueada', detail, 'warning');
+  const panel = el('result-status');
+  const markdown = state.warningMarkdown;
+  for (const finding of state.resultFindings) {
+    const { outputStart: start, outputEnd: end } = finding;
+    if (!validOutputRange(markdown, start, end)) continue;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'result-locate';
+    button.textContent = 'Ubicar';
+    button.setAttribute('aria-label', 'Ubicar hallazgo en el resultado');
+    const revision = state.revision;
+    button.addEventListener('click', () => {
+      if (revision !== state.revision || markdown !== state.warningMarkdown
+          || !validOutputRange(markdown, start, end)) return;
+      locateOutput(markdown, start, end);
+    });
+    panel.append(button);
+  }
+}
+
+function validOutputRange(markdown, start, end) {
+  return typeof markdown === 'string' && Number.isSafeInteger(start) && Number.isSafeInteger(end)
+    && start >= 0 && end > start && end <= markdown.length
+    && !(start > 0 && /[\uD800-\uDBFF]/u.test(markdown[start - 1]) && /[\uDC00-\uDFFF]/u.test(markdown[start]))
+    && !(end < markdown.length && /[\uD800-\uDBFF]/u.test(markdown[end - 1]) && /[\uDC00-\uDFFF]/u.test(markdown[end]));
+}
+
+function locateOutput(markdown, start, end) {
+  const preview = previewMarkdown(markdown);
+  const prefixLength = markdown.length - preview.length;
+  if (start < prefixLength) return;
+  const relativeStart = start - prefixLength;
+  const relativeEnd = end - prefixLength;
+  const container = el('markdown');
+  container.textContent = '';
+  container.append(document.createTextNode(preview.slice(0, relativeStart)));
+  const mark = document.createElement('mark');
+  mark.className = 'result-location';
+  mark.tabIndex = -1;
+  mark.textContent = preview.slice(relativeStart, relativeEnd);
+  container.append(mark, document.createTextNode(preview.slice(relativeEnd)));
+  if (typeof mark.scrollIntoView === 'function') mark.scrollIntoView({ block: 'center' });
+  mark.focus({ preventScroll: true });
 }
 
 function setResultStatus(status, title, message) {
@@ -1002,6 +1089,7 @@ function resetResultPanels() {
   el('warning-download').classList.add('hidden');
   el('warning-note').classList.add('hidden');
   el('copy').disabled = true;
+  el('copy-label').textContent = 'Copiar';
 }
 
 // -------------------------------------------------------------------- misc
@@ -1024,15 +1112,57 @@ function renderStats(data) {
   }
 }
 
+let comparisonScrollCleanup = null;
+
+function detachComparisonScroll() {
+  if (comparisonScrollCleanup) comparisonScrollCleanup();
+  comparisonScrollCleanup = null;
+}
+
+function syncComparisonScroll() {
+  detachComparisonScroll();
+  if (!state.comparing) return;
+  const source = el('doctext');
+  const output = el('markdown');
+  let expectedSource = null;
+  let expectedOutput = null;
+  const link = (from, to, direction) => () => {
+    const expected = direction === 'source' ? expectedSource : expectedOutput;
+    if (expected !== null && from.scrollTop === expected) {
+      if (direction === 'source') expectedSource = null;
+      else expectedOutput = null;
+      return;
+    }
+    const range = Math.max(0, from.scrollHeight - from.clientHeight);
+    const targetRange = Math.max(0, to.scrollHeight - to.clientHeight);
+    const position = range ? Math.max(0, Math.min(1, from.scrollTop / range)) * targetRange : 0;
+    if (to.scrollTop !== position) {
+      if (direction === 'source') expectedOutput = position;
+      else expectedSource = position;
+      to.scrollTop = position;
+    }
+  };
+  const onSource = link(source, output, 'source');
+  const onOutput = link(output, source, 'output');
+  source.addEventListener('scroll', onSource);
+  output.addEventListener('scroll', onOutput);
+  comparisonScrollCleanup = () => {
+    source.removeEventListener('scroll', onSource);
+    output.removeEventListener('scroll', onOutput);
+  };
+}
+
 function selectTab(name) {
   if (name !== 'document' && name !== 'result') return;
   state.activeTab = name;
   state.comparing = false;
+  syncComparisonScroll();
   renderMainView();
 }
 
 function toggleCompare() {
   state.comparing = !state.comparing;
+  syncComparisonScroll();
   renderMainView();
 }
 
@@ -1121,23 +1251,28 @@ function downloadWithWarnings() {
 }
 
 async function copyMarkdown() {
-  if (!state.markdown) return;
+  const warning = state.warningDownloadEligible && !!state.warningMarkdown;
+  const markdown = warning ? state.warningMarkdown : state.markdown;
+  if (!markdown) return;
   const revision = state.revision;
-  const markdown = state.markdown;
   const request = ++state.copyRequest;
   const current = () => revision === state.revision
-    && markdown === state.markdown && request === state.copyRequest;
+    && markdown === (warning ? state.warningMarkdown : state.markdown)
+    && warning === (state.warningDownloadEligible && !!state.warningMarkdown)
+    && request === state.copyRequest;
+  const label = 'Copiar';
   try {
     await navigator.clipboard.writeText(markdown);
     if (!current()) return;
     el('copy-label').textContent = 'Copiado';
     setTimeout(() => {
-      if (current()) el('copy-label').textContent = 'Copiar';
+      if (current()) el('copy-label').textContent = label;
     }, 1500);
   } catch (err) {
     if (current()) {
       setResultStatus('error', 'No se pudo copiar el resultado',
-        'El navegador bloqueó el acceso al portapapeles. Usa «Descargar .md» para guardar el resultado.');
+        warning ? 'El navegador bloqueó el portapapeles. El resultado sigue bloqueado y puede contener datos personales.'
+          : 'El navegador bloqueó el acceso al portapapeles. Usa «Descargar .md» para guardar el resultado.');
     }
   }
 }
