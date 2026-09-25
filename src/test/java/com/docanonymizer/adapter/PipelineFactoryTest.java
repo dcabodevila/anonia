@@ -23,6 +23,64 @@ class PipelineFactoryTest {
     Path temporaryDirectory;
 
     @Test
+    void exclusionsAreTypedCaseInsensitiveAndSnapshotScoped() throws Exception {
+        Path rules = temporaryDirectory.resolve("rules.txt");
+        Files.writeString(rules, "person: María\nterm: Oposición\n"
+                + "exclude-person: María García Pérez\nexclude-organization: BANCO PASTOR\n"
+                + "exclude-term: oposición\n");
+        String previous = System.getProperty("doc.anonymizer.rules");
+        String text = "María García Pérez compareció ante el tribunal. García Pérez declaró después. "
+                + "María López declaró también ante Banco Pastor y Banco Popular sobre la Oposición. "
+                + "El expediente incluye nombres y organizaciones suficientes para analizar este documento.";
+        try {
+            System.setProperty("doc.anonymizer.rules", rules.toString());
+            var configured = PipelineFactory.withReview((source, candidates) -> candidates,
+                    java.time.Clock.systemUTC());
+            Files.writeString(rules, "# no exclusions\nperson: María\nterm: Oposición\n");
+            var candidates = configuredWithText(configured, text);
+            assertTrue(candidates.stream().noneMatch(d -> d.type() == DetectionType.PERSON
+                    && (d.value().equalsIgnoreCase("María García Pérez")
+                    || d.value().equalsIgnoreCase("García Pérez"))), () -> "Excluded person: " + candidates);
+            assertTrue(candidates.stream().anyMatch(d -> d.type() == DetectionType.PERSON
+                    && d.value().equals("María López")));
+            assertTrue(candidates.stream().noneMatch(d -> d.type() == DetectionType.ORGANIZATION
+                    && d.value().equalsIgnoreCase("Banco Pastor")));
+            assertTrue(candidates.stream().anyMatch(d -> d.type() == DetectionType.ORGANIZATION
+                    && d.value().equals("Banco Popular")));
+            assertTrue(candidates.stream().noneMatch(d -> d.type() == DetectionType.TERM));
+            assertTrue(configuredWithText(PipelineFactory.withReview((source, found) -> found,
+                    java.time.Clock.systemUTC()), text).stream().anyMatch(d -> d.type() == DetectionType.TERM));
+        } finally {
+            if (previous == null) System.clearProperty("doc.anonymizer.rules");
+            else System.setProperty("doc.anonymizer.rules", previous);
+        }
+    }
+
+    private java.util.List<com.docanonymizer.domain.model.Detection> configuredWithText(
+            AnonymizationPipeline pipeline, String text) throws Exception {
+        // Exercise the factory's pipeline with a synthetic document via its detector snapshot.
+        return pipeline.analyze(writeSyntheticPdf(text)).candidates();
+    }
+
+    private Path writeSyntheticPdf(String text) throws Exception {
+        Path pdf = temporaryDirectory.resolve("synthetic.pdf");
+        try (var document = new org.apache.pdfbox.pdmodel.PDDocument()) {
+            var page = new org.apache.pdfbox.pdmodel.PDPage();
+            document.addPage(page);
+            try (var stream = new org.apache.pdfbox.pdmodel.PDPageContentStream(document, page)) {
+                stream.beginText();
+                stream.setFont(new org.apache.pdfbox.pdmodel.font.PDType1Font(
+                        org.apache.pdfbox.pdmodel.font.Standard14Fonts.FontName.HELVETICA), 12);
+                stream.newLineAtOffset(50, 700);
+                stream.showText(text);
+                stream.endText();
+            }
+            document.save(pdf.toFile());
+        }
+        return pdf;
+    }
+
+    @Test
     void customTermIsOptInAndPreservesExactSpan() throws Exception {
         Path rules = temporaryDirectory.resolve("rules.txt");
         Files.writeString(rules, "term: Oposición\n");

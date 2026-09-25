@@ -10,16 +10,24 @@ import java.util.ArrayList;
 import java.util.List;
 
 /** Immutable snapshot of optional local literal rules. */
-public record UserRules(List<String> people, List<String> organizations, List<String> terms) {
+public record UserRules(List<String> people, List<String> organizations, List<String> terms,
+                        List<String> excludedPeople, List<String> excludedOrganizations, List<String> excludedTerms) {
+    public UserRules(List<String> people, List<String> organizations, List<String> terms) {
+        this(people, organizations, terms, List.of(), List.of(), List.of());
+    }
+
     public UserRules {
         people = List.copyOf(people);
         organizations = List.copyOf(organizations);
         terms = List.copyOf(terms);
+        excludedPeople = List.copyOf(excludedPeople);
+        excludedOrganizations = List.copyOf(excludedOrganizations);
+        excludedTerms = List.copyOf(excludedTerms);
     }
 
     public static UserRules loadDefault() {
         String override = System.getProperty("doc.anonymizer.rules");
-        Path path = override == null ? Path.of(System.getProperty("user.home"), ".doc-anonymizer", "rules.txt")
+        Path path = override == null ? Path.of(System.getProperty("user.home"), ".anonimuse", "rules.txt")
                 : Path.of(override);
         if (override == null && Files.notExists(path)) return new UserRules(List.of(), List.of(), List.of());
         return load(path);
@@ -39,6 +47,7 @@ public record UserRules(List<String> people, List<String> organizations, List<St
             throw new IllegalArgumentException("Cannot read rules file: " + path, e);
         }
         List<String> people = new ArrayList<>(), organizations = new ArrayList<>(), terms = new ArrayList<>();
+        List<String> excludedPeople = new ArrayList<>(), excludedOrganizations = new ArrayList<>(), excludedTerms = new ArrayList<>();
         String[] lines = content.split("\\R", -1);
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i].strip();
@@ -52,14 +61,18 @@ public record UserRules(List<String> people, List<String> organizations, List<St
                 case "person" -> people.add(value);
                 case "organization" -> organizations.add(value);
                 case "term" -> terms.add(value);
+                case "exclude-person" -> excludedPeople.add(value);
+                case "exclude-organization" -> excludedOrganizations.add(value);
+                case "exclude-term" -> excludedTerms.add(value);
                 default -> throw invalid(path, i + 1);
             }
         }
-        return new UserRules(people, organizations, terms);
+        return new UserRules(people, organizations, terms, excludedPeople, excludedOrganizations, excludedTerms);
     }
 
     private static IllegalArgumentException invalid(Path path, int line) {
         return new IllegalArgumentException("Invalid rule at " + path + ":" + line
-                + "; expected person: <given name>, organization: <phrase>, or term: <phrase>");
+                + "; expected person: <given name>, organization: <phrase>, term: <phrase>, "
+                + "exclude-person: <full name>, exclude-organization: <phrase>, or exclude-term: <phrase>");
     }
 }

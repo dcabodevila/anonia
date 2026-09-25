@@ -18,6 +18,7 @@ import com.docanonymizer.domain.port.DetectorPort;
 import com.docanonymizer.domain.port.ReviewPort;
 import com.docanonymizer.domain.service.AnonymizationPipeline;
 import com.docanonymizer.domain.service.DetectionEngine;
+import com.docanonymizer.domain.service.ExcludedEntities;
 import com.docanonymizer.domain.service.RunScopedIdentifier;
 import java.time.Clock;
 import java.util.ArrayList;
@@ -37,12 +38,14 @@ public final class PipelineFactory {
     }
 
     public static AnonymizationPipeline withReview(ReviewPort review, Clock clock) {
+        UserRules rules = UserRules.loadDefault();
         return new AnonymizationPipeline(
                 new LocalDocumentTextExtractor(),
-                new DetectionEngine(defaultDetectors()),
+                new DetectionEngine(defaultDetectors(rules)),
                 review,
                 new RunScopedIdentifier(),
-                clock);
+                clock,
+                new ExcludedEntities(rules.excludedPeople(), rules.excludedOrganizations(), rules.excludedTerms()));
     }
 
     /**
@@ -50,12 +53,15 @@ public final class PipelineFactory {
      * por prioridad de tipo y longitud, no por el orden en que se registran los detectores.
      */
     public static List<DetectorPort> defaultDetectors() {
+        return defaultDetectors(UserRules.loadDefault());
+    }
+
+    private static List<DetectorPort> defaultDetectors(UserRules rules) {
         List<DetectorPort> detectors = new ArrayList<>(DeterministicDetectors.all());
         detectors.add(new CustomerReferenceDetector());
         detectors.add(new PostalCodeDetector());
         detectors.add(new AddressDetector());
         detectors.add(new StructuralPersonDetector());
-        UserRules rules = UserRules.loadDefault();
         ResourceGazetteer defaults = new ResourceGazetteer();
         var names = rules.people().stream().map(CanonicalForm::forCompare).collect(java.util.stream.Collectors.toSet());
         GazetteerPort gazetteer = new GazetteerPort() {

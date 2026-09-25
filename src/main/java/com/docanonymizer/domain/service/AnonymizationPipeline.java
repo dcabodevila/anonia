@@ -62,6 +62,7 @@ public final class AnonymizationPipeline {
     private final DetectionEngine detectionEngine;
     private final ReviewPort review;
     private final Clock clock;
+    private final ExcludedEntities exclusions;
 
     private final TextSanityGuard sanityGuard = new TextSanityGuard();
     private final HeaderFooterStripper headerFooterStripper = new HeaderFooterStripper();
@@ -79,7 +80,18 @@ public final class AnonymizationPipeline {
             ReviewPort review,
             RunScopedIdentifier identifier,
             Clock clock) {
+        this(extractor, detectionEngine, review, identifier, clock, ExcludedEntities.empty());
+    }
+
+    public AnonymizationPipeline(
+            TextExtractorPort extractor,
+            DetectionEngine detectionEngine,
+            ReviewPort review,
+            RunScopedIdentifier identifier,
+            Clock clock,
+            ExcludedEntities exclusions) {
         this.extractor = extractor;
+        this.exclusions = exclusions;
         this.detectionEngine = detectionEngine;
         this.review = review;
         this.clock = clock;
@@ -111,7 +123,7 @@ public final class AnonymizationPipeline {
         List<Detection> unified = entityResolver.resolve(withPropagated);
 
         return new Analysis(
-                normalized, unified, extracted.sourceSha256(), extracted.pageCount());
+                normalized, exclusions.filter(unified), extracted.sourceSha256(), extracted.pageCount());
     }
 
     /** Server-derived review decisions, separate from the non-overlapping substitution projection. */

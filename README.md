@@ -69,27 +69,42 @@ Produce `ejemplo.anon.md` (el documento) y `ejemplo.report.md` (informe técnico
 
 ### Reglas locales de detección
 
-Cree manualmente el archivo UTF-8 `~/.doc-anonymizer/rules.txt` (no se crea automáticamente),
-o indique otra ruta al iniciar Java con `-Ddoc.anonymizer.rules=/ruta/rules.txt`.
-El archivo se lee una vez al construir el pipeline web o CLI; reinicie la aplicación
-tras editarlo. Si se indica una ruta explícita inexistente o ilegible, el arranque falla
-con la ruta; una línea mal formada informa también su número.
+En Windows, edite el archivo UTF-8 `%USERPROFILE%\.anonimuse\rules.txt` y quite el `#`
+de las líneas que quiera activar. El instalador está diseñado para crear la carpeta y
+un archivo de ejemplo con todas las reglas comentadas si aún no existen, y para conservar
+el archivo editado al actualizar o desinstalar; **este comportamiento de instalación aún
+requiere verificación en una instalación real**. La ruta anterior no se migra automáticamente.
+Fuera del instalador, cree el archivo manualmente si lo necesita. También puede indicar
+otra ruta al iniciar Java con `-Ddoc.anonymizer.rules=/ruta/rules.txt`. El archivo se lee
+una vez al construir el pipeline web o CLI: reinicie la aplicación tras editarlo; no hay
+recarga en caliente. Una ruta explícita inexistente o ilegible impide el arranque e indica
+la ruta; una línea mal formada informa también su número.
 
 ```text
-# Las líneas vacías y los comentarios completos se ignoran.
-person: Íñigo
-organization: Banco Santander
-term: Oposición
-term: INSTANCIA
+# Ejemplos: quite el # para activar una regla.
+# person: Íñigo
+# organization: Banco Santander
+# term: Oposición
+# exclude-person: Íñigo Pérez López
+# exclude-organization: Banco Santander
+# exclude-term: Oposición
 ```
 
-Una regla por línea: clave minúscula exacta `person`, `organization` o `term`, dos puntos,
-un espacio y valor no vacío. `person` añade un nombre de pila al diccionario para detectar
-nombres completos con apellidos; `organization` y `term` detectan frases literales completas
-sin coincidir dentro de palabras. Se ignoran diferencias entre mayúsculas y minúsculas;
-los espacios entre palabras pueden variar. Los términos explícitos reciben `[TERMINO_###]`,
-las organizaciones `[ORGANIZACION_###]`. Sin archivo se mantienen solo las reglas incluidas.
-Las reglas no desactivan otras detecciones, y la revisión existente sigue disponible.
+Una regla activa por línea: clave minúscula exacta, dos puntos, un espacio y valor no vacío;
+las líneas vacías y los comentarios completos se ignoran. Las reglas de inclusión `person: <nombre de pila>` añaden el
+nombre al diccionario para detectar nombres completos con apellidos;
+`organization: <frase>` y `term: <frase>` detectan frases completas sin coincidir dentro
+de palabras. Las exclusiones `exclude-person: <nombre completo>`,
+`exclude-organization: <frase>` y `exclude-term: <frase>` evitan esas detecciones.
+La comparación normaliza mayúsculas/minúsculas y acentos; los espacios entre palabras
+pueden variar. Una exclusión prevalece sobre una inclusión coincidente. La exclusión de
+persona afecta a todas las menciones vinculadas de esa entidad (incluidas formas abreviadas),
+no solo al texto idéntico; si una mención es ambigua y no puede vincularse con certeza,
+no presuponga que quedará excluida. **Las exclusiones son persistentes para esta cuenta y
+se aplican a todos los documentos procesados con ese archivo:** el texto excluido puede
+seguir apareciendo en claro. Revise el resultado antes de compartirlo. Los términos
+explícitos reciben `[TERMINO_###]` y las organizaciones `[ORGANIZACION_###]`. Sin archivo
+se mantienen las reglas incluidas; la revisión existente sigue disponible.
 
 ### OCR local para fotos JPEG/PNG
 
