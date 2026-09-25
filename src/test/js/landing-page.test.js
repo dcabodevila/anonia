@@ -81,7 +81,7 @@ test('hero collapses to a compact single-column strip once the dropzone is compa
   assert.match(css, /\.hero:has\(\.dropzone\.compact\)\s*\{[^}]*max-width:\s*none/);
   assert.match(css, /\.hero:has\(\.dropzone\.compact\)\s*\{[^}]*padding:\s*0/);
   assert.match(css, /\.hero:has\(\.dropzone\.compact\)\s+\.hero-copy\s*\{[^}]*display:\s*none/);
-  assert.match(css, /\.dropzone\.compact\s+\.hero-try-heading,\s*\.dropzone\.compact\s+\.hero-try-note\s*\{[^}]*display:\s*none/);
+  assert.match(css, /\.dropzone\.compact\s+\.hero-try-heading,\s*\.dropzone\.compact\s+\.hero-try-note[^{]*\{[^}]*display:\s*none/);
 });
 
 test('landing section sits after the workspace so error/loading stay right below the hero', () => {
@@ -105,7 +105,7 @@ test('each feature section pairs a heading+paragraph row above a full-width fram
   assert.match(css, /\.landing-feature-heading h3\s*\{[^}]*font-size:\s*clamp\(1\.75rem,3\.2vw,2\.6rem\)/);
   assert.match(css, /\.landing-feature-copy p\s*\{[^}]*max-width:\s*60ch/);
   assert.match(css, /\.landing-feature\s*\{[^}]*margin-bottom:\s*clamp\(5rem,12vh,9rem\)/);
-  assert.match(css, /\.landing-shot\s*\{[^}]*border-radius:\s*14px[^}]*box-shadow:\s*0 24px 60px -20px rgba\(0,0,0,\.6\)/);
+  assert.match(css, /\.landing-shot\s*\{[^}]*border-radius:\s*14px[^}]*box-shadow:\s*0 24px 60px -20px var\(--shadow-deep\)/);
 });
 
 test('a fifth feature section explains pasting the anonymized markdown into an AI assistant', () => {

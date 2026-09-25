@@ -29,7 +29,17 @@ const el = (id) => document.getElementById(id);
 
 // ------------------------------------------------------------------ carga
 
+// A page served from this machine (desktop app or local container) already keeps documents
+// local, so the landing hides the download path and the web-demo warnings.
+const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]', '::1']);
+
+function markLocalRuntime() {
+  if (typeof location === 'undefined' || !document.documentElement) return;
+  if (LOCAL_HOSTS.has(location.hostname)) document.documentElement.dataset.runtime = 'local';
+}
+
 function init() {
+  markLocalRuntime();
   const dropzone = el('dropzone');
   const fileInput = el('file');
 
