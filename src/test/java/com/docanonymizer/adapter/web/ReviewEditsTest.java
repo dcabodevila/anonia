@@ -320,18 +320,18 @@ class ReviewEditsTest {
         assertEquals(List.of(0, code.length() + 3), edited.stream().map(Detection::start).toList());
     }
 
-    @Test void addsManualCodigoAtEveryEligibleOccurrenceForApplyAndVerification() {
+    @Test void addsManualTextoAtEveryEligibleOccurrenceForApplyAndVerification() {
         String code = "TRA/2023/36/000/10812";
         String text = code + " | " + code + " | TRA/2023/36/000/108120";
         var input = analysis(text);
         var reviewed = ReviewEdits.replay(input, "review-v1\nadd\tmanual:1\t" + code);
 
         assertEquals(List.of("manual:1", "manual:1:24:45"), ids(reviewed.effective()));
-        assertTrue(reviewed.effective().stream().allMatch(detection -> detection.type() == DetectionType.CODIGO));
+        assertTrue(reviewed.effective().stream().allMatch(detection -> detection.type().label().equals("TEXTO")));
         var pipeline = new AnonymizationPipeline(null, null, null,
                 new com.docanonymizer.domain.service.RunScopedIdentifier(), java.time.Clock.systemUTC());
         var result = pipeline.complete(input, reviewed);
-        assertTrue(result.markdown().contains("[CODIGO_001] | [CODIGO_001] | TRA/2023/36/000/108120"));
+        assertTrue(result.markdown().contains("[TEXTO_001] | [TEXTO_001] | TRA/2023/36/000/108120"));
         assertFalse(result.deliverable(), () -> result.verification().findings().toString());
     }
 

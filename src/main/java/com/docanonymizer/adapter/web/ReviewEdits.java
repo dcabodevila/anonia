@@ -147,7 +147,7 @@ final class ReviewEdits {
             int[] range = ranges.get(index);
             String detectionId = index == 0 ? id : id + ":" + range[0] + ":" + range[1];
             if (detections.containsKey(detectionId)) throw invalid();
-            Detection detection = new Detection(detectionId, DetectionType.CODIGO,
+            Detection detection = new Detection(detectionId, DetectionType.TEXT,
                     range[0], range[1], text.substring(range[0], range[1]), id,
                     Provenance.MANUAL, 1.0);
             detections.put(detectionId, detection);
