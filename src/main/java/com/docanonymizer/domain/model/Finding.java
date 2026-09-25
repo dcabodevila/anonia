@@ -6,7 +6,11 @@ package com.docanonymizer.domain.model;
  * <p>{@code detail} esta pensado para ser seguro en informes: describe QUE control
  * fallo y sobre que tipo de entidad, nunca el valor filtrado.
  */
-public record Finding(String control, Severity severity, String detail) {
+public record Finding(String control, Severity severity, String detail, Integer outputStart, Integer outputEnd) {
+
+    public Finding(String control, Severity severity, String detail) {
+        this(control, severity, detail, null, null);
+    }
 
     public static Finding blocking(String control, String detail) {
         return new Finding(control, Severity.BLOCKING, detail);

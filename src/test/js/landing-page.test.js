@@ -28,7 +28,7 @@ test('hero copy has a big headline, a lede and no eyebrow/kicker label or pills'
   assert.ok(copyMatch, 'expected hero-copy block right before hero-try');
   const copy = copyMatch[1];
   assert.match(copy, /class="hero-headline"/);
-  assert.match(copy, /Quita los datos personales de tus documentos antes de compartirlos con la IA/);
+  assert.match(copy, /Elimina los datos sensibles de tus documentos para compartirlos donde quieras/);
   assert.match(copy, /class="hero-sub"/);
   assert.doesNotMatch(html, /hero-pill/);
   assert.doesNotMatch(html, /hero-eyebrow|hero-kicker/i);

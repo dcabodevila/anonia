@@ -57,6 +57,33 @@ beforeEach(() => {
   state.editError = null;
 });
 
+test('Ubicar marks and focuses exact warning output without altering copied bytes', async () => {
+  const nodes = fakeDom();
+  state.jobId = 'job';
+  const markdown = '😀 Residual <script> alert';
+  global.fetch = async () => ({ ok: true, json: async () => ({
+    deliverable: false, markdown, findings: [{ detail: '<img src=x>', outputStart: 3, outputEnd: 11 }]
+  }) });
+  await app.apply();
+  const button = nodes.get('result-status').children.find(child => child.tagName === 'button');
+  assert.equal(button.textContent, 'Ubicar');
+  button.listeners.click();
+  const mark = nodes.get('markdown').children.find(child => child.tagName === 'mark');
+  assert.equal(mark.textContent, 'Residual');
+  assert.equal(state.warningMarkdown, markdown);
+  assert.equal(nodes.get('result-status').innerHTML, '');
+});
+
+test('invalid warning ranges have no navigation', async () => {
+  const nodes = fakeDom();
+  state.jobId = 'job';
+  global.fetch = async () => ({ ok: true, json: async () => ({
+    deliverable: false, markdown: 'abc', findings: [{ detail: 'Invalid', outputStart: 2, outputEnd: 9 }]
+  }) });
+  await app.apply();
+  assert.equal(nodes.get('result-status').children.some(child => child.tagName === 'button'), false);
+});
+
 test('blocked findings still display the partial anonymized text and keep warning download available', async () => {
   const nodes = fakeDom();
   state.jobId = 'job';
@@ -70,7 +97,9 @@ test('blocked findings still display the partial anonymized text and keep warnin
   assert.equal(state.resultStatus, 'blocked');
   assert.deepEqual(state.resultFindings, [{ control: 'C3', severity: 'BLOCKING', detail: 'Dato residual' }]);
   assert.equal(nodes.get('markdown').textContent, '# Resultado parcial\n\nTexto protegido');
-  assert.match(nodes.get('result-status').textContent, /C3: Dato residual/);
+  assert.match(nodes.get('result-status').textContent, /Dato residual/);
+  assert.doesNotMatch(nodes.get('result-status').textContent, /C3/);
+  assert.equal((nodes.get('toast-region')?.children.length || 0), 0);
   assert.equal(nodes.get('warning-download').disabled, false);
   assert.equal(nodes.get('download').disabled, true);
   assert.equal(app.downloadWithWarnings(), true);
@@ -293,7 +322,9 @@ test('blocked findings are shown exactly once in the result status', async () =>
   await app.apply();
 
   const status = nodes.get('result-status').textContent;
-  assert.equal(status.split('C3: Dato residual').length - 1, 1);
+  assert.equal(status.split('Dato residual').length - 1, 1);
+  assert.doesNotMatch(status, /C3/);
+  assert.equal((nodes.get('toast-region')?.children.length || 0), 0);
 });
 
 test('preview hides only the known leading generated metadata while export and clipboard keep exact bytes', async (t) => {

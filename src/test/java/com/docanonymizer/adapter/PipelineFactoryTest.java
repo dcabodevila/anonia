@@ -157,7 +157,7 @@ class PipelineFactoryTest {
         try {
             AnonymizationPipeline.Analysis analysis = PipelineFactory.standard().analyze(image);
 
-            assertEquals("El documento fotografiado contiene texto suficiente para ser analizado.",
+            assertEquals("El documento fotografiado contiene texto suficiente para ser analizado.\n",
                     analysis.normalizedText());
             assertEquals(1, analysis.pageCount());
         } finally {
@@ -179,7 +179,7 @@ class PipelineFactoryTest {
         try {
             AnonymizationPipeline.Analysis analysis = PipelineFactory.standard().analyze(image);
 
-            assertEquals("El documento fotografiado contiene texto suficiente para ser analizado.",
+            assertEquals("El documento fotografiado contiene texto suficiente para ser analizado.\n",
                     analysis.normalizedText());
         } finally {
             if (previous == null) {
@@ -201,7 +201,7 @@ class PipelineFactoryTest {
         try {
             AnonymizationPipeline.Analysis analysis = PipelineFactory.standard().analyze(image);
 
-            assertEquals("El documento fotografiado contiene texto suficiente para ser analizado.",
+            assertEquals("El documento fotografiado contiene texto suficiente para ser analizado.\n",
                     analysis.normalizedText());
         } finally {
             if (previous == null) {

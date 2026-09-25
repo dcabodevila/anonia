@@ -212,6 +212,10 @@ public final class WebServer {
         Map<String, String> fields = new LinkedHashMap<>();
         fields.put("severity", Json.quote(finding.severity().name()));
         fields.put("detail", Json.quote(finding.detail()));
+        if (finding.outputStart() != null && finding.outputEnd() != null) {
+            fields.put("outputStart", Json.number(finding.outputStart()));
+            fields.put("outputEnd", Json.number(finding.outputEnd()));
+        }
         return Json.object(fields);
     }
 
@@ -229,11 +233,11 @@ public final class WebServer {
             case "/landing/review.gif" -> "/web/landing/review.gif";
             case "/landing/compare.gif" -> "/web/landing/compare.gif";
             case "/landing/export.gif" -> "/web/landing/export.gif";
+            case "/landing/ai.gif" -> "/web/landing/ai.gif";
             default -> null;
         };
         if (resource == null) {
             respondError(exchange, 404, "No encontrado.");
-            case "/landing/ai.gif" -> "/web/landing/ai.gif";
             return;
         }
         try (InputStream in = WebServer.class.getResourceAsStream(resource)) {

@@ -101,6 +101,8 @@ function renderedDom() {
       append(...items) { children.push(...items); },
       setAttribute(name, value) { this.attributes[name] = String(value); },
       addEventListener(name, listener) { this.listeners[name] = listener; },
+      removeEventListener(name, listener) { if (this.listeners[name] === listener) delete this.listeners[name]; },
+      dispatchScroll() { this.listeners.scroll?.(); },
       focus(options) { this.focusCount++; this.focusOptions = options; }, select() {},
       scrollTo(options) { this.scrollToCalls = (this.scrollToCalls || []).concat(options); },
       scrollIntoView(options) { this.scrollIntoViewCalls = (this.scrollIntoViewCalls || []).concat(options); },
@@ -132,6 +134,59 @@ function renderedDom() {
   global.getComputedStyle = () => ({ getPropertyValue: () => '' });
   return nodes;
 }
+
+test('comparison does not suppress later user scroll when the target was already positioned', () => {
+  renderedDom();
+  const source = document.getElementById('doctext');
+  const output = document.getElementById('markdown');
+  source.scrollHeight = 500; source.clientHeight = 100;
+  output.scrollHeight = 900; output.clientHeight = 100;
+  source.scrollTop = 200;
+  output.scrollTop = 400;
+  state.activeTab = 'document'; state.comparing = false;
+  app.toggleCompare();
+  source.dispatchScroll(); // The target is already at the computed position: no echo event follows.
+  source.scrollHeight = 900; // Geometry changes before the user scrolls the output pane.
+  output.dispatchScroll();
+  assert.equal(source.scrollTop, 400);
+  app.toggleCompare();
+  delete global.document;
+  delete global.getComputedStyle;
+});
+
+test('comparison links normalized pane scroll without echoes and detaches on tab or button exit', () => {
+  const nodes = renderedDom();
+  const source = document.getElementById('doctext');
+  const output = document.getElementById('markdown');
+  source.scrollHeight = 500; source.clientHeight = 100;
+  output.scrollHeight = 900; output.clientHeight = 100;
+  state.activeTab = 'document'; state.comparing = false;
+  app.toggleCompare();
+  source.scrollTop = 200;
+  source.dispatchScroll();
+  assert.equal(output.scrollTop, 400);
+  output.dispatchScroll();
+  assert.equal(source.scrollTop, 200);
+  output.scrollTop = 800;
+  output.dispatchScroll();
+  assert.equal(source.scrollTop, 400);
+  output.scrollHeight = 100;
+  source.scrollTop = 100;
+  source.dispatchScroll();
+  assert.equal(output.scrollTop, 0);
+  app.selectTab('result');
+  assert.equal(source.listeners.scroll, undefined);
+  assert.equal(output.listeners.scroll, undefined);
+  output.scrollHeight = 900;
+  output.scrollTop = 300;
+  output.dispatchScroll();
+  assert.equal(source.scrollTop, 100);
+  app.toggleCompare();
+  app.toggleCompare();
+  assert.equal(source.listeners.scroll, undefined);
+  delete global.document;
+  delete global.getComputedStyle;
+});
 
 const renderedText = node => node.children.map(child => typeof child === 'string' ? child : child.textContent).join('');
 const controlsByTarget = () => [...document.querySelectorAll('[data-focus-target]')]

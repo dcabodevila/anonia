@@ -36,6 +36,19 @@ class WebServerTest {
         assertTrue(!json.contains("12345678Z"));
     }
 
+    @Test void findingApiIncludesOnlyNumericOutputRangesWhenPresent() throws Exception {
+        var method = WebServer.class.getDeclaredMethod("findingJson", com.docanonymizer.domain.model.Finding.class);
+        method.setAccessible(true);
+        var finding = new com.docanonymizer.domain.model.Finding("C1", com.docanonymizer.domain.model.Severity.BLOCKING,
+                "DNI residual", 3, 12);
+        String json = (String) method.invoke(new WebServer("127.0.0.1", 0), finding);
+        assertTrue(json.contains("\"outputStart\":3"));
+        assertTrue(json.contains("\"outputEnd\":12"));
+        assertTrue(!json.contains("\"control\""));
+        assertTrue(!((String) method.invoke(new WebServer("127.0.0.1", 0),
+                com.docanonymizer.domain.model.Finding.blocking("C4", "No label"))).contains("outputStart"));
+    }
+
     @Test void usesDocumentPortBeforeRenderPort() throws Exception {
         int documentPort = availablePort();
         int renderPort = availablePort();

@@ -23,7 +23,17 @@ public final class DeterministicDetectors {
                 new IbanDetector(),
                 new EmailDetector(),
                 new PhoneDetector(),
-                new PlateDetector());
+                new PlateDetector(),
+                new CodeDetector());
+    }
+
+    /** Maximal runs of at least five ASCII digits, including inside alphanumeric text. */
+    public static final class CodeDetector extends RegexDetector {
+        private static final Pattern PATTERN = Pattern.compile("(?<![0-9])[0-9]{5,}(?![0-9])");
+
+        public CodeDetector() {
+            super("codigo", PATTERN, DetectionType.CODIGO, Provenance.REGEX, 0.80);
+        }
     }
 
     /** DNI: 8 digitos y letra, con separador opcional. La letra se valida. */

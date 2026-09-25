@@ -28,7 +28,13 @@ public final class TextAnonymizer {
                 throw new IllegalStateException(
                         "Deteccion sin seudonimo asignado: " + detection.id());
             }
-            buffer.replace(detection.start(), detection.end(), label);
+            String span = text.substring(detection.start(), detection.end());
+            StringBuilder replacement = new StringBuilder(label);
+            for (int i = 0; i < span.length(); i++) {
+                char c = span.charAt(i);
+                if (c == '\r' || c == '\n') replacement.append(c);
+            }
+            buffer.replace(detection.start(), detection.end(), replacement.toString());
         }
         return buffer.toString();
     }

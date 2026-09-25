@@ -19,7 +19,7 @@ public enum DetectionType {
     ORGANIZATION("ORGANIZACION", 41),
     TERM("TERMINO", 41),
     PERSON("PERSONA", 40),
-    /** Codigo asignado manualmente durante la revision; ningun detector lo emite. */
+    /** Codigo detectado en secuencias numericas o asignado durante la revision. */
     CODIGO("CODIGO", 40),
     /** Texto libre elegido durante la revision; la interfaz lo ofrece para cualquier entidad. */
     TEXT("TEXTO", 40);

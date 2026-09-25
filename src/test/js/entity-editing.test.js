@@ -303,6 +303,7 @@ function fakeDom() {
       click() { if (this.onclick) this.onclick(); },
       replaceWith(other) { this.replacement = other; },
       addEventListener(name, fn) { this.listeners[name] = fn; },
+      removeEventListener(name, fn) { if (this.listeners[name] === fn) delete this.listeners[name]; },
       querySelector() { return node(); } };
     Object.defineProperty(element, 'innerHTML', {
       get() { return ''; },

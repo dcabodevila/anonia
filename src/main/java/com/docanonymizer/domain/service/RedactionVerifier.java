@@ -37,10 +37,7 @@ public final class RedactionVerifier {
     private static final String C4 = "C4-COBERTURA-DE-SUSTITUCION";
     private static final String C5 = "C5-SALIDA-NO-VACIA";
 
-    private final RunScopedIdentifier identifier;
-
     public RedactionVerifier(RunScopedIdentifier identifier) {
-        this.identifier = identifier;
     }
 
     public VerificationReport verify(
@@ -58,6 +55,12 @@ public final class RedactionVerifier {
     /** Rejections come from validated server replay, never from missing effective spans. */
     public VerificationReport verify(String markdown, List<Detection> accepted,
             Map<String, String> pseudonyms, List<Detection> original, java.util.Set<String> rejectedIds) {
+        return verify(markdown, accepted, pseudonyms, original, rejectedIds, "");
+    }
+
+    public VerificationReport verify(String markdown, List<Detection> accepted,
+            Map<String, String> pseudonyms, List<Detection> original,
+            java.util.Set<String> rejectedIds, String source) {
         var originalPeople = original.stream().filter(d -> d.type() == DetectionType.PERSON)
                 .map(Detection::id).collect(java.util.stream.Collectors.toSet());
         List<Detection> nameChecks = accepted.stream().map(d -> originalPeople.contains(d.id())
@@ -67,9 +70,12 @@ public final class RedactionVerifier {
         String squashedOutput = CanonicalForm.forCompare(markdown);
 
         checkOutputNotEmpty(markdown, findings);
-        checkLiteralValues(markdown, accepted, findings);
-        checkReformattedValues(squashedOutput, accepted, findings);
-        checkNameTokens(markdown, nameChecks, findings);
+        checkLiteralValues(markdown, accepted, source, findings);
+        checkReformattedValues(squashedOutput, accepted, source, findings);
+        List<String> rejectedNames = original.stream()
+                .filter(d -> d.type() == DetectionType.PERSON && rejectedIds.contains(d.id()))
+                .map(Detection::value).toList();
+        checkNameTokens(markdown, nameChecks, rejectedNames, source, findings);
         // Accepted outer spans hide retained tags, including accepted PERSON tags.
         // Only explicit rejections suppress their original name checks.
         var acceptedIds = accepted.stream().map(Detection::id).collect(java.util.stream.Collectors.toSet());
@@ -77,10 +83,10 @@ public final class RedactionVerifier {
             if (person.type() == DetectionType.PERSON && !rejectedIds.contains(person.id())
                     && !acceptedIds.contains(person.id())
                     && accepted.stream().anyMatch(d -> d.start() <= person.start() && d.end() >= person.end())) {
-                checkNameTokens(markdown, List.of(person), findings);
+                checkNameTokens(markdown, List.of(person), rejectedNames, source, findings);
             }
         }
-        checkSubstitutionCoverage(markdown, accepted, pseudonyms, findings);
+        checkSubstitutionCoverage(markdown, accepted, pseudonyms, source, findings);
 
         boolean clean = findings.stream().allMatch(f -> f.severity() == Severity.INFO);
         if (clean) {
@@ -98,11 +104,14 @@ public final class RedactionVerifier {
 
     /** Fuga evidente: el valor sigue ahi tal cual, ignorando caja y acentos. */
     private void checkLiteralValues(
-            String markdown, List<Detection> accepted, List<Finding> findings) {
+            String markdown, List<Detection> accepted, String source, List<Finding> findings) {
         for (Detection detection : accepted) {
-            if (!TextFolding.findWholeWordOccurrences(markdown, detection.value()).isEmpty()) {
-                findings.add(Finding.blocking(C1,
-                        describe(detection) + " sigue presente literalmente en la salida"));
+            var hits = TextFolding.findWholeWordOccurrences(markdown, detection.value());
+            if (!hits.isEmpty()) {
+                int[] hit = hits.get(0);
+                findings.add(new Finding(C1, Severity.BLOCKING,
+                        describeOutput(detection) + " sigue presente literalmente en la salida",
+                        hit[0], hit[1]));
             }
         }
     }
@@ -112,15 +121,20 @@ public final class RedactionVerifier {
      * sobre la forma aplastada, que ignora espacios, guiones y puntuacion.
      */
     private void checkReformattedValues(
-            String squashedOutput, List<Detection> accepted, List<Finding> findings) {
+            String squashedOutput, List<Detection> accepted, String source, List<Finding> findings) {
         for (Detection detection : accepted) {
             String squashedValue = CanonicalForm.forCompare(detection.value());
             if (squashedValue.length() < MIN_SQUASHED_LENGTH) {
                 continue;
             }
+            if (detection.type() == DetectionType.ORGANIZATION
+                    || detection.type() == DetectionType.TERM
+                    || detection.type() == DetectionType.PERSON) {
+                continue; // Lexical entities require whole occurrences, checked by C1/C3.
+            }
             if (squashedOutput.contains(squashedValue)) {
                 findings.add(Finding.blocking(C2,
-                        describe(detection) + " reaparece en la salida con otro formato"));
+                        describe(detection, source) + " reaparece en la salida con otro formato"));
             }
         }
     }
@@ -132,22 +146,35 @@ public final class RedactionVerifier {
      * controles anteriores lo ve porque el valor completo si desaparecio.
      */
     private void checkNameTokens(
-            String markdown, List<Detection> accepted, List<Finding> findings) {
-        Map<String, String> longestNameByEntity = new LinkedHashMap<>();
+            String markdown, List<Detection> accepted, List<String> rejectedNames,
+            String source, List<Finding> findings) {
+        Map<String, Detection> longestNameByEntity = new LinkedHashMap<>();
         for (Detection detection : accepted) {
             if (detection.type() != DetectionType.PERSON) {
                 continue;
             }
-            longestNameByEntity.merge(detection.entityKey(), detection.value(),
-                    (a, b) -> a.length() >= b.length() ? a : b);
+            longestNameByEntity.merge(detection.entityKey(), detection,
+                    (a, b) -> a.value().length() >= b.value().length() ? a : b);
         }
 
-        longestNameByEntity.forEach((entityKey, fullName) -> {
-            for (String token : NamePolicy.significantTokens(fullName)) {
-                if (!TextFolding.findWholeWordOccurrences(markdown, token).isEmpty()) {
-                    findings.add(Finding.blocking(C3,
-                            "un fragmento de nombre de una entidad aceptada (entidad " + identifier.of(entityKey)
-                                    + ") permanece en el resultado; revise las sustituciones antes de entregarlo"));
+        StringBuilder remaining = new StringBuilder(markdown);
+        for (String rejectedName : rejectedNames) {
+            var hits = TextFolding.findWholeWordOccurrences(remaining.toString(), rejectedName);
+            if (!hits.isEmpty()) {
+                int[] hit = hits.get(0);
+                for (int i = hit[0]; i < hit[1]; i++) {
+                    remaining.setCharAt(i, ' ');
+                }
+            }
+        }
+        longestNameByEntity.forEach((entityKey, detection) -> {
+            for (String token : NamePolicy.significantTokens(detection.value())) {
+                var hits = TextFolding.findWholeWordOccurrences(remaining.toString(), token);
+                if (!hits.isEmpty()) {
+                    int[] hit = hits.get(0);
+                    findings.add(new Finding(C3, Severity.BLOCKING,
+                            "Un fragmento de " + describeOutput(detection)
+                                    + " permanece en el resultado; revise sus apariciones", hit[0], hit[1]));
                 }
             }
         });
@@ -158,17 +185,16 @@ public final class RedactionVerifier {
             String markdown,
             List<Detection> accepted,
             Map<String, String> pseudonyms,
-            List<Finding> findings) {
+            String source, List<Finding> findings) {
 
         for (Detection detection : distinctByEntity(accepted)) {
             String label = pseudonyms.get(detection.entityKey());
             if (label == null) {
                 findings.add(Finding.blocking(C4,
-                        describe(detection) + " no tiene seudonimo asignado"));
+                        describe(detection, source) + " no tiene seudonimo asignado"));
             } else if (!markdown.contains(label)) {
                 findings.add(Finding.blocking(C4,
-                        "el seudonimo " + label + " no aparece en la salida pese a tener "
-                                + "detecciones aceptadas"));
+                        "La sustitución de " + describe(detection, source) + " no aparece en la salida"));
             }
         }
     }
@@ -182,8 +208,16 @@ public final class RedactionVerifier {
         return List.copyOf(byEntity.values());
     }
 
-    /** Descripcion segura para informes: tipo y entidad opaca, jamas el valor. */
-    private String describe(Detection detection) {
-        return detection.type().label() + " (entidad " + identifier.of(detection.entityKey()) + ")";
+    private String describeOutput(Detection detection) {
+        return detection.type() == DetectionType.PERSON ? "persona" : detection.type().label();
+    }
+
+    /** Report only the category and source location, never the sensitive value or key. */
+    private String describe(Detection detection, String source) {
+        int line = 1;
+        for (int i = 0; i < Math.min(detection.start(), source.length()); i++) {
+            if (source.charAt(i) == '\n') line++;
+        }
+        return (detection.type() == DetectionType.PERSON ? "persona" : detection.type().label()) + " en línea " + line;
     }
 }

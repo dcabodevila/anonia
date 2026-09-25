@@ -88,6 +88,8 @@ function init() {
 }
 
 async function analyze(file) {
+  detachComparisonScroll();
+  state.comparing = false;
   const request = ++state.analysisRequest;
   state.sourceFilename = file && typeof file.name === 'string' ? file.name : null;
   invalidateResult();
@@ -139,6 +141,8 @@ async function analyze(file) {
 }
 
 function goHome() {
+  detachComparisonScroll();
+  state.comparing = false;
   ++state.analysisRequest;
   invalidateResult();
   state.jobId = null;
@@ -992,17 +996,58 @@ function renderResult(data, hasResult) {
 
 function renderChecks(data, hasResult) {
   const detail = state.resultFindings.length
-    ? state.resultFindings.map(finding => finding.control + ': ' + finding.detail).join(' ')
+    ? state.resultFindings.map(finding => finding.detail).join(' ')
     : 'La verificación encontró un riesgo. Revisa las entidades y vuelve a anonimizar.';
   if (data.deliverable && hasResult) {
     const message = data.substitutions + ' sustituciones en ' + data.entities + ' entidades. El Markdown está listo para descargar o copiar.';
     setResultStatus('success', 'Anonimización completada', message);
-    showToast('Anonimización completada', message, 'success');
     return;
   }
 
   setResultStatus('blocked', 'Anonimización bloqueada', detail);
-  showToast('Anonimización bloqueada', detail, 'warning');
+  const panel = el('result-status');
+  const markdown = state.warningMarkdown;
+  for (const finding of state.resultFindings) {
+    const { outputStart: start, outputEnd: end } = finding;
+    if (!validOutputRange(markdown, start, end)) continue;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'result-locate';
+    button.textContent = 'Ubicar';
+    button.setAttribute('aria-label', 'Ubicar hallazgo en el resultado');
+    const revision = state.revision;
+    button.addEventListener('click', () => {
+      if (revision !== state.revision || markdown !== state.warningMarkdown
+          || !validOutputRange(markdown, start, end)) return;
+      locateOutput(markdown, start, end);
+    });
+    panel.append(button);
+  }
+}
+
+function validOutputRange(markdown, start, end) {
+  return typeof markdown === 'string' && Number.isSafeInteger(start) && Number.isSafeInteger(end)
+    && start >= 0 && end > start && end <= markdown.length
+    && !(start > 0 && /[\uD800-\uDBFF]/u.test(markdown[start - 1]) && /[\uDC00-\uDFFF]/u.test(markdown[start]))
+    && !(end < markdown.length && /[\uD800-\uDBFF]/u.test(markdown[end - 1]) && /[\uDC00-\uDFFF]/u.test(markdown[end]));
+}
+
+function locateOutput(markdown, start, end) {
+  const preview = previewMarkdown(markdown);
+  const prefixLength = markdown.length - preview.length;
+  if (start < prefixLength) return;
+  const relativeStart = start - prefixLength;
+  const relativeEnd = end - prefixLength;
+  const container = el('markdown');
+  container.textContent = '';
+  container.append(document.createTextNode(preview.slice(0, relativeStart)));
+  const mark = document.createElement('mark');
+  mark.className = 'result-location';
+  mark.tabIndex = -1;
+  mark.textContent = preview.slice(relativeStart, relativeEnd);
+  container.append(mark, document.createTextNode(preview.slice(relativeEnd)));
+  if (typeof mark.scrollIntoView === 'function') mark.scrollIntoView({ block: 'center' });
+  mark.focus({ preventScroll: true });
 }
 
 function setResultStatus(status, title, message) {
@@ -1067,15 +1112,57 @@ function renderStats(data) {
   }
 }
 
+let comparisonScrollCleanup = null;
+
+function detachComparisonScroll() {
+  if (comparisonScrollCleanup) comparisonScrollCleanup();
+  comparisonScrollCleanup = null;
+}
+
+function syncComparisonScroll() {
+  detachComparisonScroll();
+  if (!state.comparing) return;
+  const source = el('doctext');
+  const output = el('markdown');
+  let expectedSource = null;
+  let expectedOutput = null;
+  const link = (from, to, direction) => () => {
+    const expected = direction === 'source' ? expectedSource : expectedOutput;
+    if (expected !== null && from.scrollTop === expected) {
+      if (direction === 'source') expectedSource = null;
+      else expectedOutput = null;
+      return;
+    }
+    const range = Math.max(0, from.scrollHeight - from.clientHeight);
+    const targetRange = Math.max(0, to.scrollHeight - to.clientHeight);
+    const position = range ? Math.max(0, Math.min(1, from.scrollTop / range)) * targetRange : 0;
+    if (to.scrollTop !== position) {
+      if (direction === 'source') expectedOutput = position;
+      else expectedSource = position;
+      to.scrollTop = position;
+    }
+  };
+  const onSource = link(source, output, 'source');
+  const onOutput = link(output, source, 'output');
+  source.addEventListener('scroll', onSource);
+  output.addEventListener('scroll', onOutput);
+  comparisonScrollCleanup = () => {
+    source.removeEventListener('scroll', onSource);
+    output.removeEventListener('scroll', onOutput);
+  };
+}
+
 function selectTab(name) {
   if (name !== 'document' && name !== 'result') return;
   state.activeTab = name;
   state.comparing = false;
+  syncComparisonScroll();
   renderMainView();
 }
 
 function toggleCompare() {
   state.comparing = !state.comparing;
+  syncComparisonScroll();
   renderMainView();
 }
 

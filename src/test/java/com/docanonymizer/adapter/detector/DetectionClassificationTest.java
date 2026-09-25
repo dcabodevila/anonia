@@ -48,7 +48,7 @@ class DetectionClassificationTest {
     }
 
     @Test
-    void rejectsInvalidOrContextFreeAutomaticLookalikesAndNeverDetectsCodesAutomatically() {
+    void rejectsInvalidOrContextFreeSpecializedLookalikes() {
         List<NegativeDetection> negatives = List.of(
                 new NegativeDetection("DNI12345678A", DetectionType.DNI),
                 new NegativeDetection("DNI12345678Z", DetectionType.DNI),
@@ -66,8 +66,32 @@ class DetectionClassificationTest {
             assertFalse(engine.detect(negative.source()).stream()
                     .anyMatch(detection -> detection.type() == negative.type()), negative::toString);
         }
-        assertFalse(engine.detect("Código: ABC12345").stream()
-                .anyMatch(detection -> detection.type().name().equals("CODIGO")));
+        assertEquals(List.of("12345"), engine.detect("Código: ABC12345").stream()
+                .filter(detection -> detection.type() == DetectionType.CODIGO)
+                .map(Detection::value).toList());
+    }
+
+    @Test
+    void detectsMaximalAsciiDigitRunsWithoutJoiningSeparatedRuns() {
+        String source = "1234 12345 123456789012345 ABC12345Z 1234-1234";
+        List<Detection> codes = engine.detect(source).stream()
+                .filter(d -> d.type() == DetectionType.CODIGO).toList();
+        assertEquals(List.of("12345", "123456789012345", "12345"),
+                codes.stream().map(Detection::value).toList());
+        for (Detection code : codes) {
+            assertEquals(source.substring(code.start(), code.end()), code.value());
+        }
+    }
+
+    @Test
+    void specializedClassificationsRetainPriorityOverNumericFallback() {
+        String source = "DNI 12345678Z NIE X1234567L IBAN ES9121000418450200051332 "
+                + "Teléfono:612345678 Código postal:28013";
+        List<DetectionType> types = engine.detect(source).stream().map(Detection::type).toList();
+        assertEquals(List.of(DetectionType.DNI, DetectionType.NIE, DetectionType.IBAN,
+                DetectionType.PHONE, DetectionType.POSTAL_CODE), types);
+        assertFalse(engine.detect("DNI 12345678A").stream()
+                .anyMatch(d -> d.type() == DetectionType.DNI));
     }
 
     @Test
