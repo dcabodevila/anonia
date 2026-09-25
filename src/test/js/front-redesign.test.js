@@ -77,6 +77,17 @@ test('comparison names both documents and keeps result controls in the anonymize
   assert.match(css, /\.pane-side\.comparing[\s\S]*inline-size:/);
 });
 
+test('comparison text surfaces share metrics, scroll height and header offset without moving warning above output', () => {
+  const shared = css.match(/\.pane-main\.comparing :is\(\.doctext, \.markdown\)\s*\{([^}]*)\}/)?.[1];
+  assert.ok(shared, 'comparison uses one shared text-surface rule');
+  for (const declaration of [/height:\s*clamp\(/, /overflow:\s*auto/, /padding:\s*22px/, /white-space:\s*pre-wrap/, /overflow-wrap:\s*anywhere/, /font:\s*16px\/1\.72/]) {
+    assert.match(shared, declaration);
+  }
+  assert.match(css, /\.pane-main\.comparing \.pane-head\s*\{[^}]*block-size:\s*clamp\(/);
+  assert.match(css, /\.pane-main\.comparing #warning-note\s*\{[^}]*order:\s*3/);
+  assert.match(css, /@media \(max-width:\s*850px\)[\s\S]*\.pane-main\.comparing \.pane-head\s*\{[^}]*block-size:\s*auto/);
+});
+
 test('the workspace keeps Entidades fixed and exposes accessible main Documento and Resultado tabs with compare', () => {
   assert.match(html, /<aside class="pane pane-side"[^>]*aria-label="Entidades a anonimizar"/);
   assert.doesNotMatch(html, /data-tab="entities"|id="tab-entities"/);
@@ -195,4 +206,10 @@ test('inline entity editor fills its main track without inheriting checkbox sizi
 
   assert.match(css, /@media \(max-width:1100px\)[\s\S]*\.entity\s*\{[\s\S]*grid-template-columns:\s*44px\s+minmax\(0,\s*1fr\)/);
   assert.match(css, /@media \(min-width:\s*1101px\) and \(pointer:\s*fine\)[\s\S]*\.entity\s*\{[\s\S]*grid-template-columns:\s*36px\s+minmax\(0,\s*1fr\)[\s\S]*\.entity\s*>\s*input\s*\{[^}]*inline-size:\s*36px[^}]*block-size:\s*36px/);
+});
+
+test('header logo is a comfortable touch target and headings step clearly above body text', () => {
+  assert.match(css, /\.brand-home\s*\{[^}]*min-height:\s*44px/);
+  assert.match(css, /\.pane-head h2\s*\{[^}]*font-size:\s*18px/);
+  assert.match(css, /\.landing-compare-col h3\s*\{[^}]*font-size:\s*23px/);
 });

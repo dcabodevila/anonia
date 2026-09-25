@@ -205,3 +205,7 @@ test('the web vs desktop comparison is a top-level landing section in the headin
   assert.doesNotMatch(html, /<h4>/);
   assert.doesNotMatch(css, /\.landing-compare-col-recommended \.landing-compare-row dt\s*\{[^}]*#[\da-f]{3,6}/i);
 });
+
+test('the compact dropzone strip keeps its left-aligned block layout', () => {
+  assert.match(css, /#dropzone\.compact\s*\{[^}]*display:\s*block/);
+});
