@@ -45,9 +45,12 @@ test('hero has a primary download path and a secondary try-on-the-web path', () 
   const tryMatch = html.match(/<div class="hero-try">([\s\S]*?)<\/div>\s*<\/section>/);
   assert.ok(tryMatch, 'expected hero-try to close right before the hero section closes');
   const tryBlock = tryMatch[1];
-  assert.match(tryBlock, /Pruébalo en la web/);
-  assert.match(tryBlock, /Ideal para documentos de ejemplo: en la versión web el archivo se envía al servidor para analizarlo\./);
   assert.match(tryBlock, /id="dropzone" class="dropzone"/);
+  // The web-trial heading and privacy note live inside the drop box, centered with its content.
+  const dropInner = html.match(/<div class="drop-inner">([\s\S]*?)<\/div>\s*<\/section>/)[1];
+  assert.match(dropInner, /<h3 class="hero-try-heading">Pruébalo en la web<\/h3>/);
+  assert.match(dropInner, /<p class="hero-try-note">Ideal para documentos de ejemplo: en la versión web el archivo se envía al servidor para analizarlo, no lo guardamos ni se lo enviamos a ninguna IA\.<\/p>/);
+  assert.match(dropInner, /hero-try-note[\s\S]*id="drop-title"/);
 
   const downloadCtaMatch = css.match(/\.download-cta\s*\{([^}]*)\}/);
   assert.ok(downloadCtaMatch, 'expected a .download-cta rule');
@@ -78,7 +81,7 @@ test('hero collapses to a compact single-column strip once the dropzone is compa
   assert.match(css, /\.hero:has\(\.dropzone\.compact\)\s*\{[^}]*max-width:\s*none/);
   assert.match(css, /\.hero:has\(\.dropzone\.compact\)\s*\{[^}]*padding:\s*0/);
   assert.match(css, /\.hero:has\(\.dropzone\.compact\)\s+\.hero-copy\s*\{[^}]*display:\s*none/);
-  assert.match(css, /\.hero:has\(\.dropzone\.compact\)\s+\.hero-try-heading,\s*\.hero:has\(\.dropzone\.compact\)\s+\.hero-try-note\s*\{[^}]*display:\s*none/);
+  assert.match(css, /\.dropzone\.compact\s+\.hero-try-heading,\s*\.dropzone\.compact\s+\.hero-try-note\s*\{[^}]*display:\s*none/);
 });
 
 test('landing section sits after the workspace so error/loading stay right below the hero', () => {
@@ -193,4 +196,12 @@ test('smooth scroll is gated by reduced motion and the dropzone has scroll margi
 
 test('download CTA goes full width on narrow viewports', () => {
   assert.match(css, /@media \(max-width:900px\)\s*\{[\s\S]*\.download-cta\s*\{[^}]*width:\s*100%/);
+});
+
+test('the web vs desktop comparison is a top-level landing section in the heading outline', () => {
+  assert.match(html, /<h2 class="landing-compare-heading">Prueba en la web, trabaja en tu equipo<\/h2>/);
+  assert.match(html, /<h3>Versión web \(demo\)<\/h3>/);
+  assert.match(html, /<h3>App de escritorio \(recomendada\)<\/h3>/);
+  assert.doesNotMatch(html, /<h4>/);
+  assert.doesNotMatch(css, /\.landing-compare-col-recommended \.landing-compare-row dt\s*\{[^}]*#[\da-f]{3,6}/i);
 });
