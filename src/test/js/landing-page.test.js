@@ -59,9 +59,17 @@ test('hero has a primary download path and a secondary try-on-the-web path', () 
   assert.match(css, /\.download-cta:hover\s*\{[^}]*background:\s*var\(--accent-hover\)/);
 });
 
-test('hero fills the first viewport on wide screens with a two-column layout', () => {
+test('hero fills the first viewport on wide screens with equal-size stretched columns', () => {
   assert.match(css, /\.hero\s*\{[^}]*min-block-size:\s*calc\(100dvh[^}]*\)/);
-  assert.match(css, /\.hero\s*\{[^}]*grid-template-columns:\s*1\.1fr\s+0\.9fr/);
+  assert.match(css, /\.hero\s*\{[^}]*grid-template-columns:\s*1fr\s+1fr/);
+  assert.match(css, /\.hero\s*\{[^}]*align-items:\s*stretch/);
+});
+
+test('the dropzone grows to fill the hero-try column and centers its content vertically', () => {
+  assert.match(css, /#dropzone\s*\{[^}]*flex:\s*1/);
+  assert.match(css, /#dropzone\s*\{[^}]*display:\s*flex/);
+  assert.match(css, /#dropzone\s*\{[^}]*flex-direction:\s*column/);
+  assert.match(css, /#dropzone\s*\{[^}]*justify-content:\s*center/);
 });
 
 test('hero collapses to a compact single-column strip once the dropzone is compact', () => {
@@ -85,7 +93,7 @@ test('landing hides while a document is loading or open, via CSS :has only', () 
 });
 
 test('each feature section pairs a heading+paragraph row above a full-width framed screenshot', () => {
-  for (const name of ['detect', 'review', 'compare', 'export']) {
+  for (const name of ['detect', 'review', 'compare', 'export', 'ai']) {
     const figureRe = new RegExp(
       `<figure[^>]*>[\\s\\S]*?<img src="/landing/${name}\\.gif" width="1280" height="760" loading="lazy" alt="[^"]{10,}">[\\s\\S]*?<figcaption>`);
     assert.match(html, figureRe, `expected a framed figure for ${name}.gif at 1280x760`);
@@ -95,6 +103,14 @@ test('each feature section pairs a heading+paragraph row above a full-width fram
   assert.match(css, /\.landing-feature-copy p\s*\{[^}]*max-width:\s*60ch/);
   assert.match(css, /\.landing-feature\s*\{[^}]*margin-bottom:\s*clamp\(5rem,12vh,9rem\)/);
   assert.match(css, /\.landing-shot\s*\{[^}]*border-radius:\s*14px[^}]*box-shadow:\s*0 24px 60px -20px rgba\(0,0,0,\.6\)/);
+});
+
+test('a fifth feature section explains pasting the anonymized markdown into an AI assistant', () => {
+  const stepMatch = html.match(/<span class="landing-step">5<\/span>\s*<h3>([^<]+)<\/h3>/);
+  assert.ok(stepMatch, 'expected a step 5 heading');
+  assert.equal(stepMatch[1], 'Pégalo en tu IA de confianza');
+  assert.match(html, /Copia el Markdown anonimizado y pégalo en ChatGPT o en tu asistente habitual: la IA trabaja con etiquetas como \[PERSONA_001\] en lugar de tus datos reales\./);
+  assert.match(html, /<figcaption>El texto anonimizado, listo en ChatGPT<\/figcaption>/);
 });
 
 test('landing replaces the risk cards with a web-vs-desktop comparison and a guarantees strip', () => {
@@ -141,16 +157,29 @@ test('landing layout stays responsive with a bounded max width and fluid images'
   assert.match(css, /\.landing[\s\S]*img\s*\{[^}]*max-width:\s*100%[^}]*height:\s*auto/);
 });
 
-test('feature reveals use CSS scroll-driven animation, gated by @supports and reduced motion', () => {
+test('feature reveals animate the whole section (text + figure) as it scrolls into view, gated by @supports and reduced motion', () => {
   const supportsMatch = css.match(/@supports \(animation-timeline:\s*view\(\)\)\s*\{([\s\S]*)$/);
   assert.ok(supportsMatch, 'expected an @supports (animation-timeline: view()) block');
   const supportsBlock = supportsMatch[1];
   assert.match(supportsBlock, /@media \(prefers-reduced-motion:\s*no-preference\)\s*\{/);
   assert.match(supportsBlock, /animation-timeline:\s*view\(\)/);
-  assert.match(supportsBlock, /animation-range:\s*entry 10% cover 35%/);
-  assert.match(supportsBlock, /animation-range:\s*entry 0% cover 40%/);
-  assert.match(supportsBlock, /clip-path:\s*inset\(0 100% 0 0\)/);
-  assert.match(supportsBlock, /clip-path:\s*inset\(18% 0 0 0 round 14px\)/);
+
+  // Text block (heading + paragraph) reveals first...
+  assert.match(supportsBlock, /\.landing-feature-copy,\s*\n\s*\.landing-compare,\s*\n\s*\.landing-cta\s*\{[^}]*animation-range:\s*entry 0% cover 30%/);
+  // ...then the figure follows with a slight stagger.
+  assert.match(supportsBlock, /\.landing-shot\s*\{[^}]*animation-range:\s*entry 10% cover 42%/);
+
+  // Organic combination: fade, rise, settle, and un-blur.
+  assert.match(supportsBlock, /opacity:\s*0;[\s\S]*?transform:\s*translateY\(64px\)\s*scale\(\.96\);[\s\S]*?filter:\s*blur\(10px\);/);
+  assert.match(supportsBlock, /opacity:\s*1;[\s\S]*?transform:\s*translateY\(0\)\s*scale\(1\);[\s\S]*?filter:\s*blur\(0\);/);
+
+  // The figure additionally reveals through a soft rounded clip-path.
+  assert.match(supportsBlock, /clip-path:\s*inset\(12% 4% 0 4% round 24px\)/);
+  assert.match(supportsBlock, /clip-path:\s*inset\(0 round 14px\)/);
+
+  // The old heading-only redaction bar is gone.
+  assert.doesNotMatch(css, /landing-heading-bar/);
+  assert.doesNotMatch(css, /landing-feature-heading h3::after/);
 });
 
 test('hero headline and download CTA animate once on load, gated by reduced motion', () => {

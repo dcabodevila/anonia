@@ -91,7 +91,7 @@ class WebServerTest {
         try {
             HttpClient client = HttpClient.newHttpClient();
 
-            for (String name : new String[]{"detect", "review", "compare", "export"}) {
+            for (String name : new String[]{"detect", "review", "compare", "export", "ai"}) {
                 HttpResponse<byte[]> response = get(client, port, "/landing/" + name + ".gif");
                 assertEquals(200, response.statusCode(), name);
                 assertEquals("image/gif", response.headers().firstValue("Content-Type").orElseThrow());

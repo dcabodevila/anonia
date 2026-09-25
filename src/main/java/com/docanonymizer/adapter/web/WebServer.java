@@ -233,6 +233,7 @@ public final class WebServer {
         };
         if (resource == null) {
             respondError(exchange, 404, "No encontrado.");
+            case "/landing/ai.gif" -> "/web/landing/ai.gif";
             return;
         }
         try (InputStream in = WebServer.class.getResourceAsStream(resource)) {
