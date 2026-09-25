@@ -54,3 +54,8 @@ test('brand click resets active analysis and ignores a late analysis response', 
   assert.equal(node('workspace').classList.contains('hidden'), true);
   assert.equal(vm.runInContext('state.jobId', context), null);
 });
+
+test('the page heading keeps the product name in its accessible name', () => {
+  const html = require('node:fs').readFileSync(require('node:path').resolve(__dirname, '../../main/resources/web/index.html'), 'utf8');
+  assert.match(html, /<h1 class="brand-lockup"><button[^>]*id="brand-home"[^>]*aria-label="anonimuse, volver al inicio"/);
+});
