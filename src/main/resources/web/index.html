@@ -20,16 +20,27 @@
 </header>
 
 <main>
-  <section id="dropzone" class="dropzone">
-    <input type="file" id="file" accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png" hidden>
-    <div class="drop-inner">
-      <img class="drop-brand" src="/anonimuse-logo.png" width="604" height="557" alt="">
-      <svg class="drop-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <path d="M7.5 18.5h9a4.5 4.5 0 0 0 .7-8.95A6 6 0 0 0 5.7 8.2 4 4 0 0 0 7.5 18.5Zm4.5-8v7m0-7-2.5 2.5M12 10.5l2.5 2.5" />
-      </svg>
-      <p class="drop-title"><span id="drop-title">Arrastra un PDF aqu&iacute; o una foto </span><button type="button" id="browse" class="link" title="Selecciona un PDF" aria-label="Selecciona un PDF o una foto"><svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L8 8m4-4 4 4M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" /></svg>selecci&oacute;nalo</button></p>
-      <p id="drop-sub" class="drop-sub">PDF con capa de texto, o fotos JPEG/PNG le&iacute;das localmente con Tesseract en espa&ntilde;ol. Podr&aacute;s visualizar los cambios a anonimizar antes de generar el Markdown.</p>
+  <section class="hero">
+    <div class="hero-copy">
+      <h2 class="hero-headline">Quita los datos personales de tus documentos antes de compartirlos con la IA</h2>
+      <p class="hero-sub">Anonimuse detecta y oculta nombres, DNI/NIE, IBAN, emails, teléfonos y más, localmente y sin conexión, para que puedas compartir el resultado con confianza.</p>
+      <ul class="hero-pills">
+        <li class="hero-pill">Sin guardar nada</li>
+        <li class="hero-pill">Sin IA</li>
+        <li class="hero-pill">Sin conexión</li>
+      </ul>
     </div>
+    <section id="dropzone" class="dropzone">
+      <input type="file" id="file" accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png" hidden>
+      <div class="drop-inner">
+        <img class="drop-brand" src="/anonimuse-logo.png" width="604" height="557" alt="">
+        <svg class="drop-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M7.5 18.5h9a4.5 4.5 0 0 0 .7-8.95A6 6 0 0 0 5.7 8.2 4 4 0 0 0 7.5 18.5Zm4.5-8v7m0-7-2.5 2.5M12 10.5l2.5 2.5" />
+        </svg>
+        <p class="drop-title"><span id="drop-title">Arrastra un PDF aqu&iacute; o una foto </span><button type="button" id="browse" class="link" title="Selecciona un PDF" aria-label="Selecciona un PDF o una foto"><svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L8 8m4-4 4 4M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" /></svg>selecci&oacute;nalo</button></p>
+        <p id="drop-sub" class="drop-sub">PDF con capa de texto, o fotos JPEG/PNG le&iacute;das localmente con Tesseract en espa&ntilde;ol. Podr&aacute;s visualizar los cambios a anonimizar antes de generar el Markdown.</p>
+      </div>
+    </section>
   </section>
 
   <section id="error" class="error hidden" role="alert"></section>
@@ -95,6 +106,87 @@
           <div id="entities" class="entities"></div>
         </div>
       </aside>
+    </div>
+  </section>
+
+  <section id="landing" class="landing" aria-labelledby="landing-heading">
+    <h2 id="landing-heading" class="visually-hidden">Cómo funciona Anonimuse</h2>
+
+    <div class="landing-feature">
+      <span class="landing-step">1</span>
+      <div class="landing-feature-copy">
+        <h3>Quita los datos personales de tu documento</h3>
+        <p>Anonimuse detecta nombres, DNI/NIE, IBAN, emails, teléfonos, direcciones, matrículas... en PDF con texto o fotos.</p>
+      </div>
+      <figure class="landing-shot">
+        <span class="landing-window-bar" aria-hidden="true"><span></span><span></span><span></span></span>
+        <img src="/landing/detect.gif" width="960" height="570" loading="lazy" alt="Anonimuse resaltando automáticamente los datos personales detectados en un documento">
+        <figcaption>Detección automática de datos personales</figcaption>
+      </figure>
+    </div>
+
+    <div class="landing-feature reverse">
+      <span class="landing-step">2</span>
+      <div class="landing-feature-copy">
+        <h3>Revisa qué se va a ocultar y ajústalo</h3>
+        <p>Te muestra cada dato resaltado en el documento; puedes desmarcarlo, cambiar su tipo, buscar, ubicar cada aparición o añadir los que falten.</p>
+      </div>
+      <figure class="landing-shot">
+        <span class="landing-window-bar" aria-hidden="true"><span></span><span></span><span></span></span>
+        <img src="/landing/review.gif" width="960" height="570" loading="lazy" alt="Panel de revisión de entidades donde se activan, desactivan y editan las detecciones">
+        <figcaption>Control total sobre cada detección</figcaption>
+      </figure>
+    </div>
+
+    <div class="landing-feature">
+      <span class="landing-step">3</span>
+      <div class="landing-feature-copy">
+        <h3>Compara con el original</h3>
+        <p>Tras anonimizar, ves el documento original y el anonimizado lado a lado.</p>
+      </div>
+      <figure class="landing-shot">
+        <span class="landing-window-bar" aria-hidden="true"><span></span><span></span><span></span></span>
+        <img src="/landing/compare.gif" width="960" height="570" loading="lazy" alt="Vista comparativa del documento original y el documento anonimizado lado a lado">
+        <figcaption>Comparación lado a lado</figcaption>
+      </figure>
+    </div>
+
+    <div class="landing-feature reverse">
+      <span class="landing-step">4</span>
+      <div class="landing-feature-copy">
+        <h3>Descarga o copia el Markdown</h3>
+        <p>Archivo .md listo para pasárselo a tu IA de confianza.</p>
+      </div>
+      <figure class="landing-shot">
+        <span class="landing-window-bar" aria-hidden="true"><span></span><span></span><span></span></span>
+        <img src="/landing/export.gif" width="960" height="570" loading="lazy" alt="Descarga del documento anonimizado en formato Markdown desde Anonimuse">
+        <figcaption>Exportación a Markdown</figcaption>
+      </figure>
+    </div>
+
+    <div class="landing-risk">
+      <h3 class="landing-risk-heading">Maneja la información sin riesgos</h3>
+      <div class="landing-risk-cards">
+        <div class="landing-risk-card">
+          <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v14H7zM14 3v5h5M9 13h6m-6 4h6" /></svg>
+          <h4>No guarda información</h4>
+          <p>El documento se procesa en memoria y no se conserva.</p>
+        </div>
+        <div class="landing-risk-card">
+          <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v4M5 7l2.5 2.5M19 7l-2.5 2.5M4 14h16M6 14a6 6 0 0 1 12 0M9 20h6" /></svg>
+          <h4>No usa IA para anonimizar</h4>
+          <p>Reglas y patrones deterministas, locales.</p>
+        </div>
+        <div class="landing-risk-card">
+          <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10a9 9 0 0 1 18 0M6.5 13.5a5 5 0 0 1 11 0M10 17a2 2 0 0 1 4 0M2 3l20 20" /></svg>
+          <h4>Funciona sin conexión</h4>
+          <p>Se ejecuta en tu equipo, sin enviar nada a internet.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="landing-cta">
+      <a class="cta" href="#dropzone">Anonimizar un documento</a>
     </div>
   </section>
 </main>

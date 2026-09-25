@@ -210,7 +210,6 @@ public final class WebServer {
 
     private String findingJson(Finding finding) {
         Map<String, String> fields = new LinkedHashMap<>();
-        fields.put("control", Json.quote(finding.control()));
         fields.put("severity", Json.quote(finding.severity().name()));
         fields.put("detail", Json.quote(finding.detail()));
         return Json.object(fields);
@@ -226,6 +225,10 @@ public final class WebServer {
             case "/app.js" -> "/web/app.js";
             case "/anonimuse.png" -> "/web/anonimuse.png";
             case "/anonimuse-logo.png" -> "/web/anonimuse-logo.png";
+            case "/landing/detect.gif" -> "/web/landing/detect.gif";
+            case "/landing/review.gif" -> "/web/landing/review.gif";
+            case "/landing/compare.gif" -> "/web/landing/compare.gif";
+            case "/landing/export.gif" -> "/web/landing/export.gif";
             default -> null;
         };
         if (resource == null) {
@@ -250,6 +253,9 @@ public final class WebServer {
         }
         if (resource.endsWith(".png")) {
             return "image/png";
+        }
+        if (resource.endsWith(".gif")) {
+            return "image/gif";
         }
         return "text/html; charset=utf-8";
     }
