@@ -48,6 +48,27 @@ class DesktopLauncherTest {
         }
     }
 
+    @Test void installerSeedsOnlyCommentedRulesAndPreservesExistingUserFile() throws Exception {
+        Path resources = Path.of("packaging/windows/jpackage-resources");
+        String wix = Files.readString(resources.resolve("main.wxs"));
+        String sample = Files.readString(resources.resolve("rules-example.txt"));
+        assertTrue(wix.contains("Value=\"[%USERPROFILE]\\.anonimuse\""));
+        assertTrue(wix.contains("Before=\"CostFinalize\""));
+        assertTrue(wix.contains("<FileSearch") && wix.contains("Name=\"rules.txt\""));
+        assertTrue(wix.contains("NOT EXISTING_USER_RULES"));
+        assertTrue(wix.contains("Permanent=\"yes\""));
+        assertTrue(wix.contains("<?include \"STAGED_RULES_OVERRIDE\" ?>"),
+                "WiX include must quote the XML-escaped staged path, which may contain spaces");
+        assertTrue(wix.contains("Source=\"$(var.JpRulesSource)\""));
+        assertTrue(wix.contains("NeverOverwrite=\"yes\""));
+        assertEquals(6, sample.lines().filter(line -> line.matches("^# (person|organization|term|exclude-person|exclude-organization|exclude-term): .+")).count());
+        for (String kind : List.of("person", "organization", "term")) {
+            assertTrue(sample.contains("# " + kind + ": "));
+            assertTrue(sample.contains("# exclude-" + kind + ": "));
+        }
+        assertTrue(sample.lines().allMatch(line -> line.isBlank() || line.stripLeading().startsWith("#")));
+    }
+
     @org.junit.jupiter.api.condition.EnabledOnOs(org.junit.jupiter.api.condition.OS.WINDOWS)
     @Test void msiPlanUsesSameProductIdentityAndRenamesFreshOutputWithoutOverwriting() throws Exception {
         Path script = Path.of("packaging/windows/build-installer.ps1");
@@ -58,7 +79,7 @@ class DesktopLauncherTest {
         assertEquals(0, process.waitFor(), plan);
         for (String expected : List.of("--type", "msi", "--name", "anonimuse",
                 "--win-per-user-install", "--win-upgrade-uuid",
-                "ce0936d4-f914-4f47-9052-5b286df59f57", "--resource-dir", "jpackage-resources",
+                "ce0936d4-f914-4f47-9052-5b286df59f57", "--resource-dir", "windows-resources-",
                 "com.docanonymizer.adapter.web.DesktopLauncher")) {
             assertTrue(plan.contains(expected), expected + " missing: " + plan);
         }
@@ -93,7 +114,10 @@ class DesktopLauncherTest {
         }
         assertFalse(plan.contains("--runtime-image"), "jpackage must create bundled runtime");
         assertTrue(plan.contains("--resource-dir"), "jpackage resource directory missing: " + plan);
-        assertTrue(plan.contains("jpackage-resources"), "jpackage resource directory missing: " + plan);
+        assertTrue(plan.contains("windows-resources-"), "isolated jpackage resource directory missing: " + plan);
+        String scriptSource = Files.readString(script);
+        assertTrue(scriptSource.contains("<Include><?define JpRulesSource=`\"$escapedSample`\"?></Include>"),
+                "generated WiX include must wrap the source definition in an Include root");
         assertTrue(plan.contains("ce0936d4-f914-4f47-9052-5b286df59f57"));
         Path mainWxs = Path.of("packaging/windows/jpackage-resources/main.wxs");
         assertTrue(Files.isRegularFile(mainWxs), "WiX main.wxs override must exist");

@@ -12,7 +12,8 @@ $extension = if ($Msi) { 'msi' } else { 'exe' }
 $generatedInstaller = Join-Path $outputDirectory "anonimuse-0.3.1.$extension"
 $installer = Join-Path $outputDirectory "anonimuse-installer.$extension"
 # jpackage output is renamed only after checking both selected-format paths.
-$resourceDirectory = Join-Path $PSScriptRoot 'jpackage-resources'
+$resourceTemplateDirectory = Join-Path $PSScriptRoot 'jpackage-resources'
+$resourceDirectory = Join-Path $target ('windows-resources-' + [guid]::NewGuid().ToString('N'))
 $sourceLogo = Join-Path $root 'src/main/resources/web/anonimuse-logo.png'
 $icon = Join-Path $PSScriptRoot 'anonimuse-logo.ico'
 if (-not (Test-Path -LiteralPath $icon)) {
@@ -56,13 +57,23 @@ try {
     & mvn -o package
     if ($LASTEXITCODE -ne 0) { throw "Maven fallo: $LASTEXITCODE" }
     if (-not (Test-Path -LiteralPath $jar)) { throw "Falta el JAR sombreado: $jar" }
+    if ((Test-Path -LiteralPath $generatedInstaller) -or (Test-Path -LiteralPath $installer)) {
+        throw "Ya existe un instalador en $outputDirectory. Muévalo antes de generar uno nuevo."
+    }
+    $null = New-Item -ItemType Directory -Path $resourceDirectory
+    $samplePath = Join-Path $resourceDirectory 'rules-example.txt'
+    $overridePath = Join-Path $resourceDirectory 'overrides.wxi'
+    Copy-Item -LiteralPath (Join-Path $resourceTemplateDirectory 'rules-example.txt') -Destination $samplePath
+    $escapedSample = [System.Security.SecurityElement]::Escape($samplePath)
+    $escapedOverride = [System.Security.SecurityElement]::Escape($overridePath)
+    [IO.File]::WriteAllText($overridePath, "<?xml version=`"1.0`" encoding=`"utf-8`"?>`n<Include><?define JpRulesSource=`"$escapedSample`"?></Include>`n")
+    $wixTemplate = [IO.File]::ReadAllText((Join-Path $resourceTemplateDirectory 'main.wxs'))
+    [IO.File]::WriteAllText((Join-Path $resourceDirectory 'main.wxs'),
+        $wixTemplate.Replace('STAGED_RULES_OVERRIDE', $escapedOverride))
     $null = New-Item -ItemType Directory -Path $inputDirectory
     # La entrada aislada contiene solo el JAR; el OCR se resuelve externamente en ejecucion.
     Copy-Item -LiteralPath $jar -Destination $inputDirectory
     $null = New-Item -ItemType Directory -Path $outputDirectory -Force
-    if ((Test-Path -LiteralPath $generatedInstaller) -or (Test-Path -LiteralPath $installer)) {
-        throw "Ya existe un instalador en $outputDirectory. Muévalo antes de generar uno nuevo."
-    }
     # Sin --runtime-image: jpackage crea e incluye su propio runtime Java.
     & $jpackage @packageArguments
     if ($LASTEXITCODE -ne 0) { throw "jpackage fallo: $LASTEXITCODE" }

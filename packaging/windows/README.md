@@ -56,6 +56,10 @@ puede mostrar una advertencia de SmartScreen. La generación, instalación y ape
 real del navegador requieren validación separada; las pruebas unitarias no sustituyen
 esa comprobación.
 
+## Reglas personales del instalador
+
+El comportamiento previsto es crear `%USERPROFILE%\.anonimuse\rules.txt` y su carpeta si faltan, con un ejemplo completamente comentado (ninguna regla activa de fábrica). Una actualización o desinstalación debe conservar el archivo editado; no hay migración automática desde la ruta anterior. **Confirme creación y conservación en una instalación, actualización y desinstalación reales antes de afirmar que se verificaron.** Para sintaxis, exclusiones, precedencia y reinicio sin recarga en caliente, consulte la [sección de reglas del README](../../README.md#reglas-locales-de-detección) y la [guía de clientes](INSTALAR-WINDOWS.md).
+
 ## Documentación para clientes
 
 No replique las instrucciones de instalación ni de configuración de OCR en este documento. Envíe a los clientes a [INSTALAR-WINDOWS.md](INSTALAR-WINDOWS.md). Para el detalle de Tesseract administrado externamente, la guía de cliente enlaza a [INSTALAR-OCR.md](INSTALAR-OCR.md).
