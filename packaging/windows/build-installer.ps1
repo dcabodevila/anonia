@@ -9,7 +9,7 @@ $jar = Join-Path $target 'doc-anonymizer.jar'
 $inputDirectory = Join-Path $target ('windows-input-' + [guid]::NewGuid().ToString('N'))
 $outputDirectory = Join-Path $target 'windows-installer'
 $extension = if ($Msi) { 'msi' } else { 'exe' }
-$generatedInstaller = Join-Path $outputDirectory "anonimuse-0.3.1.$extension"
+$generatedInstaller = Join-Path $outputDirectory "anonimuse-0.4.0.$extension"
 $installer = Join-Path $outputDirectory "anonimuse-installer.$extension"
 # jpackage output is renamed only after checking both selected-format paths.
 $resourceTemplateDirectory = Join-Path $PSScriptRoot 'jpackage-resources'
@@ -20,7 +20,7 @@ if (-not (Test-Path -LiteralPath $icon)) {
     throw "Falta el ICO derivado del logo fuente ${sourceLogo}: $icon"
 }
 $packageArguments = @(
-    '--type', $extension, '--name', 'anonimuse', '--app-version', '0.3.1',
+    '--type', $extension, '--name', 'anonimuse', '--app-version', '0.4.0',
     '--icon', $icon,
     '--vendor', 'DocAnonymizer', '--description', 'Anonimizador local de documentos',
     '--input', $inputDirectory, '--dest', $outputDirectory,

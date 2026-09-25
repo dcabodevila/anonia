@@ -1,6 +1,6 @@
 # Instalar DocAnonymizer en Windows
 
-Recibirá el instalador `DocAnonymizer-0.3.1.exe`. Elija la ruta antes de instalar:
+Recibirá el instalador `anonimuse-installer.exe`. Elija la ruta antes de instalar:
 
 - **Solo documentos PDF con capa de texto:** instale DocAnonymizer directamente.
 - **Imágenes JPEG o PNG:** primero instale y configure Tesseract OCR administrado externamente con el idioma español (`spa`); después instale DocAnonymizer.
@@ -11,7 +11,7 @@ El instalador incluye Java. No incluye ni descarga Tesseract ni sus modelos OCR.
 
 ### Si solo procesará PDF
 
-1. Localice el archivo recibido `DocAnonymizer-0.3.1.exe`.
+1. Localice el archivo recibido `anonimuse-installer.exe`.
 2. Ejecute el instalador y siga las indicaciones de Windows.
 3. Cuando Windows finalice el asistente, la instalación habrá terminado. Cierre y vuelva a abrir DocAnonymizer o el acceso directo para que reciba la variable de usuario actualizada; después, confirme que se abre correctamente antes de usarlo para procesar PDF.
 
@@ -47,7 +47,7 @@ Use una regla activa por línea, con la clave exacta en minúsculas, `: ` y un v
 
 | Componente | Cómo se obtiene | Para qué se necesita |
 |---|---|---|
-| DocAnonymizer y Java | El instalador `DocAnonymizer-0.3.1.exe` | Procesar PDF con capa de texto y ejecutar la aplicación. |
+| DocAnonymizer y Java | El instalador `anonimuse-installer.exe` | Procesar PDF con capa de texto y ejecutar la aplicación. |
 | Tesseract y `spa` | Instalación externa administrada por el usuario u organización | Extraer texto de imágenes JPEG/PNG. |
 
 El procesamiento de documentos se realiza localmente y no usa servicios ni conexiones externas de red. Tesseract tampoco se instala automáticamente al instalar DocAnonymizer. Al desinstalar DocAnonymizer, se elimina el valor de `TESSERACT_COMMAND` administrado por el instalador.

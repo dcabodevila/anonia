@@ -11,7 +11,7 @@ FROM eclipse-temurin:17-jre-alpine
 
 LABEL org.opencontainers.image.title="doc-anonymizer" \
       org.opencontainers.image.description="PDF y fotos a Markdown desidentificado, 100% local" \
-      org.opencontainers.image.version="0.3.0"
+      org.opencontainers.image.version="0.4.0"
 
 # Tesseract and the Spanish language model are bundled in the runtime image.
 RUN apk add --no-cache tesseract-ocr tesseract-ocr-data-spa \

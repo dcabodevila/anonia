@@ -15,14 +15,14 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\packaging\windows\buil
 ```
 
 Sin opciones, el script genera `target/windows-installer/anonimuse-installer.exe`
-renombrando el archivo nuevo `anonimuse-0.3.1.exe`. Para generar MSI, use:
+renombrando el archivo nuevo `anonimuse-0.4.0.exe`. Para generar MSI, use:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\packaging\windows\build-installer.ps1 -Msi
 ```
 
 `-Msi` selecciona `jpackage --type msi` y renombra el archivo nuevo
-`anonimuse-0.3.1.msi` a `target/windows-installer/anonimuse-installer.msi`.
+`anonimuse-0.4.0.msi` a `target/windows-installer/anonimuse-installer.msi`.
 El script ejecuta `mvn -o package` con pruebas en ambos casos. Si ya existe el
 archivo generado o el destino del formato seleccionado, se detiene sin
 sobrescribirlo; el EXE existente no se modifica al generar el MSI. Usa un directorio nuevo
