@@ -1,0 +1,61 @@
+const { test, expect } = require('@playwright/test');
+const fs = require('node:fs/promises');
+const path = require('node:path');
+const runtime = path.resolve(__dirname, '../.runtime');
+
+async function inspect(page, testInfo, viewport, mode, selectors) {
+  const geometry = await page.evaluate(selectors => {
+    const surfaces = selectors.map(selector => {
+      const element = document.querySelector(selector);
+      const r = element.getBoundingClientRect();
+      return { selector, top:r.top, bottom:r.bottom, height:r.height,
+        clientHeight:element.clientHeight, scrollHeight:element.scrollHeight };
+    });
+    return { surfaces, width:document.documentElement.scrollWidth, viewport:innerWidth };
+  }, selectors);
+  console.log(JSON.stringify({ viewport, mode, geometry }));
+  await page.screenshot({ path:testInfo.outputPath(`${mode}.png`), fullPage:true });
+  expect.soft(geometry.width).toBeLessThanOrEqual(viewport.width);
+  for (const surface of geometry.surfaces) {
+    expect.soft(surface.height, `${mode} ${surface.selector} reading space`).toBeGreaterThan(100);
+    if (viewport.width > 1100) {
+      expect.soft(surface.top, `${mode} ${surface.selector} top`).toBeGreaterThanOrEqual(0);
+      expect.soft(surface.bottom, `${mode} ${surface.selector} bottom`).toBeLessThanOrEqual(viewport.height - 20);
+    }
+    const locator = page.locator(surface.selector);
+    await locator.scrollIntoViewIfNeeded();
+    await expect.soft(locator).toBeInViewport();
+    // Verify that the final content is reachable through its own scroll region.
+    await locator.evaluate(element => { element.scrollTop = element.scrollHeight; });
+    const remaining = await locator.evaluate(element => element.scrollHeight - element.clientHeight - element.scrollTop);
+    expect.soft(remaining).toBeLessThanOrEqual(1);
+  }
+}
+
+for (const viewport of [{ width:1920, height:1080 }, { width:1920, height:900 }, { width:1280, height:760 }, { width:390, height:844 }]) {
+  test(`workspace reading surfaces remain reachable at ${viewport.width}x${viewport.height}`, async ({ page }, testInfo) => {
+    await page.setViewportSize(viewport);
+    const { baseUrl } = JSON.parse(await fs.readFile(path.join(runtime, 'server.json'), 'utf8'));
+    await page.goto(baseUrl);
+    await page.locator('#file').setInputFiles(path.join(runtime, 'fixtures/seeded.pdf'));
+    await expect(page.locator('#workspace')).toBeVisible();
+    await inspect(page, testInfo, viewport, 'document', ['#doctext', '#entities']);
+    await page.locator('#apply').click();
+    await expect(page.locator('#result-status')).toContainText('Anonimización completada');
+    await inspect(page, testInfo, viewport, 'result', ['#markdown']);
+    await page.locator('#compare').click();
+    await inspect(page, testInfo, viewport, 'comparison', ['#doctext', '#markdown']);
+    if (viewport.width > 850) {
+      const rects = await page.locator('#doctext, #markdown').evaluateAll(elements => elements.map(element => {
+        const rect = element.getBoundingClientRect();
+        return { top:rect.top, height:rect.height };
+      }));
+      expect(Math.abs(rects[0].top - rects[1].top)).toBeLessThanOrEqual(1);
+      if (viewport.width > 1100) expect(Math.abs(rects[0].height - rects[1].height)).toBeLessThanOrEqual(1);
+    }
+    await page.locator('#compare').click();
+    await page.locator('#tab-document-control').click();
+    await expect(page.locator('#entity-controls')).toBeVisible();
+    await expect(page.locator('#apply')).toBeEnabled();
+  });
+}
