@@ -81,7 +81,7 @@ public final class WebServer {
                 respond(exchange, 200, "text/plain; charset=utf-8", "ok"));
 
         server.start();
-        System.out.println("doc-anonymizer escuchando en http://" + bindAddress + ":" + port);
+        System.out.println("doc-anonymizer escuchando en http://" + bindAddress + ":" + server.getAddress().getPort());
         System.out.println("Revision local: los valores en claro se muestran en la UI y "
                 + "no salen del proceso.");
         return server;

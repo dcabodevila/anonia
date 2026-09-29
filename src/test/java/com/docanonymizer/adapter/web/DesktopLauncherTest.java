@@ -3,6 +3,9 @@ package com.docanonymizer.adapter.web;
 import org.junit.jupiter.api.Test;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
+import java.net.InetSocketAddress;
+import java.net.ServerSocket;
+import com.sun.net.httpserver.HttpServer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -14,13 +17,62 @@ class DesktopLauncherTest {
     private final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
     private final PrintStream out = new PrintStream(bytes, true, StandardCharsets.UTF_8);
 
+    @Test void desktopDefaultRequests18080() {
+        List<Integer> ports = new ArrayList<>();
+        DesktopLauncher.launch(new String[0], (host, port) -> { ports.add(port); return port; }, uri -> {}, out);
+        assertEquals(List.of(18080), ports);
+    }
+
     @Test void startsLoopbackBeforeOpeningBrowser() {
         List<String> events = new ArrayList<>();
         assertEquals(0, DesktopLauncher.launch(new String[0],
-                (host, port) -> events.add(host + ":" + port),
+                (host, port) -> { events.add(host + ":" + port); return port; },
                 uri -> events.add(uri.toString()), out));
-        assertEquals(List.of("127.0.0.1:8080", "http://127.0.0.1:8080/"), events);
+        assertEquals(List.of("127.0.0.1:18080", "http://127.0.0.1:18080/"), events);
         assertTrue(bytes.toString(StandardCharsets.UTF_8).contains("Ctrl+C"));
+    }
+
+    @Test void occupiedDefaultRetriesOnActualBoundSocketAndOpensRealUrl() throws Exception {
+        List<Integer> attempts = new ArrayList<>();
+        List<HttpServer> servers = new ArrayList<>();
+        List<java.net.URI> opened = new ArrayList<>();
+        try (ServerSocket collision = new ServerSocket()) {
+            collision.bind(new InetSocketAddress("127.0.0.1", 0));
+            int occupied = collision.getLocalPort();
+            assertEquals(0, DesktopLauncher.launch(new String[0], (host, port) -> {
+                attempts.add(port);
+                if (port == 18080) {
+                    HttpServer.create(new InetSocketAddress(host, occupied), 0);
+                }
+                HttpServer server = HttpServer.create(new InetSocketAddress(host, port), 0);
+                servers.add(server);
+                server.start();
+                return server.getAddress().getPort();
+            }, opened::add, out));
+            assertEquals(List.of(18080, 0), attempts);
+            assertEquals(1, opened.size());
+            assertEquals(servers.get(0).getAddress().getPort(), opened.get(0).getPort());
+        } finally {
+            servers.forEach(server -> server.stop(0));
+        }
+    }
+
+    @Test void explicitOccupiedPortDoesNotRetry() {
+        List<Integer> attempts = new ArrayList<>();
+        assertEquals(1, DesktopLauncher.launch(new String[]{"9090"}, (host, port) -> {
+            attempts.add(port);
+            throw new java.net.BindException("occupied");
+        }, uri -> fail("browser opened"), out));
+        assertEquals(List.of(9090), attempts);
+    }
+
+    @Test void nonBindFailureDoesNotRetry() {
+        List<Integer> attempts = new ArrayList<>();
+        assertEquals(1, DesktopLauncher.launch(new String[0], (host, port) -> {
+            attempts.add(port);
+            throw new IllegalStateException("startup failed");
+        }, uri -> fail("browser opened"), out));
+        assertEquals(List.of(18080), attempts);
     }
 
     @Test void startupFailureNeverOpensBrowser() {
@@ -29,13 +81,14 @@ class DesktopLauncherTest {
                 (host, port) -> { throw new java.net.BindException("busy"); },
                 uri -> opened.add(uri.toString()), out));
         assertTrue(opened.isEmpty());
-        assertTrue(bytes.toString(StandardCharsets.UTF_8).contains("8080"));
+        assertTrue(bytes.toString(StandardCharsets.UTF_8).contains("18080"));
     }
 
     @Test void browserFailureLeavesServerAvailableAndPrintsUrl() {
         assertEquals(0, DesktopLauncher.launch(new String[]{"9090"}, (host, port) -> {
             assertEquals("127.0.0.1", host);
             assertEquals(9090, port);
+            return port;
         }, uri -> { throw new UnsupportedOperationException(); }, out));
         assertTrue(bytes.toString(StandardCharsets.UTF_8).contains("http://127.0.0.1:9090/"));
     }
@@ -86,7 +139,7 @@ class DesktopLauncherTest {
         assertFalse(plan.contains("\"exe\""), "MSI plan must not select EXE: " + plan);
         String source = Files.readString(script);
         assertTrue(source.contains("if ($Msi) { 'msi' } else { 'exe' }"));
-        assertTrue(source.contains("anonimuse-0.4.0.$extension"));
+        assertTrue(source.contains("anonimuse-0.4.1.$extension"));
         assertTrue(source.contains("anonimuse-installer.$extension"));
         assertTrue(source.contains("Move-Item -LiteralPath $generatedInstaller -Destination $installer -ErrorAction Stop"));
         assertTrue(source.contains("Test-Path -LiteralPath $generatedInstaller"));
@@ -102,7 +155,7 @@ class DesktopLauncherTest {
                 .redirectErrorStream(true).start();
         String plan = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertEquals(0, process.waitFor(), plan);
-        assertTrue(plan.contains("0.4.0"), "installer version missing: " + plan);
+        assertTrue(plan.contains("0.4.1"), "installer version missing: " + plan);
         assertTrue(plan.contains("anonimuse"), "application name missing: " + plan);
         assertTrue(plan.contains("--icon"), "Windows icon option missing: " + plan);
         assertTrue(plan.contains("anonimuse-logo.ico"), "Windows .ico icon missing: " + plan);
@@ -143,7 +196,7 @@ class DesktopLauncherTest {
                 "packaging must publish the exact installer filename for the selected format");
         assertTrue(source.contains("Move-Item -LiteralPath $generatedInstaller -Destination $installer -ErrorAction Stop"),
                 "packaging must rename the freshly generated installer");
-        assertTrue(source.contains("anonimuse-0.4.0.$extension"),
+        assertTrue(source.contains("anonimuse-0.4.1.$extension"),
                 "packaging must identify the jpackage versioned output");
         assertTrue(source.contains("Copy-Item -LiteralPath $jar -Destination $inputDirectory"));
         assertFalse(source.contains("OcrBundleRoot"));
