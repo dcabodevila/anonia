@@ -30,6 +30,14 @@ main { min-width:0; padding:20px; max-width:1500px; margin:0 auto; }
 #entity-controls .stats { display:grid; inline-size:min(100%,460px); max-inline-size:100%; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:6px; margin:0 0 10px; } #entity-controls .stat { min-inline-size:0; padding:6px 7px; border:1px solid var(--border); border-radius:7px; background:var(--panel-2); } #entity-controls .stat b { display:block; font-size:16px; line-height:1.2; } #entity-controls .stat span { color:var(--muted); font-size:10px; text-transform:uppercase; overflow-wrap:anywhere; }
 .panes { display:grid; grid-template-columns:minmax(260px, 0.85fr) minmax(0, 1.65fr); gap:18px; align-items:start; }.pane-side { position:sticky; top:20px; grid-column:1; grid-row:1; }.pane-main { min-width:0; grid-column:2; grid-row:1; }.pane-doc { min-height:clamp(0px,calc(100dvh - 220px),42rem); }.main-tabpanels { min-width:0; }.workspace.comparing .panes { grid-template-columns:48px minmax(0,1fr); gap:14px; }.pane-side.comparing { inline-size:48px; min-inline-size:0; }.pane-side.comparing .pane-head { min-block-size:100%; justify-content:center; padding:12px 0; }.pane-side.comparing .pane-head h2 { writing-mode:vertical-rl; transform:rotate(180deg); }.pane-side.comparing .hint { display:none; }.pane-main.comparing .main-tabpanels { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; align-items:start; }.pane-main.comparing .tabpanel { display:flex; flex-direction:column; }.pane-main.comparing .markdown { margin:0; padding:20px; border:0; border-radius:0; background:transparent; font:15px/1.72 "Cascadia Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
 .pane { overflow:hidden; border:1px solid var(--border); border-radius:10px; background:var(--panel); }.pane:focus-within { overflow:visible; }.pane-head { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; min-width:0; padding:10px 14px; border-bottom:1px solid var(--border); }.pane-head h2 { margin:0; font-size:18px; }.doctext { height:clamp(14rem,calc(100dvh - 280px),62rem); max-height:none; padding:22px; overflow:auto; scroll-padding:12px; white-space:pre-wrap; overflow-wrap:anywhere; font:16px/1.72 "Cascadia Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace; }.pane-main.comparing .doctext,.pane-main.comparing .markdown { height:auto; max-height:none; overflow:visible; }
+.hl.result-entity { cursor:text; }
+.result-entity.comparison-match {
+  background:color-mix(in srgb, currentColor 18%, transparent);
+  outline:2px solid currentColor;
+  outline-offset:2px;
+  text-decoration:underline;
+  text-underline-offset:3px;
+}
 .hl { padding:1px 2px; border-bottom:2px solid currentColor; border-radius:3px; cursor:pointer; }.hl:hover { background:var(--hover-tint); }.hl.off { border-bottom-style:dotted; text-decoration:line-through; }.active-location { background:var(--accent-soft); outline:2px solid var(--accent); outline-offset:1px; border-radius:3px; }.location-marker { text-decoration:underline dotted var(--accent) 2px; }
 .main-tabbar { display:flex; align-items:flex-start; min-width:0; gap:10px; margin-bottom:12px; }.main-view-actions { display:flex; flex:0 1 auto; justify-content:flex-end; gap:6px; }.tabs { display:flex; min-width:0; flex:1; border-bottom:1px solid var(--border); }.tab { flex:1; min-height:44px; padding:11px 10px; border:0; border-bottom:2px solid transparent; background:none; color:var(--muted); font:inherit; font-size:14px; cursor:pointer; }.tab.active { color:var(--text); border-bottom-color:var(--accent); }.compare { display:inline-flex; align-items:center; justify-content:center; gap:7px; min-height:44px; padding:9px 14px; border:1px solid var(--border); border-radius:7px; background:var(--panel-2); color:var(--text); font:inherit; cursor:pointer; }.compare:hover { background:var(--hover); border-color:var(--accent-strong); }.compare[aria-pressed="true"] { border-color:var(--accent); color:var(--accent); }.side-content,.tabpanel { padding:12px 14px; }
 .actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-bottom:16px; }.pane-side .primary { grid-column:1 / -1; min-height:52px; font-size:16px; }#result-actions { display:flex; flex:0 1 auto; flex-wrap:wrap; justify-content:flex-end; gap:6px; margin:0; } #result-actions button { width:auto; min-height:44px; padding:9px 12px; white-space:nowrap; } button.primary, button.ghost, button.warning-action { width:100%; min-height:46px; padding:11px 16px; border:1px solid var(--border); border-radius:7px; font:inherit; font-size:15px; cursor:pointer; } button.primary { border-color:var(--accent); background:var(--accent); color:var(--accent-ink); font-weight:700; } button.ghost { background:var(--panel-2); color:var(--text); } button.warning-action { border-color:var(--warning-border); background:var(--warning-soft); color:var(--warning); } button:disabled { border-color:var(--disabled); background:var(--disabled-surface); color:var(--disabled); opacity:1; cursor:not-allowed; }
@@ -95,6 +103,44 @@ select.chip {
 @media (max-width: 1100px) {
   .pane-main { grid-row: 1; }
   .pane-side { grid-row: 2; }
+}
+
+/* Desktop workspace budgets the actual page stack, not guessed header offsets. */
+@media (min-width:1101px) and (min-height:701px) {
+  body:has(#workspace:not(.hidden)) {
+    height:100dvh; display:grid; grid-template-rows:auto minmax(0,1fr);
+  }
+  main:has(#workspace:not(.hidden)) {
+    width:100%; min-height:0; display:grid; grid-template-rows:auto minmax(0,1fr);
+    gap:16px;
+  }
+  #workspace, #workspace .panes { min-height:0; height:100%; }
+  #workspace .panes { align-items:stretch; }
+  #workspace .pane-main { min-height:0; display:flex; flex-direction:column; }
+  #workspace .main-tabbar, #workspace .result-status { flex-shrink:0; }
+  #workspace .main-tabpanels { flex:1; min-height:0; display:grid; align-items:stretch; }
+  #workspace .tabpanel { min-height:0; display:flex; flex-direction:column; }
+  #workspace .pane-head { flex-shrink:0; }
+  #workspace .pane-main.comparing .main-tabpanels {
+    grid-template-rows:8rem minmax(0,1fr) auto auto;
+  }
+  #workspace .pane-main.comparing .tabpanel {
+    display:grid; grid-row:1 / -1; grid-template-rows:subgrid;
+  }
+  #workspace .pane-main.comparing #tab-document { grid-column:1; }
+  #workspace .pane-main.comparing #tab-result { grid-column:2; }
+  #workspace .pane-main.comparing .pane-head { block-size:auto; grid-row:1; }
+  #workspace .pane-main.comparing :is(.doctext, .markdown) { grid-row:2; height:auto; }
+  #workspace .pane-main.comparing #warning-note { grid-row:3; }
+  #workspace .pane-main.comparing .disclaimer { grid-row:4; }
+  #workspace :is(.doctext, .markdown) {
+    flex:1; height:0; min-height:0; max-height:none; overflow:auto;
+  }
+  #workspace .pane-side { position:static; min-height:0; display:flex; flex-direction:column; }
+  #workspace .side-content { flex:1; min-height:0; display:flex; flex-direction:column; }
+  #workspace .side-content > :not(.entities) { flex-shrink:0; }
+  #workspace .entities { flex:1; min-height:0; max-height:none; }
+  #workspace :is(.disclaimer, #warning-note) { flex-shrink:0; }
 }
 
 /* Landing page: hero + feature showcase. */

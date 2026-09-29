@@ -283,6 +283,70 @@ test('an unchosen conflicting variant cannot reject a local edit', () => {
   assert.equal(state.text.slice(detection('b').start, detection('b').end), 'Calle');
 });
 
+test('result renders safe linked color spans and hover clears on leave and invalidation', async () => {
+  const { nodes } = fakeDom();
+  fixture('Ana | <img>', [['a', 'PERSONA', 'Ana', 'person'], ['b', 'EMAIL', '<img>', 'kept']]);
+  state.rejected.add('kept');
+  state.jobId = 'comparison';
+  global.fetch = async () => ({ ok: true, json: async () => ({
+    deliverable: true, markdown: '[P] | <img>', labels: [{ entityKey: 'person', label: '[P]' }]
+  }) });
+  await app.apply();
+  const result = nodes.get('markdown').children.filter(child => child.dataset);
+  assert.equal(result.length, 2, 'both replaced and preserved occurrences are colored spans');
+  assert.equal(result[1].textContent, '<img>');
+  state.comparing = true;
+  app.renderDocument();
+  const original = nodes.get('doctext').children.filter(child => child.dataset);
+  assert.equal(original.length, 2);
+  assert.equal(original[0].style.color, result[0].style.color);
+  original[0].listeners.mouseenter();
+  assert.equal(result[0].classList.contains('comparison-match'), true);
+  assert.equal(result[1].classList.contains('comparison-match'), false);
+  original[0].listeners.mouseleave();
+  assert.equal(result[0].classList.contains('comparison-match'), false);
+  original[1].listeners.focus();
+  assert.equal(result[1].classList.contains('comparison-match'), true);
+  app.invalidateResult();
+  assert.equal(result[1].classList.contains('comparison-match'), false);
+});
+
+test('comparison projects repeated, multiline and preserved occurrences by offsets, not label search', () => {
+  fixture('[P] Ana\r\nRuiz | Ana\r\nRuiz | <img> | fin', [
+    ['a', 'PERSONA', 'Ana\r\nRuiz', 'person'],
+    ['b', 'PERSONA', 'Ana\r\nRuiz', 'person', 15],
+    ['c', 'EMAIL', '<img>', 'kept']
+  ]);
+  state.rejected.add('kept');
+  const output = '[P] [P]\r\n | [P]\r\n | <img> | fin';
+  const ranges = app.projectComparison(output, [{ entityKey: 'person', label: '[P]' }]);
+  assert.deepEqual(ranges.map(({ id, start, end }) => [id, start, end]),
+    [['a', 4, 9], ['b', 12, 17], ['c', 20, 25]]);
+  assert.equal(app.projectComparison(output + ' unexpected', [{ entityKey: 'person', label: '[P]' }]).length, 0);
+  assert.equal(app.projectComparison(output, []).length, 0);
+});
+
+test('comparison uses edited effective ranges and suppresses overlapping inner substitutions', () => {
+  fixture('Ana Ruiz | Ruiz', [
+    ['a', 'PERSONA', 'Ana Ruiz', 'outer'], ['b', 'EMAIL', 'Ruiz', 'inner'],
+    ['c', 'EMAIL', 'Ruiz', 'inner', 10]
+  ]);
+  assert.deepEqual(app.projectComparison('[LONG] | [E]', [
+    { entityKey: 'outer', label: '[LONG]' }, { entityKey: 'inner', label: '[E]' }
+  ]).map(range => range.id), ['a', 'c']);
+  assert.equal(app.changeText('outer', 'Ana'), true);
+  assert.deepEqual(app.projectComparison('[A] [E] | [E]', [
+    { entityKey: 'outer', label: '[A]' }, { entityKey: 'inner', label: '[E]' }
+  ]).map(range => [range.id, range.start, range.end]), [['a', 0, 3], ['b', 4, 7], ['c', 10, 13]]);
+});
+
+test('overlapping preserved detections choose the same outer occurrence on both sides', () => {
+  fixture('Ana Ruiz', [['inner', 'EMAIL', 'Ruiz', 'inner'], ['outer', 'PERSONA', 'Ana Ruiz', 'outer']]);
+  state.rejected.add('inner');
+  state.rejected.add('outer');
+  assert.deepEqual(app.projectComparison('Ana Ruiz', []).map(range => range.id), ['outer']);
+});
+
 function fakeDom() {
   const nodes = new Map();
   function node() {

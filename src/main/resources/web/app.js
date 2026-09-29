@@ -782,6 +782,8 @@ function editInline(button, key) {
 }
 
 function invalidateResult() {
+  clearComparisonHover();
+  comparisonMarks = [];
   state.revision++;
   state.markdown = '';
   state.warningMarkdown = '';
@@ -835,11 +837,33 @@ function activateHighlightLocation(detection) {
   refreshLocation({ focusEntity: true });
 }
 
+let comparisonMarks = [];
+
+function clearComparisonHover() {
+  comparisonMarks.forEach(mark => mark.classList.remove('comparison-match'));
+}
+
+function linkComparisonHighlight(mark, detection) {
+  mark.dataset.comparisonOccurrence = detection.id;
+  const revision = state.revision;
+  const highlight = () => {
+    clearComparisonHover();
+    if (!state.comparing || revision !== state.revision) return;
+    comparisonMarks.filter(target => target.dataset.comparisonOccurrence === detection.id)
+      .forEach(target => target.classList.add('comparison-match'));
+  };
+  mark.addEventListener('mouseenter', highlight);
+  mark.addEventListener('mouseleave', clearComparisonHover);
+  mark.addEventListener('focus', highlight);
+  mark.addEventListener('blur', clearComparisonHover);
+}
+
 function makeHighlight(text, detection, active) {
   const mark = document.createElement('span');
   mark.className = 'hl' + (active ? ' active-location' : '');
   mark.style.color = colorOf(detection.type);
   mark.textContent = text;
+  linkComparisonHighlight(mark, detection);
   mark.title = detection.type + ' - ' + detection.provenance
     + ' - confianza ' + detection.confidence;
   mark.tabIndex = 0;
@@ -873,7 +897,18 @@ function scrollToActiveLocation(container) {
 function renderDocument({ scrollActiveLocation = true } = {}) {
   const container = el('doctext');
   container.innerHTML = '';
+  clearComparisonHover();
   const ordered = effectiveDetections();
+  if (state.comparing) {
+    // Only untouched rejected ranges have an independent preserved counterpart.
+    const preserved = state.detections.filter(detection => state.rejected.has(detection.entityKey)
+      && !ordered.some(other => other.start < detection.end && other.end > detection.start))
+      .sort((a, b) => a.start - b.start || b.end - a.end);
+    for (const detection of preserved) {
+      if (!ordered.some(other => other.start < detection.end && other.end > detection.start)) ordered.push(detection);
+    }
+    ordered.sort((a, b) => a.start - b.start);
+  }
   const active = state.detections.find(detection => detection.id === state.activeOccurrenceId);
 
   if (!active) {
@@ -907,6 +942,8 @@ function renderDocument({ scrollActiveLocation = true } = {}) {
     } else if (activeHere) {
       const marker = document.createElement('span');
       marker.className = 'location-marker active-location';
+      marker.style.color = colorOf(active.type);
+      linkComparisonHighlight(marker, active);
       marker.dataset.occurrenceId = active.id;
       marker.dataset.focusTarget = 'highlight:' + active.id;
       marker.tabIndex = -1;
@@ -979,12 +1016,66 @@ function previewMarkdown(markdown) {
   return typeof markdown === 'string' ? markdown.replace(GENERATED_METADATA_COMMENT, '') : markdown;
 }
 
+// Mirror TextAnonymizer: labels followed by every retained CR/LF in the source span.
+// Validate the entire output before exposing links; never search for pseudonym text.
+function projectComparison(output, labels) {
+  const labelMap = new Map((Array.isArray(labels) ? labels : []).map(item => [item.entityKey, item.label]));
+  const effective = effectiveDetections();
+  const ranges = [];
+  let cursor = 0;
+  let projected = '';
+  for (const detection of effective) {
+    const label = labelMap.get(detection.entityKey);
+    if (typeof label !== 'string') return [];
+    projected += state.text.slice(cursor, detection.start);
+    const start = projected.length;
+    projected += label + (state.text.slice(detection.start, detection.end).match(/[\r\n]/g) || []).join('');
+    ranges.push({ ...detection, start, end: projected.length });
+    cursor = detection.end;
+  }
+  projected += state.text.slice(cursor);
+  if (projected !== output) return [];
+  // Use the original pane's outer-first ordering for untouched overlapping tags too.
+  const preserved = [...state.detections].sort((a, b) => a.start - b.start || b.end - a.end);
+  for (const detection of preserved) {
+    if (effective.some(other => other.start < detection.end && other.end > detection.start)) continue;
+    const shift = effective.reduce((delta, other, index) => other.end <= detection.start
+      ? delta + ranges[index].end - ranges[index].start - (other.end - other.start) : delta, 0);
+    const start = detection.start + shift;
+    const end = detection.end + shift;
+    if (!ranges.some(other => other.start < end && other.end > start)) ranges.push({ ...detection, start, end });
+  }
+  return ranges.sort((a, b) => a.start - b.start);
+}
+
+function renderComparisonResult(output, labels) {
+  clearComparisonHover();
+  const ranges = projectComparison(output, labels);
+  comparisonMarks = [];
+  const container = el('markdown');
+  container.innerHTML = '';
+  let cursor = 0;
+  for (const detection of ranges) {
+    container.append(document.createTextNode(output.slice(cursor, detection.start)));
+    const mark = document.createElement('span');
+    mark.className = 'hl result-entity';
+    mark.style.color = colorOf(detection.type);
+    mark.dataset.comparisonOccurrence = detection.id;
+    mark.textContent = output.slice(detection.start, detection.end);
+    container.append(mark);
+    comparisonMarks.push(mark);
+    cursor = detection.end;
+  }
+  container.append(document.createTextNode(output.slice(cursor)));
+}
+
 function renderResult(data, hasResult) {
   const deliverable = data.deliverable && hasResult;
   el('markdown').textContent = hasResult
     ? previewMarkdown(data.markdown)
     : 'ANONIMIZACIÓN BLOQUEADA: el resultado no se entrega.\n\n'
       + 'Revisa el estado del resultado para conocer el control que falló.';
+  if (hasResult) renderComparisonResult(previewMarkdown(data.markdown), data.labels);
   el('warning-note').textContent = 'Este resultado puede contener datos personales residuales. Descargar o copiar implica aceptar ese riesgo; no es seguro para entregar.';
   el('download').disabled = !deliverable;
   el('copy').disabled = !deliverable && !state.warningDownloadEligible;
@@ -1167,6 +1258,8 @@ function toggleCompare() {
 }
 
 function renderMainView() {
+  clearComparisonHover();
+  renderDocument({ scrollActiveLocation: false });
   const selectedPanel = 'tab-' + state.activeTab;
   document.querySelectorAll('.tab').forEach((tab) => {
     const active = tab.dataset.tab === state.activeTab;
@@ -1284,5 +1377,5 @@ if (typeof module !== 'undefined') module.exports = {
   renderEntities,
   selectTab, toggleCompare, download, downloadWithWarnings, filteredEntities, setEntityFilters,
   selectEntityLocation, navigateEntityOccurrence, occurrenceIds, isHighlightActivation, restoreFocus,
-  copyMarkdown, previewMarkdown
+  copyMarkdown, previewMarkdown, projectComparison
 };
