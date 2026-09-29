@@ -108,6 +108,18 @@ test('each feature section pairs a heading+paragraph row above a full-width fram
   assert.match(css, /\.landing-shot\s*\{[^}]*border-radius:\s*14px[^}]*box-shadow:\s*0 24px 60px -20px var\(--shadow-deep\)/);
 });
 
+test('the first two landing steps use the exact identification and editing headings', () => {
+  const headings = [1, 2].map(step => {
+    const match = html.match(new RegExp(`<span class="landing-step">${step}<\\/span>\\s*<h3>([^<]+)<\\/h3>`));
+    assert.ok(match, `expected a step ${step} heading`);
+    return match[1];
+  });
+  assert.deepEqual(headings, [
+    'Identifica los datos personales de tu documento',
+    'Añade o modifica los nombres a ocultar'
+  ]);
+});
+
 test('a fifth feature section explains pasting the anonymized markdown into an AI assistant', () => {
   const stepMatch = html.match(/<span class="landing-step">5<\/span>\s*<h3>([^<]+)<\/h3>/);
   assert.ok(stepMatch, 'expected a step 5 heading');
