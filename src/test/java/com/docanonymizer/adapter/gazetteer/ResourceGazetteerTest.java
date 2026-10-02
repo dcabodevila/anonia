@@ -1,5 +1,6 @@
 package com.docanonymizer.adapter.gazetteer;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -23,6 +24,45 @@ class ResourceGazetteerTest {
             "Rosa", "Victoria", "Mercedes", "Pilar", "Domingo", "Abril", "Mayo"})
     void knowsForeignGivenNames(String name) {
         assertTrue(GAZETTEER.isGivenName(name), name);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"García", "PÉREZ", "López", "Ruiz", "Kowalski"})
+    void knowsResidentSurnames(String surname) {
+        assertTrue(GAZETTEER.isSurname(surname), surname);
+    }
+
+    @Test
+    void surnameResourceHasBroadUniqueCoverage() throws Exception {
+        var keys = new HashSet<String>();
+        try (var stream = ResourceGazetteerTest.class.getResourceAsStream("/gazetteer/apellidos.txt.gz")) {
+            assertNotNull(stream);
+            try (var reader = new BufferedReader(new InputStreamReader(
+                    new GZIPInputStream(stream), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    assertTrue(keys.add(CanonicalForm.forCompare(line)), "duplicado: " + line);
+                    assertTrue(GAZETTEER.isSurname(line), line);
+                }
+            }
+        }
+        assertTrue(keys.size() > 10000, "size=" + keys.size());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"de", "la", "Banco", "Calle", "Avenida", "Juzgado", "Hospital", "Comunidad"})
+    void surnameExclusionsAreAvailableAtRuntime(String word) {
+        assertFalse(GAZETTEER.isSurname(word), word);
+        assertTrue(GAZETTEER.isExcludedWord(word), word);
+    }
+
+    @Test
+    void packagedExclusionsMatchBuildInput() throws Exception {
+        try (var stream = ResourceGazetteerTest.class.getResourceAsStream("/gazetteer/exclusions.txt")) {
+            assertNotNull(stream);
+            assertArrayEquals(java.nio.file.Files.readAllBytes(
+                    java.nio.file.Path.of("scripts/gazetteer/exclusions.txt")), stream.readAllBytes());
+        }
     }
 
     @Test
@@ -63,7 +103,10 @@ class ResourceGazetteerTest {
 
     @Test
     void customPlainResourceKeepsItsOriginalContract() {
-        assertEquals(132, new ResourceGazetteer("/gazetteer/nombres-es.txt").size());
+        var custom = new ResourceGazetteer("/gazetteer/nombres-es.txt");
+        assertEquals(132, custom.size());
+        assertFalse(custom.isSurname("García"));
+        assertFalse(custom.isExcludedWord("Banco"));
     }
 
     @Test

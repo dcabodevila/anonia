@@ -14,7 +14,7 @@ import java.util.Set;
 import java.util.zip.GZIPInputStream;
 
 /**
- * Diccionario de nombres de pila servido desde un recurso empaquetado.
+ * Diccionarios de nombres de pila y apellidos servidos desde recursos empaquetados.
  *
  * <p>Combina la lista espanola con nombres internacionales de fuentes abiertas.
  * Los recursos se generan durante el desarrollo; la carga es siempre offline.
@@ -28,21 +28,39 @@ public final class ResourceGazetteer implements GazetteerPort {
 
     private static final class DefaultNames {
         private static final Set<String> NAMES = load(DEFAULT_RESOURCE, INTERNATIONAL_RESOURCE);
+        private static final Set<String> SURNAMES = load("/gazetteer/apellidos.txt.gz");
+        private static final Set<String> EXCLUSIONS = load("/gazetteer/exclusions.txt");
     }
 
     private final Set<String> givenNames;
+    private final Set<String> surnames;
+    private final Set<String> exclusions;
 
     public ResourceGazetteer() {
         this.givenNames = DefaultNames.NAMES;
+        this.surnames = DefaultNames.SURNAMES;
+        this.exclusions = DefaultNames.EXCLUSIONS;
     }
 
     public ResourceGazetteer(String resourcePath) {
         this.givenNames = load(resourcePath);
+        this.surnames = Set.of();
+        this.exclusions = Set.of();
     }
 
     @Override
     public boolean isGivenName(String token) {
         return givenNames.contains(CanonicalForm.forCompare(token));
+    }
+
+    @Override
+    public boolean isSurname(String token) {
+        return surnames.contains(CanonicalForm.forCompare(token));
+    }
+
+    @Override
+    public boolean isExcludedWord(String token) {
+        return exclusions.contains(CanonicalForm.forCompare(token));
     }
 
     @Override

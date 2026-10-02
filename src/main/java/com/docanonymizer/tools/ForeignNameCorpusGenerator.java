@@ -65,12 +65,21 @@ public final class ForeignNameCorpusGenerator {
             "Santiago de Compostela", "Código Civil", "Fundamentos de Derecho",
             "Antecedentes de Hecho");
 
+    // No son personas; otros detectores pueden redactarlos con su tipo correcto.
+    public static final List<String> NON_PERSON_CONTROLS = List.of(
+            "Banco Santander", "Avenida de Castilla",
+            "Hospital Clínico San Carlos", "Comunidad de Madrid");
+
     public static final List<String> CONTROL_SENTENCES = List.of(
             "El Juzgado de Primera Instancia tiene competencia para conocer del asunto.",
             "Se invoca la doctrina del Tribunal Supremo en materia contractual.",
             "Resultan aplicables el Real Decreto y el Código Civil.",
             "La sede judicial se encuentra en 15701 Santiago de Compostela.",
-            "Se incorporan los Antecedentes de Hecho y los Fundamentos de Derecho.");
+            "Se incorporan los Antecedentes de Hecho y los Fundamentos de Derecho.",
+            "La entidad Banco Santander presenta el informe.",
+            "La via publica se denomina Avenida de Castilla.",
+            "El centro sanitario Hospital Clínico San Carlos emite el informe.",
+            "La Comunidad de Madrid publica la convocatoria.");
 
     public static void main(String[] args) throws IOException {
         Path output = Path.of(args.length > 0 ? args[0] : "nombres-extranjeros.pdf");

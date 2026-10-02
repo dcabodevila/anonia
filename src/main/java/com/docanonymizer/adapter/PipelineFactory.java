@@ -68,6 +68,8 @@ public final class PipelineFactory {
             @Override public boolean isGivenName(String token) {
                 return defaults.isGivenName(token) || names.contains(CanonicalForm.forCompare(token));
             }
+            @Override public boolean isSurname(String token) { return defaults.isSurname(token); }
+            @Override public boolean isExcludedWord(String token) { return defaults.isExcludedWord(token); }
             @Override public int size() { return defaults.size() + names.size(); }
         };
         detectors.add(new GazetteerPersonDetector(gazetteer));

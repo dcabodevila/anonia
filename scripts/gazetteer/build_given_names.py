@@ -12,7 +12,9 @@ import hashlib
 import io
 import json
 from pathlib import Path
+import os
 import subprocess
+import tempfile
 import sys
 import time
 import unicodedata
@@ -27,6 +29,21 @@ USER_AGENT = "doc-anonymizer-gazetteer-build/1.0 (offline dictionary build)"
 # Languages normally written in Latin script; also enforce script on each label.
 LANGUAGES = "en es ca gl eu fr de it pt nl af da sv no nb nn fi is ga gd cy br kw oc co ro pl cs sk sl hr bs sq hu tr az uz tk et lv lt la eo id ms vi sw zu xh st tn sn so ha yo ig mt lb fo rm ast an sc sco bar als lij lmo nap pms vec wa fur lad nah qu gn mg mi sm tl ceb jv su ht io ia vo".split()
 NS = {"s": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+
+
+def atomic_write(path, payload):
+    """Close a same-directory temporary file before replacing (also on Windows).
+
+    A failed write/replace leaves the old destination intact and may leave the
+    temporary file for diagnosis. No destination is truncated in place.
+    """
+    with tempfile.NamedTemporaryFile(dir=path.parent, prefix=path.name + ".",
+                                     suffix=".tmp", delete=False) as stream:
+        stream.write(payload)
+        stream.flush()
+        os.fsync(stream.fileno())
+        temporary = stream.name
+    os.replace(temporary, path)
 
 
 def download(url, accept=None):
@@ -215,9 +232,9 @@ def main():
     compressed = gzip.compress(payload, compresslevel=9, mtime=0)
     report.update(dictionary_size=len(combined), gzip_bytes=len(compressed),
                   gzip_sha256=hashlib.sha256(compressed).hexdigest(), exclusion_count=len(exclusions))
-    resource.write_bytes(compressed)
-    (ROOT / "scripts/gazetteer/build-report.json").write_text(
-        json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    atomic_write(resource, compressed)
+    atomic_write(ROOT / "scripts/gazetteer/build-report.json",
+                 (json.dumps(report, ensure_ascii=False, indent=2) + "\n").encode("utf-8"))
     print(f"Final: {len(combined):,} names; gzip {len(compressed):,} bytes; {resource.relative_to(ROOT)}")
 
 

@@ -81,6 +81,29 @@ class PipelineFactoryTest {
     }
 
     @Test
+    void userNameUnionPreservesSurnameAndExclusionSignals() throws Exception {
+        Path rules = temporaryDirectory.resolve("surname-rules.txt");
+        Files.writeString(rules, "person: Zqvxx\n");
+        String previous = System.getProperty("doc.anonymizer.rules");
+        try {
+            System.setProperty("doc.anonymizer.rules", rules.toString());
+            var gazetteer = new com.docanonymizer.adapter.gazetteer.ResourceGazetteer();
+            assertTrue(!gazetteer.isGivenName("Qzxv"));
+            var found = new DetectionEngine(PipelineFactory.defaultDetectors()).detect(
+                    "Qzxv García Pérez; Zqvxx Unknown; Banco García; Hospital Carlos");
+            assertTrue(found.stream().anyMatch(d -> d.type() == DetectionType.PERSON
+                    && d.value().equals("Qzxv García Pérez") && d.confidence() == 0.80));
+            assertTrue(found.stream().anyMatch(d -> d.type() == DetectionType.PERSON
+                    && d.value().equals("Zqvxx Unknown") && d.confidence() == 0.85));
+            assertTrue(found.stream().noneMatch(d -> d.type() == DetectionType.PERSON
+                    && (d.value().contains("Banco") || d.value().contains("Hospital"))));
+        } finally {
+            if (previous == null) System.clearProperty("doc.anonymizer.rules");
+            else System.setProperty("doc.anonymizer.rules", previous);
+        }
+    }
+
+    @Test
     void customTermIsOptInAndPreservesExactSpan() throws Exception {
         Path rules = temporaryDirectory.resolve("rules.txt");
         Files.writeString(rules, "term: Oposición\n");

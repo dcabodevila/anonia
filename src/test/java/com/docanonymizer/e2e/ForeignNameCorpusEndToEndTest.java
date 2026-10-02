@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.docanonymizer.adapter.PipelineFactory;
 import com.docanonymizer.adapter.ocr.LocalDocumentTextExtractor;
 import com.docanonymizer.domain.model.AnonymizationResult;
+import com.docanonymizer.domain.model.DetectionType;
 import com.docanonymizer.domain.service.CanonicalForm;
 import com.docanonymizer.domain.service.TextFolding;
 import com.docanonymizer.tools.ForeignNameCorpusGenerator;
@@ -15,7 +16,6 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -31,6 +31,7 @@ class ForeignNameCorpusEndToEndTest {
 
     private static AnonymizationResult result;
     private static String extracted;
+    private static String matchingText;
 
     @BeforeAll
     static void runPipeline() throws IOException {
@@ -38,7 +39,10 @@ class ForeignNameCorpusEndToEndTest {
         ForeignNameCorpusGenerator.generate(pdf);
         // Se usa el mismo extractor que compone el pipeline, sin plegar Unicode.
         extracted = new LocalDocumentTextExtractor().extract(pdf).rawText();
-        result = PipelineFactory.standard().run(pdf);
+        var pipeline = PipelineFactory.standard();
+        var analysis = pipeline.analyze(pdf);
+        matchingText = analysis.normalizedText();
+        result = pipeline.complete(analysis, analysis.candidates());
     }
 
     @Test
@@ -70,7 +74,6 @@ class ForeignNameCorpusEndToEndTest {
         assertRedacted(seed);
     }
 
-    @Disabled("T5: surname dictionary pending")
     @ParameterizedTest(name = "T5: {0}")
     @MethodSource("t5")
     void knownSurnames(NameCase seed) {
@@ -88,6 +91,24 @@ class ForeignNameCorpusEndToEndTest {
     void legitimateContentSurvives(String control) {
         assertTrue(TextFolding.fold(result.markdown()).contains(TextFolding.fold(control)),
                 () -> "se perdio contenido legitimo: " + control);
+    }
+
+    @ParameterizedTest(name = "Non-person control: {0}")
+    @MethodSource("nonPersonControls")
+    void nonPersonControlsHaveNoPersonOverlap(String control) {
+        int start = matchingText.indexOf(control);
+        assertTrue(start >= 0, control);
+        int end = start + control.length();
+        var overlapping = result.accepted().stream()
+                .filter(d -> d.start() < end && start < d.end()).toList();
+        for (var detector : PipelineFactory.defaultDetectors()) {
+            var hits = detector.detect(matchingText).stream()
+                    .filter(d -> d.start() < end && start < d.end()).toList();
+            assertTrue(hits.stream().noneMatch(d -> d.type() == DetectionType.PERSON),
+                    () -> control + " detector=" + detector.name() + " hits=" + hits);
+        }
+        assertTrue(overlapping.stream().noneMatch(d -> d.type() == DetectionType.PERSON),
+                () -> control + ": " + overlapping);
     }
 
     private static void assertRedacted(NameCase seed) {
@@ -112,4 +133,5 @@ class ForeignNameCorpusEndToEndTest {
     static Stream<NameCase> t5() { return cases("T5"); }
     static Stream<NameCase> t6() { return cases("T6"); }
     static Stream<String> controls() { return ForeignNameCorpusGenerator.NEGATIVE_CONTROLS.stream(); }
+    static Stream<String> nonPersonControls() { return ForeignNameCorpusGenerator.NON_PERSON_CONTROLS.stream(); }
 }

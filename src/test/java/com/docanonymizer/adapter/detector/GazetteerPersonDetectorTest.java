@@ -18,6 +18,18 @@ class GazetteerPersonDetectorTest {
         }
 
         @Override
+        public boolean isSurname(String token) {
+            return Set.of("garcia", "perez", "lopez", "ruiz", "santander", "castilla", "carlos", "madrid", "santiago", "de")
+                    .contains(CanonicalForm.forCompare(token));
+        }
+
+        @Override
+        public boolean isExcludedWord(String token) {
+            return Set.of("banco", "avenida", "calle", "juzgado", "hospital", "comunidad", "de", "la")
+                    .contains(CanonicalForm.forCompare(token));
+        }
+
+        @Override
         public int size() {
             return givenNames.size();
         }
@@ -55,6 +67,32 @@ class GazetteerPersonDetectorTest {
         assertEquals(List.of(), detector.detect("łukasz kowalski"));
         assertEquals(List.of(), detector.detect("łukasz Kowalski"));
         assertEquals(List.of(), detector.detect("Unknown Kowalski"));
+    }
+
+    @Test
+    void acceptsSurnameSignalWithoutKnownGivenName() {
+        assertPerson("Xiomara García Pérez", "Xiomara García Pérez");
+        assertPerson("Brayden López Ruiz", "Brayden López Ruiz");
+        assertPerson("Unlisted de García", "Unlisted de García");
+        assertEquals(0.80, detector.detect("Xiomara García Pérez").get(0).confidence());
+    }
+
+    @Test
+    void rejectsExcludedHeadingsAndPostalLocalities() {
+        for (String text : List.of("Banco Santander", "Avenida Castilla", "Avenida de Castilla",
+                "Calle García Lorca", "Juzgado de Primera Instancia de Santiago",
+                "Hospital Clínico San Carlos", "Comunidad de Madrid", "15701 Unlisted García")) {
+            assertEquals(List.of(), detector.detect(text), text);
+        }
+    }
+
+    @Test
+    void surnameMustBeLaterAndCapitalized() {
+        assertEquals(List.of(), detector.detect("García Unknown"));
+        assertEquals(List.of(), detector.detect("Unlisted garcía"));
+        assertEquals(List.of(), detector.detect("Unlisted DE"));
+        assertEquals(List.of(), detector.detect("UNLISTED UNKNOWN\nRuiz"));
+        assertEquals(0.85, detector.detect("Sean McDonald").get(0).confidence());
     }
 
     private void assertPerson(String source, String expected) {
