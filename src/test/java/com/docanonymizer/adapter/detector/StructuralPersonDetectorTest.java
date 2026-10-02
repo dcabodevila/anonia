@@ -4,6 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.docanonymizer.domain.model.Detection;
 import java.util.List;
+import java.util.Locale;
+import java.util.stream.Stream;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.api.Test;
 
 class StructuralPersonDetectorTest {
@@ -73,11 +77,56 @@ class StructuralPersonDetectorTest {
         assertEquals("PERSON:" + name.replace('\n', ' '), StructuralPersonDetector.entityKey(name));
     }
 
+    static Stream<String> honorifics() {
+        return List.of("Sr", "Sra", "Srta", "Don", "Doña", "Dña").stream()
+                .flatMap(cue -> Stream.of(cue, cue + "."))
+                .flatMap(cue -> Stream.of(cue.toLowerCase(Locale.ROOT), cue,
+                        cue.toUpperCase(Locale.ROOT)))
+                .distinct();
+    }
+
+    @ParameterizedTest
+    @MethodSource("honorifics")
+    void recognizesHonorificVariantsAndExactSingleWordSpans(String cue) {
+        assertPerson("Comparece " + cue + " Kowalski.", "Kowalski");
+        assertPerson("Comparece " + cue + " KOWALSKI.", "KOWALSKI");
+        assertPerson("Comparece " + cue + " Aiko Tanaka.", "Aiko Tanaka");
+    }
+
+    @Test
+    void recognizesDottedDAndSingleWordExamples() {
+        assertPerson("d. Kowalski", "Kowalski");
+        assertPerson("D. Kowalski", "Kowalski");
+        assertPerson("el Sr. Kowalski", "Kowalski");
+        assertPerson("la Sra Bianchi", "Bianchi");
+        assertPerson("Sr Novak", "Novak");
+        assertPerson("representado por Sr Novak", "Novak");
+    }
+
+    @Test
+    void keepsHonorificBoundariesAndSingleWordGuardrails() {
+        for (String source : List.of("Sradio Pérez", "1234 BCD. Juan Pérez",
+                "un don especial", "D Juan Pérez", "Don De", "Sra LA", "Sr del",
+                "Srta especial", "representado por especial", "Novak, con DNI 12345678Z")) {
+            assertEquals(List.of(), detector.detect(source), source);
+        }
+        assertPerson("Srta Novak", "Novak");
+        assertPerson("Dña aiko tanaka", "aiko tanaka");
+    }
+
+    @Test
+    void refinesHonorificSingleWordWithoutChangingOtherCueMinimums() {
+        assertPerson("Sr. Kowalski\nCalle Mayor", "Kowalski");
+        assertEquals(List.of(), detector.detect("representado por Kowalski\nCalle Mayor"));
+    }
+
     private void assertPerson(String source, String expected) {
         List<Detection> detections = detector.detect(source);
         assertEquals(1, detections.size(), source);
         Detection detection = detections.get(0);
         assertEquals(expected, detection.value(), source);
+        assertEquals(source.indexOf(expected), detection.start(), source);
+        assertEquals(source.indexOf(expected) + expected.length(), detection.end(), source);
         assertEquals(expected, source.substring(detection.start(), detection.end()), source);
     }
 }

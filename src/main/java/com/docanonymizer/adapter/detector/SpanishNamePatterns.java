@@ -59,6 +59,11 @@ public final class SpanishNamePatterns {
             fullName("(?:" + NAME_WORD
                     + "|(?-i:\\p{Ll}(?:\\p{Ll}+|[-'’]\\p{Ll}+)(?:[-'’]\\p{Ll}+)*))");
 
+    /** Una sola palabra tras tratamiento: capitalizada y nunca una particula. */
+    public static final String SINGLE_NAME_AFTER_HONORIFIC =
+            "(?!" + PARTICLE + ")" + NAME_WORD + "(?![\\p{L}'’-])"
+                    + "(?!" + SOFT_SPACE + "Mª(?!\\p{L}))";
+
     private static String fullName(String word) {
         String tail = SOFT_SPACE + "(?:" + PARTICLE + SOFT_SPACE + ")?" + word;
         return "(?:" + MARIA_ABBREVIATION + SOFT_SPACE + word + tail
@@ -71,12 +76,13 @@ public final class SpanishNamePatterns {
      *
      * <p>Va anclado con {@link #NOT_AFTER_LETTER} en cada uso, y no es una precaucion
      * teorica: sin el, la alternativa {@code D\.} casa con el final de la matricula
-     * "1234 BCD." y convierte en persona lo que venga detras.
+     * "1234 BCD." y convierte en persona lo que venga detras. El limite final impide
+     * que "Sra" case dentro de "Sradio"; la D sola sigue exigiendo punto.
      */
     public static final String HONORIFIC =
             NOT_AFTER_LETTER
-                    + "(?:D\\.ª|Dña\\.|Dª|D\\.|Doña|Don|Sr\\.|Sra\\.|Srta\\.|Sres\\."
-                    + "|Señor|Señora)";
+                    + "(?:D\\.ª|Dª|D\\.|Sres\\.|Señora|Señor|(?:Dña|Doña|Don|Srta|Sra|Sr)\\.?)"
+                    + "(?![\\p{L}])";
 
     /**
      * Tipos de via reconocidos, incluidos los de gallego, catalan y euskera.

@@ -30,7 +30,8 @@ public final class StructuralPersonDetector implements DetectorPort {
 
     /** "D. Juan Perez Lopez", "Dna. Maria Garcia". El tratamiento no entra en la captura. */
     private static final Pattern AFTER_HONORIFIC = Pattern.compile(
-            SpanishNamePatterns.HONORIFIC + SPACE + "(" + SpanishNamePatterns.FULL_NAME_AFTER_CUE + ")",
+            SpanishNamePatterns.HONORIFIC + SPACE + "(" + SpanishNamePatterns.FULL_NAME_AFTER_CUE
+                    + "|" + SpanishNamePatterns.SINGLE_NAME_AFTER_HONORIFIC + ")",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
 
     /** "Maria Garcia Perez, con DNI 12345678Z" y variantes del giro. */
@@ -42,11 +43,11 @@ public final class StructuralPersonDetector implements DetectorPort {
                     + "(?![\\p{L}])",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
 
-    /** "representado por Luis Martin Saez", "en nombre de ...". */
+    /** "representado por Luis Martin Saez". Con tratamiento se ocupa AFTER_HONORIFIC. */
     private static final Pattern AFTER_ROLE = Pattern.compile(
             BOUNDARY
                     + "(?:representad[oa] por|en nombre de|a favor de|demandante|demandado)"
-                    + SPACE + "(?:" + SpanishNamePatterns.HONORIFIC + SPACE + ")?"
+                    + SPACE + "(?!" + SpanishNamePatterns.HONORIFIC + SPACE + ")"
                     + "(" + SpanishNamePatterns.FULL_NAME_AFTER_CUE + ")",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
 
@@ -73,7 +74,9 @@ public final class StructuralPersonDetector implements DetectorPort {
             if (matcher.group(1) == null || matcher.group(1).isBlank()) {
                 continue;
             }
-            int end = NameSpanRefiner.refine(text, matcher.start(1), matcher.end(1));
+            int end = pattern == AFTER_HONORIFIC
+                    ? NameSpanRefiner.refineAfterHonorific(text, matcher.start(1), matcher.end(1))
+                    : NameSpanRefiner.refine(text, matcher.start(1), matcher.end(1));
             if (end < 0) {
                 continue;
             }

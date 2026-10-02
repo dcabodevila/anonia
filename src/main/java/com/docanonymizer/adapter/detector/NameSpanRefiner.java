@@ -3,6 +3,7 @@ package com.docanonymizer.adapter.detector;
 import com.docanonymizer.domain.service.CanonicalForm;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * Recorta un nombre que se ha comido texto de la linea siguiente.
@@ -30,6 +31,10 @@ public final class NameSpanRefiner {
     /** Se descarta el candidato entero si al recortar queda con menos palabras. */
     private static final int MIN_NAME_WORDS = 2;
 
+    private static final Pattern SINGLE_HONORIFIC_NAME = Pattern.compile(
+            SpanishNamePatterns.SINGLE_NAME_AFTER_HONORIFIC,
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+
     // Only known prose continuations: suffixes also occur in real surnames (Lucio, Aron).
     // This is not a general verb classifier.
     private static final Set<String> PROSE_VERBS = Set.of("suscribio", "abono");
@@ -53,6 +58,15 @@ public final class NameSpanRefiner {
      * porque lo que queda ya no parece un nombre.
      */
     public static int refine(String text, int start, int end) {
+        return refine(text, start, end, false);
+    }
+
+    /** Solo el tratamiento permite conservar una palabra propia tras el recorte. */
+    public static int refineAfterHonorific(String text, int start, int end) {
+        return refine(text, start, end, true);
+    }
+
+    private static int refine(String text, int start, int end, boolean afterHonorific) {
         List<int[]> words = wordSpans(text, start, end);
         if (words.isEmpty()) {
             return -1;
@@ -79,7 +93,9 @@ public final class NameSpanRefiner {
             keptEnd = word[1];
         }
 
-        if (keptWords < MIN_NAME_WORDS) {
+        if (keptWords < MIN_NAME_WORDS
+                && !(afterHonorific && SINGLE_HONORIFIC_NAME
+                        .matcher(text.substring(start, keptEnd)).matches())) {
             return -1;
         }
         return keptEnd == end ? end : keptEnd;

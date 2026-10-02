@@ -60,7 +60,7 @@ class DetectionClassificationTest {
                 new NegativeDetection("Teléfono:512345678", DetectionType.PHONE),
                 new NegativeDetection("Mayor 15", DetectionType.ADDRESS),
                 new NegativeDetection("28013", DetectionType.POSTAL_CODE),
-                new NegativeDetection("D. Juan", DetectionType.PERSON));
+                new NegativeDetection("D. juan", DetectionType.PERSON));
 
         for (NegativeDetection negative : negatives) {
             assertFalse(engine.detect(negative.source()).stream()
@@ -69,6 +69,19 @@ class DetectionClassificationTest {
         assertEquals(List.of("12345"), engine.detect("Código: ABC12345").stream()
                 .filter(detection -> detection.type() == DetectionType.CODIGO)
                 .map(Detection::value).toList());
+    }
+
+    @Test
+    void detectsCapitalizedSingleWordAfterHonorificWithExactSpan() {
+        String source = "D. Juan";
+        List<Detection> detections = engine.detect(source);
+        assertEquals(1, detections.size());
+        Detection detection = detections.get(0);
+        assertEquals(DetectionType.PERSON, detection.type());
+        assertEquals("Juan", detection.value());
+        assertEquals(3, detection.start());
+        assertEquals(7, detection.end());
+        assertEquals("Juan", source.substring(detection.start(), detection.end()));
     }
 
     @Test

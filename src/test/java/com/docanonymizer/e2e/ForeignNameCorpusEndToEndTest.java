@@ -59,7 +59,6 @@ class ForeignNameCorpusEndToEndTest {
         assertRedacted(seed);
     }
 
-    @Disabled("T3: honorific cues pending")
     @ParameterizedTest(name = "T3: {0}")
     @MethodSource("t3")
     void honorificCues(NameCase seed) {
