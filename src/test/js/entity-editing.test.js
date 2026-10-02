@@ -533,18 +533,44 @@ test('manual creation finds all eligible occurrences once and defaults to TEXTO'
   assert.equal(state.edits.length, 2);
 });
 
-test('manual creation rejects partial overlaps but accepts contained ranges', () => {
-  fixture('ABCDE', []);
+test('manual matching folds case and accents while preserving original UTF16 ranges', () => {
+  const text = '😀 perez | Perez | PÉREZ | Pérez | Pe\u0301rez';
+  fixture(text, []);
+  assert.equal(app.addManualEntity('perez'), true);
+  assert.deepEqual(state.detections.map(d => text.slice(d.start, d.end)),
+    ['perez', 'Perez', 'PÉREZ', 'Pérez', 'Pe\u0301rez']);
+  for (const d of state.detections) assert.equal(d.start, text.indexOf(text.slice(d.start, d.end)));
+  fixture('İ | i', []);
+  assert.equal(app.addManualEntity('i'), true);
+  assert.deepEqual(state.detections.map(d => state.text.slice(d.start, d.end)), ['İ', 'i']);
+});
 
-  assert.equal(app.addManualEntity('ABC'), true);
-  assert.equal(app.addManualEntity('CDE'), false);
-  assert.deepEqual(state.detections.map(detection => [detection.id, detection.start, detection.end]), [
-    ['manual:1', 0, 3]
-  ]);
-  assert.equal(app.addManualEntity('ABCDE'), true);
-  assert.deepEqual(state.detections.map(detection => [detection.id, detection.start, detection.end]), [
-    ['manual:1', 0, 3], ['manual:2', 0, 5]
-  ]);
+test('manual matching requires Unicode whole words and excludes number fragments', () => {
+  fixture('Ana ana ANA Aná Ana\u0301 semana mañana analizar 𐐀Ana Ana𐐀 \u0301Ana Ana\u0301x', []);
+  assert.equal(app.addManualEntity('Ana'), true);
+  assert.deepEqual(state.detections.map(d => state.text.slice(d.start, d.end)),
+    ['Ana', 'ana', 'ANA', 'Aná', 'Ana\u0301']);
+  fixture('15 150 215 15', []);
+  assert.equal(app.addManualEntity('15'), true);
+  assert.deepEqual(state.detections.map(d => [d.start, d.end]), [[0, 2], [11, 13]]);
+});
+
+test('manual phrases fold accents across line breaks with boundaries only at phrase ends', () => {
+  fixture('calle mayor 15 | CÁLLE\n\u00a0MAYOR 15 | precalle mayor 15 | calle mayor 150', []);
+  assert.equal(app.addManualEntity('calle mayor 15'), true);
+  assert.deepEqual(state.detections.map(d => state.text.slice(d.start, d.end)),
+    ['calle mayor 15', 'CÁLLE\n\u00a0MAYOR 15']);
+  assert.equal(app.narrow('PÉREZ', 'perez'), null);
+});
+
+test('manual creation rejects folded partial overlaps but accepts contained ranges', () => {
+  fixture('Ana Ruiz Norte', [['existing', 'TEXTO', 'Ruiz Norte', 'existing']]);
+  const before = snapshot();
+  assert.equal(app.addManualEntity('ana ruiz'), false);
+  assert.equal(snapshot(), before);
+  assert.equal(app.addManualEntity('ana ruiz norte'), true);
+  assert.deepEqual(state.detections.map(d => [d.id, d.start, d.end]),
+    [['existing', 4, 14], ['manual:1', 0, 14]]);
 });
 
 test('manual creation uses the same Unicode digit boundary as server exact occurrences', () => {

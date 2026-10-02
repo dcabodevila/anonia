@@ -212,7 +212,8 @@ test.describe('principal anonymization journeys against the local Java server', 
     await upload(page);
     await page.getByRole('button', { name: 'Añadir entidad a anonimizar' }).click();
     const manual = page.getByRole('textbox', { name: /Texto a anonimizar/ });
-    await manual.fill('arrendamiento');
+    // Folded manual input must match the real lowercase source, including on server replay.
+    await manual.fill('ARRENDÁMIENTO');
     await page.getByRole('button', { name: 'Guardar' }).click();
     const added = entity(page, 'arrendamiento');
     await expect(added).toBeVisible();
@@ -226,7 +227,7 @@ test.describe('principal anonymization journeys against the local Java server', 
     await page.locator('#apply').click();
     await expect(page.locator('#result-status')).toContainText('Anonimización completada');
     const output = await saveDownload(page, page.locator('#download'), 'manual-download.md');
-    expect(output).not.toContain('arrendamiento');
+    expect(output).not.toMatch(/arrendamiento/iu);
     expect(output).toContain('[TEXTO_');
   });
 

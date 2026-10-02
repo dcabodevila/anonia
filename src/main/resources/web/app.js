@@ -613,21 +613,30 @@ function sourceMatches(source, selected) {
   return found;
 }
 
-// Match ExactOccurrences: a selected number must not be a fragment of a longer number.
-function isDigitAt(source, index) {
-  return /\p{Nd}/u.test(String.fromCodePoint(source.codePointAt(index)));
+function manualFold(character) {
+  return character.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
 }
 
-function isDigitBefore(source, index) {
-  const previous = source.charCodeAt(index - 1);
-  const start = previous >= 0xDC00 && previous <= 0xDFFF ? index - 2 : index - 1;
-  return isDigitAt(source, start);
+function isWordAt(source, index) {
+  return /[\p{L}\p{Nd}\p{M}]/u.test(String.fromCodePoint(source.codePointAt(index)));
 }
 
-function eligibleSourceMatches(source, selected) {
-  return sourceMatches(source, selected).filter(([start, end]) =>
-    !(start > 0 && isDigitBefore(source, start))
-    && !(end < source.length && isDigitAt(source, end)));
+// Manual-only folding; text edits and narrow() remain source-exact.
+function manualSourceMatches(source, selected) {
+  const { value, offsets } = normalizeSource(source, true);
+  const target = normalizeSource(selected, true).value;
+  if (!target) return [];
+  const found = [];
+  for (let index = value.indexOf(target); index >= 0; index = value.indexOf(target, index + 1)) {
+    const start = offsets[index];
+    const end = offsets[index + target.length];
+    if (start === undefined || end === undefined) continue;
+    const previous = source.charCodeAt(start - 1);
+    const before = previous >= 0xDC00 && previous <= 0xDFFF ? start - 2 : start - 1;
+    if (!(start > 0 && isWordAt(source, before))
+        && !(end < source.length && isWordAt(source, end))) found.push([start, end]);
+  }
+  return found;
 }
 
 function hasPartialOverlap(first, second) {
@@ -637,7 +646,7 @@ function hasPartialOverlap(first, second) {
   return !contains && !contained;
 }
 
-function normalizeSource(source) {
+function normalizeSource(source, folded = false) {
   let value = '';
   const offsets = [];
   let whitespaceStart = -1;
@@ -654,8 +663,14 @@ function normalizeSource(source) {
         value += ' ';
       }
       whitespaceStart = -1;
-      appendMapped(value, offsets, character, index, end);
-      value += character;
+      const fragment = folded ? manualFold(character) : character;
+      if (fragment) {
+        appendMapped(value, offsets, fragment, index, end);
+        value += fragment;
+      } else if (value.length > 0) {
+        // Include decomposed trailing marks in the original replacement range.
+        setOffset(offsets, value.length, end);
+      }
     }
     index = end;
   }
@@ -743,7 +758,7 @@ function addManualEntity(input) {
   if (!selected) return false;
   if (state.edits.some(([action, , value]) => action === 'add' && value === selected)) return true;
 
-  const ranges = eligibleSourceMatches(state.text, selected);
+  const ranges = manualSourceMatches(state.text, selected);
   if (!ranges.length || ranges.some((range, index) =>
     state.detections.some(other => hasPartialOverlap(range, [other.start, other.end]))
     || ranges.slice(0, index).some(other => hasPartialOverlap(range, other)))) return false;

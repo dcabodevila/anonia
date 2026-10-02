@@ -350,13 +350,41 @@ class ReviewEditsTest {
                 () -> apply(input, "add\tmanual:2\tAUSENTE"));
     }
 
-    @Test void manualCreationRejectsPartialOverlapsButAcceptsContainedRanges() {
-        var input = analysis("ABCDE");
-        String abc = "add\tmanual:1\tABC";
+    @Test void manualMatchesIgnoreCaseAndAccentsWithOriginalUtf16Ranges() {
+        String text = "😀 perez | Perez | PÉREZ | Pérez | Pe\u0301rez";
+        var found = apply(analysis(text), "add\tmanual:1\tperez");
+        assertEquals(List.of("perez", "Perez", "PÉREZ", "Pérez", "Pe\u0301rez"),
+                found.stream().map(Detection::value).toList());
+        for (var detection : found) {
+            assertEquals(text.indexOf(detection.value()), detection.start());
+            assertEquals(detection.value(), text.substring(detection.start(), detection.end()));
+        }
+        assertEquals(List.of("İ", "i"), apply(analysis("İ | i"), "add\tmanual:1\ti")
+                .stream().map(Detection::value).toList());
+    }
 
+    @Test void manualMatchesRequireUnicodeWholeWordBoundaries() {
+        String text = "Ana ana ANA Aná Ana\u0301 semana mañana analizar 𐐀Ana Ana𐐀 \u0301Ana Ana\u0301x";
+        assertEquals(List.of("Ana", "ana", "ANA", "Aná", "Ana\u0301"),
+                apply(analysis(text), "add\tmanual:1\tAna").stream().map(Detection::value).toList());
+        assertEquals(List.of("15", "15"), apply(analysis("15 150 215 15"), "add\tmanual:1\t15")
+                .stream().map(Detection::value).toList());
+    }
+
+    @Test void manualPhrasesFoldAccentsAndNormalizeLineBreaksOnlyInsideWholePhrase() {
+        String text = "calle mayor 15 | CÁLLE\n\u00a0MAYOR 15 | precalle mayor 15 | calle mayor 150";
+        assertEquals(List.of("calle mayor 15", "CÁLLE\n\u00a0MAYOR 15"),
+                apply(analysis(text), "add\tmanual:1\tcalle%20mayor%2015")
+                        .stream().map(Detection::value).toList());
+        assertNull(ReviewEdits.narrow("PÉREZ", "perez"));
+    }
+
+    @Test void manualCreationRejectsPartialOverlapsButAcceptsContainedRanges() {
+        String text = "Ana Ruiz Norte";
+        var input = analysis(text, at(text, "existing", DetectionType.TEXT, "Ruiz Norte", "existing", 0));
         assertThrows(IllegalArgumentException.class,
-                () -> apply(input, abc, "add\tmanual:2\tCDE"));
-        assertEquals(List.of("manual:2"), ids(apply(input, abc, "add\tmanual:2\tABCDE")));
+                () -> apply(input, "add\tmanual:1\tana%20ruiz"));
+        assertEquals(List.of("manual:1"), ids(apply(input, "add\tmanual:1\tana%20ruiz%20norte")));
     }
 
     @Test void manualCreationRejectsBlankAndWhitespaceSelectionsBeforeMatching() {

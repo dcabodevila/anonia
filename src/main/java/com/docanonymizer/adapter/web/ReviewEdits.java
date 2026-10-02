@@ -6,6 +6,7 @@ import com.docanonymizer.domain.model.Provenance;
 import com.docanonymizer.domain.service.AnonymizationPipeline;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -20,6 +21,7 @@ final class ReviewEdits {
     // ECMAScript whitespace: keep browser normalization and UTF-16 ranges identical.
     private static final String WHITESPACE = "[\\u0009-\\u000D\\u0020\\u00A0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000\\uFEFF]";
     private static final Pattern SPACE = Pattern.compile(WHITESPACE + "+");
+    private static final Pattern MARKS = Pattern.compile("\\p{M}+");
     private final Map<String, Detection> detections = new LinkedHashMap<>();
     private final Map<String, Detection> originals = new LinkedHashMap<>();
     private final Map<String, Entity> entities = new LinkedHashMap<>();
@@ -126,13 +128,12 @@ final class ReviewEdits {
         }
     }
 
-    /** Adds only server-derived, exact source ranges for a browser-created manual entity. */
+    /** Adds server-derived folded whole-word matches with original source ranges and values. */
     private void addManual(String id, String value) {
         String selected = normalize(value);
         if (!id.matches("manual:[1-9]\\d*") || selected.isEmpty() || !selected.equals(value)
                 || detections.containsKey(id) || entities.containsKey(id)) throw invalid();
-        List<int[]> ranges = matches(text, selected).stream()
-                .filter(range -> !joinsDigits(text, range)).toList();
+        List<int[]> ranges = manualMatches(text, selected);
         if (ranges.isEmpty()) throw invalid();
         for (int index = 0; index < ranges.size(); index++) {
             int[] range = ranges.get(index);
@@ -239,9 +240,33 @@ final class ReviewEdits {
         return found.isEmpty() ? null : found.get(0);
     }
 
-    private static boolean joinsDigits(String source, int[] range) {
-        return range[0] > 0 && Character.isDigit(source.codePointBefore(range[0]))
-                || range[1] < source.length() && Character.isDigit(source.codePointAt(range[1]));
+    private static String manualFold(String character) {
+        return MARKS.matcher(Normalizer.normalize(character.toLowerCase(Locale.ROOT),
+                Normalizer.Form.NFD)).replaceAll("");
+    }
+
+    private static boolean wordCharacter(int codePoint) {
+        int type = Character.getType(codePoint);
+        return Character.isLetterOrDigit(codePoint) || type == Character.NON_SPACING_MARK
+                || type == Character.COMBINING_SPACING_MARK || type == Character.ENCLOSING_MARK;
+    }
+
+    private static List<int[]> manualMatches(String source, String selected) {
+        MappedSource mapped = normalizeSource(source, true);
+        String target = normalizeSource(selected, true).value;
+        List<int[]> found = new ArrayList<>();
+        if (target.isEmpty()) return found;
+        for (int index = mapped.value.indexOf(target); index >= 0;
+                index = mapped.value.indexOf(target, index + 1)) {
+            Integer start = mapped.offsets.get(index);
+            Integer end = mapped.offsets.get(index + target.length());
+            if (start == null || end == null) continue;
+            if ((start == 0 || !wordCharacter(source.codePointBefore(start)))
+                    && (end == source.length() || !wordCharacter(source.codePointAt(end)))) {
+                found.add(new int[]{start, end});
+            }
+        }
+        return found;
     }
 
     private static List<int[]> matches(String source, String selected) {
@@ -258,6 +283,10 @@ final class ReviewEdits {
     }
 
     private static MappedSource normalizeSource(String source) {
+        return normalizeSource(source, false);
+    }
+
+    private static MappedSource normalizeSource(String source, boolean folded) {
         StringBuilder normalized = new StringBuilder();
         List<Integer> offsets = new ArrayList<>();
         int whitespaceStart = -1;
@@ -273,7 +302,14 @@ final class ReviewEdits {
                     appendMapped(normalized, offsets, " ", whitespaceStart, whitespaceEnd);
                 }
                 whitespaceStart = -1;
-                appendMapped(normalized, offsets, source.substring(index, end), index, end);
+                String fragment = source.substring(index, end);
+                if (folded) fragment = manualFold(fragment);
+                if (!fragment.isEmpty()) {
+                    appendMapped(normalized, offsets, fragment, index, end);
+                } else if (normalized.length() > 0) {
+                    // Include decomposed trailing marks in the original replacement range.
+                    setOffset(offsets, normalized.length(), end);
+                }
             }
             index = end;
         }
