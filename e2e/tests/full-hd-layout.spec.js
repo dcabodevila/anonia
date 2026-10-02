@@ -50,6 +50,31 @@ for (const viewport of [{ width:1920, height:1080 }, { width:1920, height:900 },
     await expect.soft(page.locator('.topbar #document-chip')).toBeVisible();
     await expect.soft(page.locator('#document-chip')).toContainText('seeded.pdf');
     await expect.soft(page.locator('#dropzone')).toBeHidden();
+    // New compact controls retain a visible keyboard focus treatment.
+    const checkFocus = async selector => {
+      const control = page.locator(selector).first();
+      await page.keyboard.press('Tab');
+      await control.focus();
+      const ring = await control.evaluate(element => {
+        const style = getComputedStyle(element);
+        return { visible:element.matches(':focus-visible'), width:parseFloat(style.outlineWidth), style:style.outlineStyle };
+      });
+      expect.soft(ring.visible, `${selector} keyboard focus`).toBe(true);
+      expect.soft(ring.width, `${selector} focus ring`).toBeGreaterThanOrEqual(2);
+      expect.soft(ring.style).not.toBe('none');
+    };
+    await checkFocus('#change-document');
+    await checkFocus('.entity-locate');
+    const values = await page.locator('.entity-value').evaluateAll(elements => elements.map(element => ({
+      title:element.title, text:element.textContent,
+      ellipsis:getComputedStyle(element).textOverflow, wrap:getComputedStyle(element).whiteSpace
+    })));
+    for (const value of values) {
+      expect.soft(value.title.replace(/\s+/g, ' ')).toContain(value.text);
+      expect.soft(value.ellipsis).toBe('ellipsis');
+      expect.soft(value.wrap).toBe('nowrap');
+    }
+    await page.locator('#tab-document-control').focus();
     await expect(page.locator('#result-status[aria-live="polite"]')).toContainText('Resultado pendiente');
     const density = await page.locator('#entities').evaluate(container => {
       const box = container.getBoundingClientRect();
@@ -80,6 +105,10 @@ for (const viewport of [{ width:1920, height:1080 }, { width:1920, height:900 },
     }
     await page.locator('#apply').click();
     await expect(page.locator('#result-status')).toContainText('Anonimización completada');
+    const actionHeights = await page.locator('#download, #copy, #compare').evaluateAll(elements =>
+      elements.map(element => element.getBoundingClientRect().height));
+    console.log(JSON.stringify({ viewport, actionHeights }));
+    expect.soft(Math.max(...actionHeights) - Math.min(...actionHeights), 'consistent export/compare heights').toBeLessThanOrEqual(1);
     await inspect(page, testInfo, viewport, 'result', ['#markdown']);
     const notice = page.locator('.disclaimer');
     const checkNotice = async () => {
@@ -87,6 +116,7 @@ for (const viewport of [{ width:1920, height:1080 }, { width:1920, height:900 },
       await expect.soft(notice).toContainText('Las etiquetas mantienen distinguibles a las personas y fechas, importes, cargos y hechos singulares permanecen intactos.');
       await expect.soft(notice.locator('summary')).toBeVisible();
       if (await notice.locator('summary').count()) {
+        await checkFocus('.disclaimer summary');
         await notice.locator('summary').click();
         await expect.soft(notice.locator('p')).toBeVisible();
         await notice.locator('summary').click();

@@ -187,6 +187,7 @@ main:has(#workspace:not(.hidden)) { grid-template-rows:minmax(0,1fr); }
 .result-indicator.error { color:var(--error); }
 .result-indicator.working { color:var(--accent); }
 .main-tabbar { align-items:center; }
+.main-tabbar .compare { min-height:44px; padding:8px 14px; }
 .main-view-actions { align-items:center; }
 #result-toolbar:empty, #result-actions[hidden] { display:none; }
 #result-toolbar #result-actions { flex-wrap:nowrap; }

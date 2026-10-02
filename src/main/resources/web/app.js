@@ -52,17 +52,21 @@ function init() {
 
   ['dragenter', 'dragover'].forEach((evt) =>
     document.addEventListener(evt, (e) => {
+      if (!carriesFiles(e)) return;
       e.preventDefault();
       dropzone.classList.add('dragging');
     }));
 
-  ['dragleave', 'drop'].forEach((evt) =>
-    document.addEventListener(evt, (e) => {
-      e.preventDefault();
-      dropzone.classList.remove('dragging');
-    }));
+  document.addEventListener('dragleave', (e) => {
+    if (!carriesFiles(e)) return;
+    e.preventDefault();
+    dropzone.classList.remove('dragging');
+  });
 
   document.addEventListener('drop', (e) => {
+    if (!carriesFiles(e)) return;
+    e.preventDefault();
+    dropzone.classList.remove('dragging');
     if (e.dataTransfer.files.length) analyze(e.dataTransfer.files[0]);
   });
 
@@ -86,6 +90,10 @@ function init() {
     tab.addEventListener('click', () => selectTab(tab.dataset.tab));
     tab.addEventListener('keydown', handleTabKeydown);
   });
+}
+
+function carriesFiles(event) {
+  return Array.from(event.dataTransfer?.types || []).includes('Files');
 }
 
 async function analyze(file) {
