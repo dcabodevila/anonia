@@ -28,7 +28,7 @@ $packageArguments = @(
     '--main-jar', 'doc-anonymizer.jar',
     '--main-class', 'com.docanonymizer.adapter.web.DesktopLauncher',
     '--add-modules', 'ALL-MODULE-PATH',
-    '--win-per-user-install', '--win-menu', '--win-shortcut', '--win-console',
+    '--win-per-user-install', '--win-menu', '--win-shortcut',
     '--win-upgrade-uuid', 'ce0936d4-f914-4f47-9052-5b286df59f57'
 )
 # El plan usa exactamente los argumentos de la compilacion, sin efectos secundarios.

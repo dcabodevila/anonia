@@ -16,9 +16,20 @@ public final class DesktopLauncher {
     @FunctionalInterface
     interface Browser { void open(URI uri) throws Exception; }
 
+    interface Notifier {
+        void error(String message);
+        void running(URI uri, Runnable open, Runnable stop);
+    }
+
+    static final Notifier CONSOLE = new Notifier() {
+        public void error(String message) {}
+        public void running(URI uri, Runnable open, Runnable stop) {}
+    };
+
     public static void main(String[] args) {
         int status = launch(args, (host, port) -> new WebServer(host, port).start(),
-                uri -> Desktop.getDesktop().browse(uri), System.out, EdgeAppWindow.system());
+                uri -> Desktop.getDesktop().browse(uri), System.out, EdgeAppWindow.system(),
+                LauncherDialogs.system(), System::exit);
         if (status != 0) {
             System.exit(status);
         }
@@ -30,6 +41,11 @@ public final class DesktopLauncher {
 
     static int launch(String[] args, ServerStarter server, Browser browser, PrintStream out,
                       EdgeAppWindow window) {
+        return launch(args, server, browser, out, window, CONSOLE, status -> {});
+    }
+
+    static int launch(String[] args, ServerStarter server, Browser browser, PrintStream out,
+                      EdgeAppWindow window, Notifier notifier, java.util.function.IntConsumer exit) {
         int port;
         try {
             if (args.length > 1) {
@@ -40,8 +56,7 @@ public final class DesktopLauncher {
                 throw new IllegalArgumentException();
             }
         } catch (IllegalArgumentException e) {
-            out.println("Uso: DocAnonymizer [puerto entre 1 y 65535]. Predeterminado: 18080.");
-            return 1;
+            return failure("Uso: DocAnonymizer [puerto entre 1 y 65535]. Predeterminado: 18080.", out, notifier);
         }
         URI uri = URI.create("http://127.0.0.1:" + port + "/");
         HttpServer running;
@@ -56,27 +71,45 @@ public final class DesktopLauncher {
             }
             uri = URI.create("http://127.0.0.1:" + running.getAddress().getPort() + "/");
         } catch (Exception e) {
-            out.println("No se pudo iniciar " + uri
+            return failure("No se pudo iniciar " + uri
                     + ". Cierre otra instancia o pruebe otro puerto. Error: "
-                    + e.getClass().getSimpleName());
-            return 1;
+                    + e.getClass().getSimpleName(), out, notifier);
         }
         HttpServer started = running;
-        if (window != null && window.openAndWait(uri, () -> {
-            started.stop(0);
-            // HttpServer.stop no cierra el executor propio; sus hilos retendrian la JVM.
-            if (started.getExecutor() instanceof ExecutorService executor) {
-                executor.shutdownNow();
-            }
-        }, out)) {
+        Runnable stop = () -> stopServer(started);
+        if (window != null && window.openAndWait(uri, stop, out)) {
             return 0;
         }
         out.println("Abra " + uri + " en su navegador. Para detener el servidor pulse Ctrl+C.");
+        URI boundUri = uri;
+        Runnable open = () -> openBrowser(browser, boundUri, out);
+        open.run();
+        notifier.running(boundUri, open, () -> {
+            stop.run();
+            exit.accept(0);
+        });
+        return 0;
+    }
+
+    private static int failure(String message, PrintStream out, Notifier notifier) {
+        out.println(message);
+        notifier.error(message);
+        return 1;
+    }
+
+    private static void stopServer(HttpServer server) {
+        server.stop(0);
+        // HttpServer.stop no cierra el executor propio; sus hilos retendrian la JVM.
+        if (server.getExecutor() instanceof ExecutorService executor) {
+            executor.shutdownNow();
+        }
+    }
+
+    private static void openBrowser(Browser browser, URI uri, PrintStream out) {
         try {
             browser.open(uri);
         } catch (Exception e) {
             out.println("No se pudo abrir el navegador. Abra manualmente " + uri);
         }
-        return 0;
     }
 }

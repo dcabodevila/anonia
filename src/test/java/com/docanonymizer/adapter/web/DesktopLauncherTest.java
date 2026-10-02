@@ -70,6 +70,85 @@ class DesktopLauncherTest {
         }
     }
 
+    private static final class FakeNotifier implements DesktopLauncher.Notifier {
+        final List<String> errors = new ArrayList<>();
+        final List<java.net.URI> urls = new ArrayList<>();
+        Runnable open;
+        Runnable stop;
+        public void error(String message) { errors.add(message); }
+        public void running(java.net.URI uri, Runnable open, Runnable stop) {
+            urls.add(uri);
+            this.open = open;
+            this.stop = stop;
+        }
+    }
+
+    @Test void startupFailuresNotifyWithExistingMessageAndStatus() {
+        for (String[] args : List.of(new String[]{"abc"}, new String[]{"9090"}, new String[0])) {
+            bytes.reset();
+            FakeNotifier notifier = new FakeNotifier();
+            assertEquals(1, DesktopLauncher.launch(args, (host, port) -> {
+                if (args.length == 0) throw new IllegalStateException();
+                throw new java.net.BindException();
+            }, uri -> fail("browser opened"), out, null, notifier,
+                    status -> fail("launch must return startup status")));
+            assertEquals(List.of(bytes.toString(StandardCharsets.UTF_8).strip()), notifier.errors);
+            assertTrue(notifier.urls.isEmpty());
+        }
+    }
+
+    @Test void fallbackNotifiesBoundUrlAndProvidesOpenAndStopActions() {
+        for (boolean browserFails : List.of(false, true)) {
+            FakeServer server = new FakeServer(43210);
+            java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newSingleThreadExecutor();
+            server.setExecutor(executor);
+            FakeNotifier notifier = new FakeNotifier();
+            List<java.net.URI> opened = new ArrayList<>();
+            List<Integer> exits = new ArrayList<>();
+            WindowFixture fixture = new WindowFixture();
+            fixture.edgePresent = false;
+            try {
+                assertEquals(0, DesktopLauncher.launch(new String[0], (host, port) -> {
+                    if (port == 18080) throw new java.net.BindException();
+                    return server;
+                }, uri -> {
+                    opened.add(uri);
+                    if (browserFails) throw new UnsupportedOperationException();
+                }, out, fixture.window(), notifier, status -> {
+                    assertTrue(server.stopped);
+                    assertTrue(executor.isShutdown());
+                    exits.add(status);
+                }));
+                java.net.URI url = java.net.URI.create("http://127.0.0.1:43210/");
+                assertEquals(List.of(url), notifier.urls);
+                assertTrue(notifier.errors.isEmpty());
+                assertFalse(server.stopped);
+                assertTrue(exits.isEmpty());
+                notifier.open.run();
+                assertEquals(List.of(url, url), opened);
+                notifier.stop.run();
+                assertEquals(List.of(0), exits);
+            } finally {
+                executor.shutdownNow();
+            }
+        }
+    }
+
+    @Test void edgeModeDoesNotShowFallbackNotifier() {
+        FakeNotifier notifier = new FakeNotifier();
+        FakeServer server = new FakeServer(9090);
+        assertEquals(0, DesktopLauncher.launch(new String[]{"9090"}, (host, port) -> server,
+                uri -> fail("browser opened"), out, new WindowFixture().window(), notifier,
+                status -> fail("fallback exit requested")));
+        assertTrue(server.stopped);
+        assertTrue(notifier.urls.isEmpty());
+        assertTrue(notifier.errors.isEmpty());
+    }
+
+    @Test void installerHasNoConsoleOnAnyPlatform() throws Exception {
+        assertFalse(Files.readString(Path.of("packaging/windows/build-installer.ps1")).contains("--win-console"));
+    }
+
     @Test void discoversEdgeInWindowsOrderAndSkipsMissingRoots() {
         List<Path> probes = new ArrayList<>();
         java.util.Map<String, String> roots = java.util.Map.of(
@@ -305,6 +384,7 @@ class DesktopLauncherTest {
             assertTrue(plan.contains(expected), expected + " missing: " + plan);
         }
         assertFalse(plan.contains("\"exe\""), "MSI plan must not select EXE: " + plan);
+        assertFalse(plan.contains("--win-console"), "launcher must not open a console: " + plan);
         String source = Files.readString(script);
         assertTrue(source.contains("if ($Msi) { 'msi' } else { 'exe' }"));
         assertTrue(source.contains("anonimuse-0.4.3.$extension"));
@@ -328,11 +408,12 @@ class DesktopLauncherTest {
         assertTrue(plan.contains("--icon"), "Windows icon option missing: " + plan);
         assertTrue(plan.contains("anonimuse-logo.ico"), "Windows .ico icon missing: " + plan);
         for (String expected : List.of("--type", "exe", "--win-per-user-install", "--win-menu",
-                "--win-shortcut", "--win-console", "--main-class",
+                "--win-shortcut", "--main-class",
                 "com.docanonymizer.adapter.web.DesktopLauncher", "doc-anonymizer.jar",
                 "windows-installer", "windows-input-", "--add-modules", "ALL-MODULE-PATH")) {
             assertTrue(plan.contains(expected), expected + " missing: " + plan);
         }
+        assertFalse(plan.contains("--win-console"), "launcher must not open a console: " + plan);
         assertFalse(plan.contains("--runtime-image"), "jpackage must create bundled runtime");
         assertTrue(plan.contains("--resource-dir"), "jpackage resource directory missing: " + plan);
         assertTrue(plan.contains("windows-resources-"), "isolated jpackage resource directory missing: " + plan);
