@@ -8,6 +8,6 @@ class AnonymizationPipelineVersionTest {
 
     @Test
     void exposesCurrentToolVersion() {
-        assertEquals("0.4.2", AnonymizationPipeline.TOOL_VERSION);
+        assertEquals("0.4.3", AnonymizationPipeline.TOOL_VERSION);
     }
 }
