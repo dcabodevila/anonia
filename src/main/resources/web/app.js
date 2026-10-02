@@ -72,7 +72,6 @@ function init() {
 
   el('apply').addEventListener('click', apply);
   el('download').addEventListener('click', download);
-  el('warning-download').addEventListener('click', downloadWithWarnings);
   el('copy').addEventListener('click', copyMarkdown);
 
   el('compare').addEventListener('click', toggleCompare);
@@ -1112,11 +1111,9 @@ function renderResult(data, hasResult) {
       + 'Revisa el estado del resultado para conocer el control que falló.';
   if (hasResult) renderComparisonResult(previewMarkdown(data.markdown), data.labels);
   el('warning-note').textContent = 'Este resultado puede contener datos personales residuales. Descargar o copiar implica aceptar ese riesgo; no es seguro para entregar.';
-  el('download').disabled = !deliverable;
+  el('download').disabled = !deliverable && !(state.warningDownloadEligible && state.warningMarkdown);
   el('copy').disabled = !deliverable && !state.warningDownloadEligible;
   el('copy-label').textContent = 'Copiar';
-  el('warning-download').disabled = !state.warningDownloadEligible;
-  el('warning-download').classList.toggle('hidden', !state.warningDownloadEligible);
   el('warning-note').classList.toggle('hidden', !state.warningDownloadEligible);
 }
 
@@ -1217,8 +1214,6 @@ function showToast(title, message, tone) {
 function resetResultPanels() {
   el('markdown').textContent = 'Pulsa «Anonimizar» para generar el resultado.'
   el('download').disabled = true;
-  el('warning-download').disabled = true;
-  el('warning-download').classList.add('hidden');
   el('warning-note').classList.add('hidden');
   el('copy').disabled = true;
   el('copy-label').textContent = 'Copiar';
@@ -1367,14 +1362,9 @@ function saveMarkdown(markdown) {
 }
 
 function download() {
-  if (!state.markdown) return false;
-  saveMarkdown(state.markdown);
-  return true;
-}
-
-function downloadWithWarnings() {
-  if (!state.warningDownloadEligible || !state.warningMarkdown) return false;
-  saveMarkdown(state.warningMarkdown);
+  const markdown = state.markdown || (state.warningDownloadEligible ? state.warningMarkdown : '');
+  if (!markdown) return false;
+  saveMarkdown(markdown);
   return true;
 }
 
@@ -1410,7 +1400,7 @@ if (typeof module !== 'undefined') module.exports = {
   state, normalize, narrow, groupEntities, changeText, changeType, reviewBody,
   addManualEntity, startManualEntity, editInline, invalidateResult, apply, analyze, effectiveDetections, renderDocument,
   renderEntities,
-  selectTab, toggleCompare, download, downloadWithWarnings, filteredEntities, setEntityFilters,
+  selectTab, toggleCompare, download, filteredEntities, setEntityFilters,
   selectEntityLocation, navigateEntityOccurrence, occurrenceIds, isHighlightActivation, restoreFocus,
   copyMarkdown, previewMarkdown, projectComparison
 };

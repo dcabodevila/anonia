@@ -24,7 +24,7 @@ test('anonimuse keeps the entity menu small and the document dominant', () => {
   assert.match(css, /\.pane-side\s*\{\s*position:\s*sticky/);
   assert.match(css, /\.pane-doc\s*\{[\s\S]*min-height:\s*clamp\(0px,\s*calc\(100dvh\s*-\s*220px\),\s*42rem\)/);
   assert.match(css, /\.doctext\s*\{[\s\S]*max-height:\s*none/);
-  assert.match(css, /button\.primary, button\.ghost, button\.warning-action[\s\S]*width:\s*100%/);
+  assert.match(css, /button\.primary, button\.ghost[\s\S]*width:\s*100%/);
 });
 
 test('entity sidebar nests compact stats under controls and removes global location chrome', () => {
@@ -61,10 +61,11 @@ test('verification feedback uses an accessible toast without a progress bar', ()
   assert.doesNotMatch(css, /toast-progress|progress-bar/);
 });
 
-test('warning download stays hidden until a warning result exists', () => {
-  assert.match(html, /id="warning-download" class="warning-action hidden"/);
+test('warning note stays hidden until a warning result exists', () => {
+  assert.match(html, /id="warning-note" class="warning-note hidden"/);
   assert.match(fs.readFileSync(path.join(webRoot, 'app.js'), 'utf8'),
-    /warning-download'[\s\S]*classList\.toggle\('hidden', !state\.warningDownloadEligible\)/);
+    /warning-note'[\s\S]*classList\.toggle\('hidden', !state\.warningDownloadEligible\)/);
+  assert.doesNotMatch(css, /warning-action/);
 });
 
 test('comparison names both documents and provides shared result controls', () => {

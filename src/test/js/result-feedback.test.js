@@ -115,19 +115,19 @@ test('blocked findings still display the partial anonymized text and keep warnin
   assert.match(nodes.get('result-status').textContent, /Dato residual/);
   assert.doesNotMatch(nodes.get('result-status').textContent, /C3/);
   assert.equal((nodes.get('toast-region')?.children.length || 0), 0);
-  assert.equal(nodes.get('warning-download').disabled, false);
-  assert.equal(nodes.get('download').disabled, true);
-  assert.equal(app.downloadWithWarnings(), true);
+  assert.equal(nodes.get('download').disabled, false);
+  assert.equal(app.download(), true);
 });
 
-test('blocked preview retains risk note and plain copy label without enabling safe download', async () => {
+test('blocked preview retains risk note and plain copy label with the single download enabled', async () => {
   const nodes = fakeDom();
   state.jobId = 'job';
   global.fetch = async () => ({ ok: true, json: async () => ({
     deliverable: false, markdown: '# Resultado parcial', findings: [{ control: 'C3', detail: 'Riesgo' }]
   }) });
   await app.apply();
-  assert.equal(nodes.get('download').disabled, true);
+  assert.equal(nodes.get('download').disabled, false);
+  assert.equal(nodes.get('warning-note').classList.contains('hidden'), false);
   assert.equal(nodes.get('copy').disabled, false);
   assert.equal(nodes.get('copy-label').textContent, 'Copiar');
   assert.match(nodes.get('warning-note').textContent, /copiar/i);
@@ -157,13 +157,16 @@ test('Markdown downloads use the source stem for safe and warning results', (t) 
   state.warningDownloadEligible = true;
   const originalBlob = global.Blob;
   const originalUrl = global.URL;
-  global.Blob = class {};
+  const blobs = [];
+  global.Blob = class { constructor(parts) { blobs.push(parts); } };
   global.URL = { createObjectURL: () => 'blob:test', revokeObjectURL() {} };
   t.after(() => { global.Blob = originalBlob; global.URL = originalUrl; });
 
   state.sourceFilename = 'contrato.pdf';
   assert.equal(app.download(), true);
-  assert.equal(app.downloadWithWarnings(), true);
+  state.markdown = '';
+  assert.equal(app.download(), true);
+  assert.deepEqual(blobs, [['# Safe result'], ['# Warning result']]);
   assert.deepEqual(nodes.createdElements.filter(element => element.tagName === 'a')
     .map(element => element.download), ['contrato-anonimused.md', 'contrato-anonimused.md']);
 
@@ -178,6 +181,21 @@ test('Markdown downloads use the source stem for safe and warning results', (t) 
   state.sourceFilename = 'unsafe/path.pdf';
   assert.equal(app.download(), true);
   assert.equal(nodes.createdElements.at(-1).download, 'documento-anonimused.md');
+});
+
+test('the page offers only the standard Markdown download action', () => {
+  const html = require('node:fs').readFileSync(require('node:path').join(__dirname, '../../main/resources/web/index.html'), 'utf8');
+  assert.doesNotMatch(html, /id="warning-download"|Descargar con advertencias/);
+  assert.match(html, /id="download"[^>]*disabled>[\s\S]*?Descargar \.md<\/button>/);
+});
+
+test('no result or ineligible warning cannot be downloaded', () => {
+  const nodes = fakeDom();
+  app.invalidateResult();
+  assert.equal(nodes.get('download').disabled, true);
+  assert.equal(app.download(), false);
+  state.warningMarkdown = '# Stale warning';
+  assert.equal(app.download(), false);
 });
 
 test('server failures show a friendly message and are logged for diagnosis', async () => {
@@ -218,7 +236,7 @@ test('a successful relevant retry replaces only its result error', async () => {
 });
 
 test('review invalidation clears output and findings, and a stale apply cannot restore them', async () => {
-  fakeDom();
+  const nodes = fakeDom();
   state.jobId = 'job';
   state.markdown = '# Old result';
   state.warningMarkdown = 'unsafe old result';
@@ -228,6 +246,8 @@ test('review invalidation clears output and findings, and a stale apply cannot r
   let resolve;
   global.fetch = () => new Promise(done => { resolve = done; });
   const pending = app.apply();
+  assert.equal(nodes.get('download').disabled, true);
+  assert.equal(app.download(), false);
   app.invalidateResult();
   resolve({ ok: true, json: async () => ({
     deliverable: false, markdown: 'unsafe', findings: [{ control: 'C3', detail: 'stale' }]
@@ -238,6 +258,8 @@ test('review invalidation clears output and findings, and a stale apply cannot r
   assert.deepEqual(state.resultFindings, []);
   assert.equal(state.markdown, '');
   assert.equal(state.warningMarkdown, '');
+  assert.equal(nodes.get('download').disabled, true);
+  assert.equal(app.download(), false);
 });
 
 test('starting a new document clears the prior result before its analysis responds', async () => {

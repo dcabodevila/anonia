@@ -701,7 +701,7 @@ test('older analysis responses cannot overwrite latest upload state', async () =
   assert.equal(document.getElementById('error').textContent, 'latest error');
 });
 
-test('a successful blocked result enables only warning-gated exports', async () => {
+test('a successful blocked result enables the single download and copy actions', async () => {
   fakeDom();
   state.jobId = 'job';
   global.fetch = async () => ({ ok: true, json: async () => ({
@@ -712,11 +712,10 @@ test('a successful blocked result enables only warning-gated exports', async () 
   await app.apply();
 
   assert.equal(state.warningMarkdown, 'resultado con datos residuales');
-  assert.equal(document.getElementById('download').disabled, true);
   assert.equal(document.getElementById('copy').disabled, false);
   assert.equal(document.getElementById('copy-label').textContent, 'Copiar');
-  assert.equal(document.getElementById('warning-download').disabled, false);
-  assert.equal(app.downloadWithWarnings(), true);
+  assert.equal(document.getElementById('download').disabled, false);
+  assert.equal(app.download(), true);
 });
 
 test('warning export stays unavailable for empty and failed apply responses', async () => {
@@ -729,14 +728,14 @@ test('warning export stays unavailable for empty and failed apply responses', as
   }) });
   await app.apply();
   assert.equal(state.warningDownloadEligible, false);
-  assert.equal(app.downloadWithWarnings(), false);
+  assert.equal(app.download(), false);
 
   state.warningMarkdown = 'old';
   state.warningDownloadEligible = true;
   global.fetch = async () => ({ ok: false, json: async () => ({ error: 'Revision no valida' }) });
   await app.apply();
   assert.equal(state.warningDownloadEligible, false);
-  assert.equal(document.getElementById('warning-download').disabled, true);
+  assert.equal(document.getElementById('download').disabled, true);
 });
 
 test('review changes clear downloads and discard in-flight apply response', async () => {
