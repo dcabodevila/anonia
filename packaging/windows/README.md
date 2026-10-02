@@ -4,6 +4,20 @@ Esta guía es para quien genera el instalador. Los clientes deben seguir la [gu�
 
 El instalador EXE (o MSI opcional) por usuario incluye la aplicación y Java, y crea el acceso directo y la entrada de menú Inicio definidos por el empaquetado. En cada instalación o actualización, configura para el usuario actual `TESSERACT_COMMAND` con el valor exacto `C:\Program Files\Tesseract-OCR\tesseract.exe`, reemplazando cualquier valor de usuario existente incluso si Tesseract todavía no está instalado. Al desinstalar, elimina el valor administrado. El instalador no redistribuye ni instala Tesseract ni modelos OCR, no modifica `PATH` ni escribe configuración de máquina; esa dependencia se administra externamente para quienes procesarán imágenes. Tras instalar o actualizar, el cliente debe reiniciar DocAnonymizer o abrir de nuevo el acceso directo.
 
+## Flujo del agente y permisos
+
+Para el agente, MSI es el formato predeterminado: debe pasar `-Msi` explícitamente;
+EXE se genera solo a petición explícita. Esto no cambia el comportamiento del script:
+sin opciones sigue generando EXE. El contrato operativo está en la
+[habilidad de empaquetado](../../.agents/skills/windows-installer-packaging/SKILL.md).
+
+Generar no autoriza instalar ni abrir la aplicación. Cada operación necesita permiso
+explícito y evidencia separada. Antes de regenerar, conserve los artefactos previos en
+un archivo único sin sobrescribir. Una colisión de archivos no exige aumentar versión:
+compruebe la versión instalada y la del MSI y pregunte antes de aumentar versión o de
+una reinstalación ambigua de la misma versión. No firme, publique, haga commit,
+descargue software, mate procesos, desinstale ni reinicie implícitamente.
+
 ## Generar
 
 En Windows se necesitan JDK 21 con `jpackage` (`JAVA_HOME`), Maven en `PATH` y WiX Toolset 3.x. El script detecta WiX en `Program Files (x86)` y modifica `PATH` solo durante su ejecución; lo restaura al terminar. Maven trabaja offline: las dependencias deben estar ya disponibles en la caché local.
@@ -15,14 +29,14 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\packaging\windows\buil
 ```
 
 Sin opciones, el script genera `target/windows-installer/anonimuse-installer.exe`
-renombrando el archivo nuevo `anonimuse-0.4.0.exe`. Para generar MSI, use:
+renombrando el archivo nuevo `anonimuse-0.4.2.exe`. Para generar MSI, use:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\packaging\windows\build-installer.ps1 -Msi
 ```
 
 `-Msi` selecciona `jpackage --type msi` y renombra el archivo nuevo
-`anonimuse-0.4.0.msi` a `target/windows-installer/anonimuse-installer.msi`.
+`anonimuse-0.4.2.msi` a `target/windows-installer/anonimuse-installer.msi`.
 El script ejecuta `mvn -o package` con pruebas en ambos casos. Si ya existe el
 archivo generado o el destino del formato seleccionado, se detiene sin
 sobrescribirlo; el EXE existente no se modifica al generar el MSI. Usa un directorio nuevo
@@ -51,7 +65,7 @@ formatos alternativos del mismo producto, no instalaciones independientes en
 paralelo. Tras instalar, jpackage con `--name anonimuse` define el lanzador `anonimuse.exe`;
 confirme su presencia y funcionamiento en una instalación real antes de afirmarlo.
 
-No descargue ni instale software desde este flujo. El EXE no está firmado; Windows
+No descargue dependencias ni instale software sin autorización explícita. El EXE no está firmado; Windows
 puede mostrar una advertencia de SmartScreen. La generación, instalación y apertura
 real del navegador requieren validación separada; las pruebas unitarias no sustituyen
 esa comprobación.

@@ -1,6 +1,8 @@
 package com.docanonymizer.adapter.web;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
@@ -22,6 +24,25 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class WebServerTest {
+
+    @Test void assignedPortIsReportedInsteadOfZero() throws Exception {
+        PrintStream original = System.out;
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        HttpServer server;
+        try {
+            System.setOut(new PrintStream(bytes, true, StandardCharsets.UTF_8));
+            server = new WebServer("127.0.0.1", 0).start();
+        } finally {
+            System.setOut(original);
+        }
+        try {
+            assertTrue(server.getAddress().getPort() > 0);
+            assertTrue(bytes.toString(StandardCharsets.UTF_8).contains(
+                    "http://127.0.0.1:" + server.getAddress().getPort()));
+        } finally {
+            server.stop(0);
+        }
+    }
 
     @Test void findingsApiOmitsInternalControlCodesAndSensitiveValues() throws Exception {
         var method = WebServer.class.getDeclaredMethod("findingJson", com.docanonymizer.domain.model.Finding.class);

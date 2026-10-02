@@ -1,75 +1,54 @@
 ---
 name: windows-installer-packaging
-description: "Trigger: empaqueta la aplicación, empaqueta la versión, generar instalador Windows. Genera y verifica el instalador local de Windows."
+description: "Trigger: empaqueta la aplicación, empaqueta la versión, generar instalador Windows, regenerar MSI. Genera y verifica MSI local; EXE solo a petición explícita."
 license: Apache-2.0
 metadata:
   author: dcabodevila
-  version: "1.3"
+  version: "1.4"
 ---
 
 ## Activation Contract
 
-Carga esta habilidad cuando se pida empaquetar la aplicación o una versión, o generar
-un instalador de Windows. Opera solo desde la raíz del repositorio.
+Empaqueta/regenera desde la raíz. MSI predeterminado del agente con `-Msi`; EXE solo a petición explícita, sin cambiar el predeterminado del script.
 
 ## Hard Rules
 
-Lee primero el script: es la fuente de verdad del nombre, versión y directorio de salida
-vigentes. No instales, firmes, publiques, confirmes, cambies la versión ni hagas commit
-por una solicitud de empaquetado. No omitas pruebas ni sustituyas el comando canónico con
-`-DskipTests`. No afirmes que el instalador se instaló, que el lanzador funciona ni que
-existe un diálogo final pendiente de Sí/No.
-
-## OCR externo prerequisite
-
-El instalador incluye la aplicación y el runtime Java, pero no Tesseract, DLL de OCR ni
-modelos. En una instalación o actualización, administra `TESSERACT_COMMAND` solo para el
-usuario actual: lo establece como `C:\Program Files\Tesseract-OCR\tesseract.exe`, reemplaza
-el valor de usuario existente y lo elimina al desinstalar. No modifica `PATH` ni
-configuración de máquina. No solicites `-OcrBundleRoot`, `DOC_ANONYMIZER_OCR_BUNDLE`,
-manifiestos ni evidencia de redistribución para empaquetar. No instales ni descargues
-Tesseract desde este flujo.
-
-El usuario administra su instalación local de Tesseract y el idioma español (`spa`). Si
-va a probar OCR en el equipo de destino, debe validar localmente:
-
-```powershell
-& 'C:\Program Files\Tesseract-OCR\tesseract.exe' --list-langs
-```
-
-La salida debe incluir `spa`. Esta validación no demuestra que el instalador se haya
-instalado ni que el OCR funcione desde el acceso directo.
+- Lee script y [ciclo de vida](references/installer-lifecycle.md); aplica todas sus reglas, incluido OCR/entorno de usuario.
+- Generar no autoriza instalar ni abrir. Comprueba versión instalada/MSI; pregunta antes de aumentarla o reinstalar ambiguamente la misma versión. Nunca aumentes automáticamente.
+- No firmes, publiques, hagas commit, descargues, mates procesos, desinstales ni reinicies implícitamente. Conserva productos ajenos y reglas personales.
+- Archiva sin sobrescribir, con nombre único/hash. Script canónico con pruebas, nunca `-DskipTests`; conserva errores, no sustituyas por artefactos antiguos/ejecutables falsos.
+- Tesseract/DLL/modelos externos: no descargues ni instales; no solicites parámetros de bundle/manifiestos/evidencia de redistribución (referencia).
 
 ## Decision Gates
 
 | Situación | Acción |
 | --- | --- |
-| Faltan JDK 21, `jpackage`, caché Maven o WiX 3 | Detén el proceso e informa el requisito. |
-| Se solicita prueba OCR y falta Tesseract local o `spa` | Detén esa prueba e informa el requisito administrado por el usuario; no instales ni descargues software. |
-| Maven, `jpackage` o el script falla | Conserva el error; no uses un EXE anterior. |
-| No hay EXE creado o modificado tras iniciar la ejecución | Declara la verificación fallida. |
+| Falta JDK 21/jpackage, caché Maven o WiX 3 | Detén e informa. |
+| Colisión de archivos | Archiva; no implica aumentar versión. |
+| Misma versión/ambigüedad | Pregunta antes de instalar/aumentar. |
+| Fallo o artefacto no fresco | Declara fallo, conserva diagnóstico. |
+| Instalación/apertura sin permiso | Termina tras generar. |
+| Instalación: 0 / 3010 | Verifica / informa reinicio pendiente; no reinicies. |
+| 1618 u otro fallo | Detén, sin matar procesos/reintentar automáticamente. |
+| OCR sin Tesseract/`spa` | Detén esa prueba; requisito del usuario. |
 
 ## Execution Steps
 
-1. Lee [`../../../packaging/windows/build-installer.ps1`](../../../packaging/windows/build-installer.ps1), [`../../../README.md`](../../../README.md) y [`../../../AGENTS.md`](../../../AGENTS.md).
-2. Comprueba `JAVA_HOME` con JDK 21 y `jpackage`, Maven con caché disponible para modo sin red y WiX Toolset 3 (`candle.exe`, `light.exe`). El script puede añadir WiX a `PATH` solo durante su ejecución y debe restaurarlo después.
-3. Registra la hora de inicio y ejecuta exactamente:
+1. Lee referencias; comprueba requisitos, versiones y colisiones.
+2. Registra inicio; ejecuta:
    ```powershell
-   powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\packaging\windows\build-installer.ps1
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File './packaging/windows/build-installer.ps1' -Msi
    ```
-   El script ejecuta `mvn -o package` con pruebas, prepara una entrada aislada con solo el JAR y deja que `jpackage` incluya el runtime Java. No incorpora `app/ocr` al instalador.
-4. Exige salida cero. Inspecciona el EXE realmente creado o modificado desde la hora registrada; anota ruta, tamaño, fechas, metadatos y `Get-FileHash`. Un EXE es una instantánea estática: vuelve a empaquetar tras cualquier cambio. Distingue el instalador del lanzador ya instalado. No sustituyas esto con una prueba que use ejecutables falsos.
-5. Para una prueba manual de OCR, el instalador ya habrá establecido `TESSERACT_COMMAND` para el usuario actual con `C:\Program Files\Tesseract-OCR\tesseract.exe`; cierre y abra de nuevo el proceso o acceso directo tras instalar o actualizar. Para una ruta alternativa de una sola consola, `$env:TESSERACT_COMMAND = 'C:\ruta\tesseract.exe'` solo afecta a esa consola. El instalador no instala Tesseract, no modifica `PATH` ni configuración de máquina.
+   EXE explícito: omite solo `-Msi`. En Bash protege rutas y código PowerShell con comillas simples; no expandas `$` con comillas dobles.
+3. Exige salida cero, frescura, ruta/tamaño/fechas/hash; MSI: ProductVersion/ProductCode/UpgradeCode. Es una instantánea; cambios requieren regeneración solicitada.
+4. Solo con permiso explícito, aplica referencia: `msiexec` con log, `/passive /norestart`, versión/ruta/JAR instalado, lanzador real, listener/health y URL del navegador. Build/pruebas/Java del repositorio no prueban runtime instalado.
 
 ## Output Contract
 
-Informa requisitos comprobados, comando, código de salida y los metadatos/ruta/hash del
-EXE nuevo. Declara de forma explícita cualquier falta de frescura, fallo o bloqueo de
-herramientas, sin atribuir éxito de instalación, funcionamiento real del OCR ni
-configuración persistente de Tesseract.
+Informa permisos/requisitos/versiones, archivo archivado, comando/salida, metadatos/hash/frescura. Separa generación/instalación/apertura/OCR; declara fallos, omisiones y reinicio pendiente. No inventes éxito OCR, persistencia ni diálogo Sí/No.
 
 ## References
 
-- [`../../../packaging/windows/build-installer.ps1`](../../../packaging/windows/build-installer.ps1) — fuente de verdad del empaquetado.
-- [`../../../README.md`](../../../README.md) — contexto y requisitos del proyecto.
-- [`../../../AGENTS.md`](../../../AGENTS.md) — reglas de desarrollo.
+- [Ciclo de vida](references/installer-lifecycle.md) — lectura obligatoria: permisos, instalación, OCR.
+- [Script](../../../packaging/windows/build-installer.ps1) — fuente de verdad, con pruebas.
+- [README](../../../README.md), [AGENTS](../../../AGENTS.md) — requisitos/reglas.
