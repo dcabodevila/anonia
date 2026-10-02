@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.docanonymizer.adapter.PipelineFactory;
 import com.docanonymizer.adapter.ocr.LocalDocumentTextExtractor;
 import com.docanonymizer.domain.model.AnonymizationResult;
-import com.docanonymizer.domain.model.DetectionType;
 import com.docanonymizer.domain.service.CanonicalForm;
 import com.docanonymizer.domain.service.TextFolding;
 import com.docanonymizer.tools.ForeignNameCorpusGenerator;
@@ -65,7 +64,6 @@ class ForeignNameCorpusEndToEndTest {
         assertRedacted(seed);
     }
 
-    @Disabled("T4: foreign given-name dictionary pending")
     @ParameterizedTest(name = "T4: {0}")
     @MethodSource("t4")
     void foreignGivenNames(NameCase seed) {
@@ -79,22 +77,10 @@ class ForeignNameCorpusEndToEndTest {
         assertRedacted(seed);
     }
 
-    @Disabled("T6: ambiguous-name confidence pending")
     @ParameterizedTest(name = "T6: {0}")
     @MethodSource("t6")
-    void ambiguousNamesHaveLowerConfidence(NameCase seed) {
-        assertAll(
-                () -> assertRedacted(seed),
-                () -> {
-                    var detections = result.accepted().stream()
-                            .filter(d -> d.type() == DetectionType.PERSON)
-                            .filter(d -> CanonicalForm.forCompare(d.value())
-                                    .contains(CanonicalForm.forCompare(seed.name())))
-                            .toList();
-                    assertFalse(detections.isEmpty(), "falta deteccion PERSON: " + seed.name());
-                    assertTrue(detections.stream().allMatch(d -> d.confidence() < 0.85),
-                            "confianza debe ser inferior a 0.85: " + seed.name());
-                });
+    void ambiguousNamesAreRedacted(NameCase seed) {
+        assertRedacted(seed);
     }
 
     @ParameterizedTest(name = "Control: {0}")

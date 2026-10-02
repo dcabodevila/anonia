@@ -1,11 +1,8 @@
-# Nombres de pila espanoles - diccionario del PROTOTIPO.
+# Nombres de pila espanoles - lista base de compatibilidad.
 #
-# Lista corta y suficiente para demostrar el mecanismo y escribir pruebas
-# deterministas. NO es una lista de produccion.
-#
-# Sustituto recomendado: listado de nombres del INE (publico, descargable,
-# utilizable offline). Cambiarlo no requiere tocar el dominio: basta con otra
-# implementacion de GazetteerPort o con reemplazar este fichero.
+# Se conserva junto al recurso internacional nombres-intl.txt.gz generado
+# desde fuentes abiertas. Ambos se cargan offline por ResourceGazetteer.
+# Fuentes y regeneracion: docs/gazetteer-sources.md.
 #
 # La comparacion es insensible a mayusculas y acentos, asi que no hacen falta
 # variantes acentuadas ni en mayusculas.

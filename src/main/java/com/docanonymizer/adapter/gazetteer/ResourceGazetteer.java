@@ -8,27 +8,32 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.zip.GZIPInputStream;
 
 /**
  * Diccionario de nombres de pila servido desde un recurso empaquetado.
  *
- * <p>La lista incluida es CORTA a proposito: es la de un prototipo, suficiente para
- * demostrar el mecanismo y para escribir pruebas deterministas, no para produccion. El
- * sustituto natural es el listado de nombres del INE, que es publico, descargable y
- * offline, y por tanto compatible con el requisito de no salir a la red.
- *
- * <p>Cambiarlo no toca el dominio: es otra implementacion de {@link GazetteerPort}.
+ * <p>Combina la lista espanola con nombres internacionales de fuentes abiertas.
+ * Los recursos se generan durante el desarrollo; la carga es siempre offline.
+ * La lista predeterminada es inmutable y se comparte entre pipelines.
+ * Vease docs/gazetteer-sources.md para fuentes y regeneracion.
  */
 public final class ResourceGazetteer implements GazetteerPort {
 
     private static final String DEFAULT_RESOURCE = "/gazetteer/nombres-es.txt";
+    private static final String INTERNATIONAL_RESOURCE = "/gazetteer/nombres-intl.txt.gz";
+
+    private static final class DefaultNames {
+        private static final Set<String> NAMES = load(DEFAULT_RESOURCE, INTERNATIONAL_RESOURCE);
+    }
 
     private final Set<String> givenNames;
 
     public ResourceGazetteer() {
-        this(DEFAULT_RESOURCE);
+        this.givenNames = DefaultNames.NAMES;
     }
 
     public ResourceGazetteer(String resourcePath) {
@@ -45,14 +50,22 @@ public final class ResourceGazetteer implements GazetteerPort {
         return givenNames.size();
     }
 
-    private Set<String> load(String resourcePath) {
+    private static Set<String> load(String... resourcePaths) {
         Set<String> names = new HashSet<>();
+        for (String resourcePath : resourcePaths) {
+            loadInto(names, resourcePath);
+        }
+        return Collections.unmodifiableSet(names);
+    }
+
+    private static void loadInto(Set<String> names, String resourcePath) {
         try (InputStream in = ResourceGazetteer.class.getResourceAsStream(resourcePath)) {
             if (in == null) {
                 throw new IllegalStateException("Recurso no encontrado: " + resourcePath);
             }
-            try (BufferedReader reader =
-                    new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
+            try (InputStream decoded = resourcePath.endsWith(".gz") ? new GZIPInputStream(in) : in;
+                    BufferedReader reader =
+                            new BufferedReader(new InputStreamReader(decoded, StandardCharsets.UTF_8))) {
                 String line;
                 while ((line = reader.readLine()) != null) {
                     String trimmed = line.strip();
@@ -65,6 +78,5 @@ public final class ResourceGazetteer implements GazetteerPort {
         } catch (IOException e) {
             throw new UncheckedIOException("No se pudo leer el diccionario de nombres", e);
         }
-        return Set.copyOf(names);
     }
 }
