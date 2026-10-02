@@ -104,7 +104,7 @@ public final class NameSpanRefiner {
         if (value.length() < 2) {
             return false;
         }
-        boolean hasLower = value.chars().anyMatch(Character::isLowerCase);
+        boolean hasLower = value.codePoints().anyMatch(Character::isLowerCase);
         return !hasLower;
     }
 

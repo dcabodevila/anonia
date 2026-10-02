@@ -25,6 +25,54 @@ class StructuralPersonDetectorTest {
         assertPerson("D. juan perez lucio", "juan perez lucio");
     }
 
+    @Test
+    void recognizesUnicodeNamesAfterHonorific() {
+        for (String name : List.of("François Dupont", "Łukasz Kowalski", "Søren Kierkegaard",
+                "Zoë Smith", "Ştefan Popescu", "Nguyễn Tran", "FRANÇOIS DUPONT",
+                "ŁUKASZ KOWALSKI", "SØREN KIERKEGAARD", "ZOË SMITH",
+                "ŞTEFAN POPESCU", "NGUYỄN TRAN")) {
+            assertPerson("D. " + name, name);
+        }
+    }
+
+    @Test
+    void recognizesConnectedNameWords() {
+        for (String name : List.of("Jean-Pierre O'Neal", "Shaquille O’Neal", "D'Angelo Dupont",
+                "JEAN-PIERRE O’NEAL")) {
+            assertPerson("D. " + name, name);
+        }
+    }
+
+    @Test
+    void recognizesInternalCapitals() {
+        for (String name : List.of("Sean McDonald", "Sean MacArthur", "Sean DiCaprio", "Sean LeBlanc")) {
+            assertPerson("D. " + name, name);
+        }
+    }
+
+    @Test
+    void recognizesLowercaseUnicodeAndConnectedNamesAfterCue() {
+        for (String name : List.of("françois dupont", "łukasz kowalski", "søren kierkegaard",
+                "zoë smith", "ştefan popescu", "nguyễn tran", "jean-pierre o’neal", "d'angelo dupont")) {
+            assertPerson("D. " + name, name);
+        }
+    }
+
+    @Test
+    void stillRequiresSurnameAfterMariaAbbreviation() {
+        assertEquals(List.of(), detector.detect("D. José Mª"));
+        assertEquals(List.of(), detector.detect("D. Mª José"));
+        assertPerson("D. José Mª Garcia", "José Mª Garcia");
+        assertPerson("D. Mª José Garcia", "Mª José Garcia");
+    }
+
+    @Test
+    void preservesSupplementaryLettersAcrossLineBreakAndInEntityKey() {
+        String name = "𐐨𐐩\n𐐪𐐫";
+        assertPerson("D. " + name, name);
+        assertEquals("PERSON:" + name.replace('\n', ' '), StructuralPersonDetector.entityKey(name));
+    }
+
     private void assertPerson(String source, String expected) {
         List<Detection> detections = detector.detect(source);
         assertEquals(1, detections.size(), source);

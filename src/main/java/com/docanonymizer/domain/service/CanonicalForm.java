@@ -20,13 +20,14 @@ public final class CanonicalForm {
     public static String forCompare(String text) {
         String decomposed = Normalizer.normalize(text, Normalizer.Form.NFD);
         StringBuilder out = new StringBuilder(decomposed.length());
-        for (int i = 0; i < decomposed.length(); i++) {
-            char c = decomposed.charAt(i);
+        for (int i = 0; i < decomposed.length(); ) {
+            int c = decomposed.codePointAt(i);
+            i += Character.charCount(c);
             if (Character.getType(c) == Character.NON_SPACING_MARK) {
                 continue;
             }
             if (Character.isLetterOrDigit(c)) {
-                out.append(Character.toLowerCase(c));
+                out.appendCodePoint(Character.toLowerCase(c));
             }
         }
         return out.toString().toLowerCase(Locale.ROOT);
@@ -37,13 +38,14 @@ public final class CanonicalForm {
         String decomposed = Normalizer.normalize(text, Normalizer.Form.NFD);
         StringBuilder out = new StringBuilder(decomposed.length());
         boolean lastWasSpace = true;
-        for (int i = 0; i < decomposed.length(); i++) {
-            char c = decomposed.charAt(i);
+        for (int i = 0; i < decomposed.length(); ) {
+            int c = decomposed.codePointAt(i);
+            i += Character.charCount(c);
             if (Character.getType(c) == Character.NON_SPACING_MARK) {
                 continue;
             }
             if (Character.isLetterOrDigit(c)) {
-                out.append(Character.toLowerCase(c));
+                out.appendCodePoint(Character.toLowerCase(c));
                 lastWasSpace = false;
             } else if (!lastWasSpace) {
                 out.append(' ');

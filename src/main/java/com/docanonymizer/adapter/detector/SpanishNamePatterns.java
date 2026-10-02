@@ -24,9 +24,11 @@ public final class SpanishNamePatterns {
     /**
      * Una palabra de nombre propio: capitalizada, o entera en mayusculas, porque los
      * escritos juridicos alternan "Maria Garcia Perez" y "MARIA GARCIA PEREZ" sin criterio.
+     * Admite letras Unicode, mayusculas internas y guion o apostrofo entre letras.
+     * Reserva Mª para la regla de abreviatura, que exige un apellido.
      */
     public static final String NAME_WORD =
-            "(?-i:(?:[A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]+|[A-ZÁÉÍÓÚÜÑ]{2,}))";
+            "(?-i:(?!Mª(?!\\p{L}))\\p{Lu}(?:\\p{L}+|[-'’]\\p{L}+)(?:[-'’]\\p{L}+)*)";
 
     /** Abbreviated María is valid only as a component of a full name. */
     private static final String MARIA_ABBREVIATION = "Mª";
@@ -54,7 +56,8 @@ public final class SpanishNamePatterns {
 
     /** Lowercase words are accepted only when a structural cue establishes person context. */
     public static final String FULL_NAME_AFTER_CUE =
-            fullName("(?:" + NAME_WORD + "|[a-záéíóúüñ]{2,})");
+            fullName("(?:" + NAME_WORD
+                    + "|(?-i:\\p{Ll}(?:\\p{Ll}+|[-'’]\\p{Ll}+)(?:[-'’]\\p{Ll}+)*))");
 
     private static String fullName(String word) {
         String tail = SOFT_SPACE + "(?:" + PARTICLE + SOFT_SPACE + ")?" + word;
