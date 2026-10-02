@@ -4,25 +4,32 @@ import java.awt.Desktop;
 import java.io.PrintStream;
 import java.net.URI;
 import java.net.BindException;
+import com.sun.net.httpserver.HttpServer;
+import java.util.concurrent.ExecutorService;
 
 /** Entrada de escritorio independiente de CLI y Docker. */
 public final class DesktopLauncher {
     private DesktopLauncher() {}
 
     @FunctionalInterface
-    interface ServerStarter { int start(String host, int port) throws Exception; }
+    interface ServerStarter { HttpServer start(String host, int port) throws Exception; }
     @FunctionalInterface
     interface Browser { void open(URI uri) throws Exception; }
 
     public static void main(String[] args) {
-        int status = launch(args, (host, port) -> new WebServer(host, port).start().getAddress().getPort(),
-                uri -> Desktop.getDesktop().browse(uri), System.out);
+        int status = launch(args, (host, port) -> new WebServer(host, port).start(),
+                uri -> Desktop.getDesktop().browse(uri), System.out, EdgeAppWindow.system());
         if (status != 0) {
             System.exit(status);
         }
     }
 
     static int launch(String[] args, ServerStarter server, Browser browser, PrintStream out) {
+        return launch(args, server, browser, out, null);
+    }
+
+    static int launch(String[] args, ServerStarter server, Browser browser, PrintStream out,
+                      EdgeAppWindow window) {
         int port;
         try {
             if (args.length > 1) {
@@ -37,22 +44,32 @@ public final class DesktopLauncher {
             return 1;
         }
         URI uri = URI.create("http://127.0.0.1:" + port + "/");
+        HttpServer running;
         try {
-            int boundPort;
             try {
-                boundPort = server.start("127.0.0.1", port);
+                running = server.start("127.0.0.1", port);
             } catch (BindException occupied) {
                 if (args.length != 0) {
                     throw occupied;
                 }
-                boundPort = server.start("127.0.0.1", 0);
+                running = server.start("127.0.0.1", 0);
             }
-            uri = URI.create("http://127.0.0.1:" + boundPort + "/");
+            uri = URI.create("http://127.0.0.1:" + running.getAddress().getPort() + "/");
         } catch (Exception e) {
             out.println("No se pudo iniciar " + uri
                     + ". Cierre otra instancia o pruebe otro puerto. Error: "
                     + e.getClass().getSimpleName());
             return 1;
+        }
+        HttpServer started = running;
+        if (window != null && window.openAndWait(uri, () -> {
+            started.stop(0);
+            // HttpServer.stop no cierra el executor propio; sus hilos retendrian la JVM.
+            if (started.getExecutor() instanceof ExecutorService executor) {
+                executor.shutdownNow();
+            }
+        }, out)) {
+            return 0;
         }
         out.println("Abra " + uri + " en su navegador. Para detener el servidor pulse Ctrl+C.");
         try {
