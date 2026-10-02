@@ -160,7 +160,7 @@ test.describe('principal anonymization journeys against the local Java server', 
     await expect(rows).toHaveCount(initialCount);
 
     const multiOccurrence = page.locator('.entity').filter({
-      has: page.locator('.entity-meta', { hasText: /[2-9] apariciones/ })
+      has: page.locator('.entity-meta[aria-label]').filter({ hasText: /^[2-9]$/ })
     }).first();
     await expect(multiOccurrence).toBeVisible();
     await multiOccurrence.getByRole('button', { name: 'Ubicar' }).click();
@@ -175,12 +175,12 @@ test.describe('principal anonymization journeys against the local Java server', 
   test('cancels manual input, edits an entity, and delivers verified output', async ({ page }) => {
     await open(page);
     await upload(page);
-    await page.getByRole('button', { name: 'Añadir entidad anonimizar' }).click();
+    await page.getByRole('button', { name: 'Añadir entidad a anonimizar' }).click();
     const manual = page.getByRole('textbox', { name: /Texto a anonimizar/ });
     // A word no detector proposes, so only a saved manual entry could create it.
     await manual.fill('arrendamiento');
     await manual.press('Escape');
-    await expect(page.getByRole('button', { name: 'Añadir entidad anonimizar' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Añadir entidad a anonimizar' })).toBeVisible();
     await expect(entity(page, 'arrendamiento')).toHaveCount(0);
 
     const email = entity(page, 'juan.perez@example.com');
@@ -210,7 +210,7 @@ test.describe('principal anonymization journeys against the local Java server', 
   test('creates, deselects, reselects, and delivers a manual entity', async ({ page }) => {
     await open(page);
     await upload(page);
-    await page.getByRole('button', { name: 'Añadir entidad anonimizar' }).click();
+    await page.getByRole('button', { name: 'Añadir entidad a anonimizar' }).click();
     const manual = page.getByRole('textbox', { name: /Texto a anonimizar/ });
     await manual.fill('arrendamiento');
     await page.getByRole('button', { name: 'Guardar' }).click();

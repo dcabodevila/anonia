@@ -293,10 +293,10 @@ function createManualEntityAddButton() {
   const addButton = document.createElement('button');
   addButton.className = 'add-entity';
   addButton.type = 'button';
-  addButton.textContent = 'Añadir entidad anonimizar';
+  addButton.textContent = 'Añadir entidad a anonimizar';
   addButton.onclick = startManualEntity;
-  addButton.setAttribute('aria-label', 'Añadir entidad anonimizar');
-  addButton.setAttribute('title', 'Añadir entidad anonimizar');
+  addButton.setAttribute('aria-label', 'Añadir entidad a anonimizar');
+  addButton.setAttribute('title', 'Añadir entidad a anonimizar');
   const icon = document.createElement('svg');
   icon.setAttribute('viewBox', '0 0 24 24');
   icon.setAttribute('aria-hidden', 'true');
@@ -428,7 +428,9 @@ function renderEntities() {
     const meta = document.createElement('div');
     meta.className = 'entity-meta';
     const occurrenceCount = occurrenceIds(entityKey).length;
-    meta.textContent = occurrenceCount === 1 ? '1 aparición' : occurrenceCount + ' apariciones';
+    meta.textContent = String(occurrenceCount);
+    meta.title = occurrenceCount === 1 ? '1 aparición' : occurrenceCount + ' apariciones';
+    meta.setAttribute('aria-label', meta.title);
     const discarded = off ? document.createElement('div') : null;
     if (discarded) {
       discarded.className = 'entity-state';
@@ -441,10 +443,15 @@ function renderEntities() {
     locate.dataset.focusTarget = 'locate:' + entityKey;
     locate.textContent = 'Ubicar';
     locate.setAttribute('aria-label', 'Ubicar ' + normalize(entity.best));
-    locate.addEventListener('click', () => {
+    const locateEntity = () => {
       state.focusTarget = locate.dataset.focusTarget;
       selectEntityLocation(entityKey);
       refreshLocation();
+    };
+    locate.addEventListener('click', locateEntity);
+    // The background locates; nested editing controls retain their own actions.
+    row.addEventListener('click', event => {
+      if (!event.target.closest('button, input, select')) locateEntity();
     });
     main.append(value, chip, meta);
     if (discarded) main.append(discarded);
@@ -1198,20 +1205,12 @@ function resetResultPanels() {
 
 function renderStats(data) {
   el('stats').innerHTML = '';
-  const stats = [
-    ['Paginas', data.pageCount],
-    ['Candidatos', data.detections.length],
-    ['Entidades', state.entities.size],
-    ['Analisis', data.elapsedMs + ' ms']
-  ];
-  for (const [label, value] of stats) {
-    const box = document.createElement('div');
-    box.className = 'stat';
-    box.innerHTML = '<b></b><span></span>';
-    box.querySelector('b').textContent = value;
-    box.querySelector('span').textContent = label;
-    el('stats').append(box);
-  }
+  const entities = state.entities.size;
+  const candidates = data.detections.length;
+  el('stats').textContent = entities + (entities === 1 ? ' entidad' : ' entidades')
+    + ' · ' + candidates + (candidates === 1 ? ' candidato' : ' candidatos')
+    + ' · ' + data.pageCount + (data.pageCount === 1 ? ' página' : ' páginas');
+  el('stats').title = 'Análisis: ' + data.elapsedMs + ' ms';
 }
 
 let comparisonScrollCleanup = null;

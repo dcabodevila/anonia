@@ -111,15 +111,15 @@
         <div class="pane-head"><h2>Entidades</h2><span class="hint">Revisa cada selección</span></div>
         <div class="side-content" id="entity-controls">
           <div class="stats" id="stats"></div>
-          <div class="actions">
-            <button type="button" id="apply" class="primary"><svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m13 3-1 6 5-1-8 13 1-7-5 1z" /></svg>Anonimizar</button>
-          </div>
           <div class="entity-filters" aria-label="Filtrar entidades">
             <label><span>Buscar</span><input type="search" id="entity-search" autocomplete="off" placeholder="Texto de la entidad"></label>
             <label><span>Tipo</span><select id="entity-type-filter"><option value="">Todos los tipos</option></select></label>
           </div>
           <span id="location-status" class="visually-hidden" role="status" aria-live="polite">Selecciona Ubicar para recorrer sus apariciones.</span>
           <div id="entities" class="entities"></div>
+          <div class="actions entity-footer">
+            <button type="button" id="apply" class="primary"><svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m13 3-1 6 5-1-8 13 1-7-5 1z" /></svg>Anonimizar</button>
+          </div>
         </div>
       </aside>
     </div>

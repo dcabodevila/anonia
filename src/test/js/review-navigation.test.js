@@ -203,7 +203,8 @@ test('only the active multi-occurrence row renders local navigation that restore
 
   const personRow = [...document.querySelectorAll('[data-entity-key]')]
     .find(row => row.dataset.entityKey === 'person');
-  assert.equal(personRow.children[1].children[2].textContent, '2 apariciones');
+  assert.equal(personRow.children[1].children[2].textContent, '2');
+  assert.equal(personRow.children[1].children[2].title, '2 apariciones');
   let controls = controlsByTarget();
   assert.ok(controls['previous:person']);
   assert.ok(controls['next:person']);

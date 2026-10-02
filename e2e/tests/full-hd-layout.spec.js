@@ -51,7 +51,33 @@ for (const viewport of [{ width:1920, height:1080 }, { width:1920, height:900 },
     await expect.soft(page.locator('#document-chip')).toContainText('seeded.pdf');
     await expect.soft(page.locator('#dropzone')).toBeHidden();
     await expect(page.locator('#result-status[aria-live="polite"]')).toContainText('Resultado pendiente');
+    const density = await page.locator('#entities').evaluate(container => {
+      const box = container.getBoundingClientRect();
+      const rows = [...container.querySelectorAll('.entity[data-entity-key]')].map(row => row.getBoundingClientRect());
+      return { rowHeight:rows[0]?.height, visible:rows.filter(row => row.top >= box.top && row.bottom <= box.bottom).length };
+    });
+    console.log(JSON.stringify({ viewport, density }));
+    if (viewport.width > 1100) {
+      expect.soft(density.visible, 'fully visible entity rows').toBeGreaterThanOrEqual(viewport.height >= 1080 ? 10 : 6);
+      expect.soft(density.rowHeight, 'compact desktop row').toBeLessThanOrEqual(48);
+    }
+    await expect.soft(page.getByRole('button', { name:'Añadir entidad a anonimizar', exact:true })).toBeVisible();
     await inspect(page, testInfo, viewport, 'document', ['#doctext', '#entities']);
+    await expect.soft(page.locator('#apply')).toBeInViewport();
+    // Locate an entity below the first document screen, using only the keyboard.
+    const lastRow = page.locator('#entities .entity[data-entity-key]').last();
+    await lastRow.locator('.entity-locate').focus();
+    await lastRow.locator('.entity-locate').press('Enter');
+    await expect(page.locator('#doctext .active-location').first()).toBeInViewport();
+    await expect(page.locator('#location-status')).toContainText('aparición 1');
+    if (viewport.width > 1100) {
+      const inside = await page.locator('#doctext').evaluate(container => {
+        const box = container.getBoundingClientRect();
+        const mark = container.querySelector('.active-location').getBoundingClientRect();
+        return mark.top >= box.top && mark.bottom <= box.bottom;
+      });
+      expect(inside, 'located occurrence inside document scroll region').toBe(true);
+    }
     await page.locator('#apply').click();
     await expect(page.locator('#result-status')).toContainText('Anonimización completada');
     await inspect(page, testInfo, viewport, 'result', ['#markdown']);

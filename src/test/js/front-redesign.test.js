@@ -29,14 +29,15 @@ test('anonimuse keeps the entity menu small and the document dominant', () => {
 
 test('entity sidebar nests compact stats under controls and removes global location chrome', () => {
   const controls = html.match(/<div class="side-content" id="entity-controls">([\s\S]*?)<\/div>\s*<\/aside>/)[1];
-  assert.match(controls, /^\s*<div class="stats" id="stats"><\/div>\s*<div class="actions">/);
+  assert.match(controls, /^\s*<div class="stats" id="stats"><\/div>\s*<div class="entity-filters"/);
+  assert.match(controls, /id="entities"[\s\S]*class="actions entity-footer"[\s\S]*id="apply"/);
   assert.doesNotMatch(html, /class="entity-guide"|class="location-toolbar"|previous-occurrence|next-occurrence/);
   assert.match(html, /id="location-status"[^>]*role="status"[^>]*aria-live="polite"/);
   assert.doesNotMatch(html, /<div class="stats" id="stats"><\/div>\s*<div class="panes">/);
   assert.doesNotMatch(css, /\.entity-guide|\.location-toolbar|\.location-actions/);
-  assert.match(css, /#entity-controls\s+\.stats\s*\{[\s\S]*grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\)/);
-  assert.match(css, /@media \(min-width: 1101px\)[^{]*\{[\s\S]*\.entity\s*\{[\s\S]*padding:\s*[67]px/);
-  assert.match(css, /\.entity-meta\s*\{[^}]*font-size:\s*12px/);
+  assert.match(css, /#entity-controls \.stats\s*\{[^}]*display:block/);
+  assert.match(css, /\.entity-footer\s*\{[^}]*position:sticky; bottom:0/);
+  assert.match(css, /\.entity-main \.entity-meta\s*\{[^}]*font-size:11px/);
 });
 
 test('brand assets provide an accessible lockup and responsive dropzone treatment', () => {
@@ -101,11 +102,12 @@ test('the workspace keeps Entidades fixed and exposes accessible main Documento 
   assert.match(css, /@media \(max-width: 850px\)[\s\S]*\.pane-main\.comparing\s+\.main-tabpanels\s*\{[\s\S]*grid-template-columns:\s*1fr/);
 });
 
-test('entity menu gives type and occurrence controls dedicated full-width rows', () => {
+test('entity menu compacts desktop controls and keeps wrapped mobile navigation', () => {
   assert.match(css, /\.entity\.add-entity-row\s*\{[\s\S]*display:\s*block[\s\S]*width:\s*100%/);
-  assert.match(css, /\.add-entity-row\s+\.add-entity\s*\{[\s\S]*width:\s*100%[\s\S]*justify-content:\s*center[\s\S]*min-height:\s*(?:4[4-9]|[5-9]\d)px/);
-  assert.match(css, /\.entity\s*\{[\s\S]*display:\s*grid[\s\S]*grid-template-columns:\s*44px\s+minmax\(0,\s*1fr\)/);
-  assert.match(css, /\.entity-main\s*\{[\s\S]*grid-template-areas:\s*"value value"\s*"type type"[\s\S]*"meta locate"[\s\S]*"occurrence occurrence"/);
+  assert.match(css, /\.add-entity-row \.add-entity\s*\{[^}]*width:auto[^}]*min-height:32px/);
+  assert.match(css, /\.entity:not\(\.add-entity-row\)\s*\{[^}]*grid-template-columns:24px minmax\(0,1fr\)[^}]*min-height:44px/);
+  assert.match(css, /\.entity-main\s*\{[^}]*grid-template-areas:"value type meta locate" "occurrence occurrence occurrence occurrence"/);
+  assert.match(css, /@media \(max-width:1100px\)\s*\{\s*\.entity-main\s*\{[^}]*grid-template-areas:"value type" "meta locate" "occurrence occurrence"/);
   assert.match(css, /\.entity-value\s*\{[\s\S]*grid-area:\s*value[\s\S]*width:\s*100%/);
   assert.match(css, /\.chip\s*\{[\s\S]*grid-area:\s*type[\s\S]*width:\s*100%/);
   assert.match(css, /\.entities\s*\{[\s\S]*max-height:\s*min\(var\(--entity-list-viewport-max-height\),\s*calc\(var\(--entity-list-visible-rows\)\s*\*\s*var\(--entity-row-block-size\)\s*\+\s*var\(--entity-list-block-padding\)\)\)[\s\S]*overflow:\s*auto/);

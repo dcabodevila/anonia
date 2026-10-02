@@ -61,6 +61,34 @@ test('capitalization variants display as one entity and reject together without 
   assert.deepEqual(effectiveIds(), ['c']);
 });
 
+test('entity row background locates without intercepting editing controls', () => {
+  const { nodes } = fakeDom();
+  state.activeTab = 'document';
+  state.activeEntityKey = null;
+  app.renderEntities();
+  const row = nodes.get('entities').children.find(child => child.dataset.entityKey === 'source');
+  assert.equal(typeof row.listeners.click, 'function');
+  row.listeners.click({ target: { closest: () => ({}) } });
+  assert.equal(state.activeEntityKey, null, 'checkbox, select and buttons keep their own actions');
+  row.listeners.click({ target: { closest: () => null } });
+  assert.equal(state.activeEntityKey, 'source');
+  assert.equal(state.activeOccurrenceId, 'a');
+  const located = nodes.get('entities').children.find(child => child.dataset.entityKey === 'source');
+  assert.match(located.children[1].children[0].title, /Maria  Garcia/);
+  assert.match(located.children[1].children[1].attributes['aria-label'], /^Tipo de /);
+});
+
+test('analysis statistics are one Spanish summary with timing only in the tooltip', async () => {
+  const { nodes } = fakeDom();
+  global.fetch = async () => ({ ok:true, json:async () => ({
+    jobId:'summary', text:'Ana', pageCount:3, elapsedMs:12, types:['PERSONA'],
+    detections:[{ id:'a', type:'PERSONA', start:0, end:3, entityKey:'person' }]
+  }) });
+  await app.analyze('document');
+  assert.equal(nodes.get('stats').textContent, '1 entidad · 1 candidato · 3 páginas');
+  assert.equal(nodes.get('stats').title, 'Análisis: 12 ms');
+});
+
 test('whitespace normalization maps exact contiguous source substrings to UTF16 offsets', () => {
   assert.deepEqual(app.narrow('Maria  Garcia', 'Garcia'), [7, 13]);
   assert.deepEqual(app.narrow('  Ana\n Ruiz', 'Ana Ruiz'), [2, 11]);
@@ -195,7 +223,8 @@ test('collapsed retained spans count as one visible occurrence and edited meta k
   assert.deepEqual(effectiveIds(), ['b']);
 
   const meta = nodes.get('entities').children[1].children[1].children[2].textContent;
-  assert.deepEqual([state.entities.get('codes').count, meta], [1, '1 aparición']);
+  assert.deepEqual([state.entities.get('codes').count, meta], [1, '1']);
+  assert.equal(nodes.get('entities').children[1].children[1].children[2].attributes['aria-label'], '1 aparición');
 
   fixture('10812/10812 | 10812', [
     ['a', 'CP', '10812', 'codes'], ['b', 'CP', '10812', 'codes', 6],
@@ -445,7 +474,8 @@ test('Enter then blur saves displayed occurrence once; independent checkbox and 
   const rows = document.getElementById('entities').children;
   const selectedRow = rows.find(row => row.dataset.entityKey && row.children[1].children[0].textContent === 'Maria');
   assert.ok(selectedRow);
-  assert.equal(selectedRow.children[1].children[2].textContent, '1 aparición');
+  assert.equal(selectedRow.children[1].children[2].textContent, '1');
+  assert.equal(selectedRow.children[1].children[2].title, '1 aparición');
   selectedRow.children[0].listeners.change();
   assert.deepEqual(state.edits[1], ['reject', 'a', 'true']);
   assert.equal(state.rejected.has(key('b')), false);
@@ -532,8 +562,8 @@ test('manual add row leads the list, keeps blur inert, and commits once through 
   let row = nodes.get('entities').children[0];
   assert.equal(row.className, 'entity add-entity-row');
   assert.equal(row.children.length, 1);
-  assert.equal(row.children[0].textContent, 'Añadir entidad anonimizar');
-  assert.equal(row.children[0].attributes['aria-label'], 'Añadir entidad anonimizar');
+  assert.equal(row.children[0].textContent, 'Añadir entidad a anonimizar');
+  assert.equal(row.children[0].attributes['aria-label'], 'Añadir entidad a anonimizar');
 
   row.children[0].click();
   row = nodes.get('entities').children[0];
