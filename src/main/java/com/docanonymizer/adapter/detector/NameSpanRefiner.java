@@ -1,5 +1,6 @@
 package com.docanonymizer.adapter.detector;
 
+import com.docanonymizer.domain.port.GazetteerPort;
 import com.docanonymizer.domain.service.CanonicalForm;
 import java.util.List;
 import java.util.Set;
@@ -30,6 +31,10 @@ public final class NameSpanRefiner {
 
     /** Se descarta el candidato entero si al recortar queda con menos palabras. */
     private static final int MIN_NAME_WORDS = 2;
+
+    private static final Pattern NAME_WORD = Pattern.compile(SpanishNamePatterns.NAME_WORD);
+    private static final Pattern PARTICLE = Pattern.compile(
+            SpanishNamePatterns.PARTICLE, Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
 
     private static final Pattern SINGLE_HONORIFIC_NAME = Pattern.compile(
             SpanishNamePatterns.SINGLE_NAME_AFTER_HONORIFIC,
@@ -64,6 +69,39 @@ public final class NameSpanRefiner {
     /** Solo el tratamiento permite conservar una palabra propia tras el recorte. */
     public static int refineAfterHonorific(String text, int start, int end) {
         return refine(text, start, end, true);
+    }
+
+    /** Tras una pista, las minusculas necesitan respaldo del diccionario. */
+    public static int refineAfterCue(String text, int start, int end, boolean afterHonorific,
+            GazetteerPort gazetteer) {
+        // Primero se recortan los campos; despues se quitan sus particulas pendientes.
+        end = refine(text, start, end, afterHonorific);
+        if (end < 0) {
+            return -1;
+        }
+        int keptEnd = start;
+        int nameWords = 0;
+        for (int[] span : wordSpans(text, start, end)) {
+            String word = text.substring(span[0], span[1]);
+            if (PARTICLE.matcher(word).matches()) {
+                if (nameWords == 0) {
+                    return -1;
+                }
+                continue;
+            }
+            String canonical = CanonicalForm.forCompare(word);
+            if (!NAME_WORD.matcher(word).matches() && !word.equals("Mª")
+                    && !gazetteer.isGivenName(canonical) && !gazetteer.isSurname(canonical)) {
+                break;
+            }
+            nameWords++;
+            keptEnd = span[1];
+        }
+        // Las particulas pendientes no avanzan el final ni cuentan como nombre.
+        if (keptEnd == start) {
+            return -1;
+        }
+        return refine(text, start, keptEnd, afterHonorific);
     }
 
     private static int refine(String text, int start, int end, boolean afterHonorific) {

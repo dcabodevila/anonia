@@ -48,12 +48,6 @@ public final class SpanishNamePatterns {
     public static final String PARTICLE =
             "(?:(?:del|de|das|dos|da|do|las|los|la|el|y|i)(?![\\p{L}]))";
 
-    /**
-     * Nombre completo: al menos dos palabras. Exigir dos evita que cualquier palabra
-     * capitalizada a principio de frase se convierta en un candidato.
-     */
-    public static final String FULL_NAME = fullName(NAME_WORD);
-
     /** Lowercase words are accepted only when a structural cue establishes person context. */
     public static final String FULL_NAME_AFTER_CUE =
             fullName("(?:" + NAME_WORD
@@ -63,6 +57,12 @@ public final class SpanishNamePatterns {
     public static final String SINGLE_NAME_AFTER_HONORIFIC =
             "(?!" + PARTICLE + ")" + NAME_WORD + "(?![\\p{L}'’-])"
                     + "(?!" + SOFT_SPACE + "Mª(?!\\p{L}))";
+
+    private static String nonCueFullName() {
+        // Un tratamiento separa la prosa del nombre; no forma parte de un candidato.
+        return NOT_AFTER_LETTER
+                + fullName("(?!(?iu:" + HONORIFIC + ")(?:" + SOFT_SPACE + "|$))" + NAME_WORD);
+    }
 
     private static String fullName(String word) {
         String tail = SOFT_SPACE + "(?:" + PARTICLE + SOFT_SPACE + ")?" + word;
@@ -83,6 +83,12 @@ public final class SpanishNamePatterns {
             NOT_AFTER_LETTER
                     + "(?:D\\.ª|Dª|D\\.|Sres\\.|Señora|Señor|(?:Dña|Doña|Don|Srta|Sra|Sr)\\.?)"
                     + "(?![\\p{L}])";
+
+    /**
+     * Nombre completo: al menos dos palabras. Exigir dos evita que cualquier palabra
+     * capitalizada a principio de frase se convierta en un candidato.
+     */
+    public static final String FULL_NAME = nonCueFullName();
 
     /**
      * Tipos de via reconocidos, incluidos los de gallego, catalan y euskera.

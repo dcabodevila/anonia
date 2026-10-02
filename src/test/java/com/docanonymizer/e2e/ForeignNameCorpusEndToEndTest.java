@@ -86,6 +86,12 @@ class ForeignNameCorpusEndToEndTest {
         assertRedacted(seed);
     }
 
+    @Test
+    void jurisdictionProseSurvivesVerbatim() {
+        assertTrue(result.markdown().contains("tiene competencia para conocer del asunto"),
+                "se perdio la prosa del control negativo");
+    }
+
     @ParameterizedTest(name = "Control: {0}")
     @MethodSource("controls")
     void legitimateContentSurvives(String control) {
@@ -112,7 +118,16 @@ class ForeignNameCorpusEndToEndTest {
     }
 
     private static void assertRedacted(NameCase seed) {
+        int nameStart = seed.sentence().indexOf(seed.name());
+        String before = seed.sentence().substring(0, nameStart);
+        String after = seed.sentence().substring(nameStart + seed.name().length());
+        String sentencePattern = java.util.regex.Pattern.quote(before)
+                + "\\[PERSONA_\\d+\\]" + java.util.regex.Pattern.quote(after);
         assertAll(
+                () -> assertTrue(java.util.regex.Pattern.compile(sentencePattern)
+                                .matcher(result.markdown()).find(),
+                        () -> "frase alterada fuera del nombre: " + seed.sentence()
+                                + "\n" + result.markdown()),
                 () -> assertFalse(TextFolding.fold(result.markdown())
                                 .contains(TextFolding.fold(seed.name())),
                         () -> "nombre sembrado presente: " + seed.name()),

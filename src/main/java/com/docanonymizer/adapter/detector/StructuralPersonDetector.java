@@ -3,7 +3,10 @@ package com.docanonymizer.adapter.detector;
 import com.docanonymizer.domain.model.Detection;
 import com.docanonymizer.domain.model.DetectionType;
 import com.docanonymizer.domain.model.Provenance;
+import com.docanonymizer.adapter.gazetteer.ResourceGazetteer;
 import com.docanonymizer.domain.port.DetectorPort;
+import com.docanonymizer.domain.port.GazetteerPort;
+import java.util.Objects;
 import com.docanonymizer.domain.service.CanonicalForm;
 import java.util.ArrayList;
 import java.util.List;
@@ -52,6 +55,15 @@ public final class StructuralPersonDetector implements DetectorPort {
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
 
     private final AtomicInteger sequence = new AtomicInteger();
+    private final GazetteerPort gazetteer;
+
+    public StructuralPersonDetector() {
+        this(new ResourceGazetteer());
+    }
+
+    public StructuralPersonDetector(GazetteerPort gazetteer) {
+        this.gazetteer = Objects.requireNonNull(gazetteer);
+    }
 
     @Override
     public String name() {
@@ -74,9 +86,8 @@ public final class StructuralPersonDetector implements DetectorPort {
             if (matcher.group(1) == null || matcher.group(1).isBlank()) {
                 continue;
             }
-            int end = pattern == AFTER_HONORIFIC
-                    ? NameSpanRefiner.refineAfterHonorific(text, matcher.start(1), matcher.end(1))
-                    : NameSpanRefiner.refine(text, matcher.start(1), matcher.end(1));
+            int end = NameSpanRefiner.refineAfterCue(
+                    text, matcher.start(1), matcher.end(1), pattern == AFTER_HONORIFIC, gazetteer);
             if (end < 0) {
                 continue;
             }

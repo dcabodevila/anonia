@@ -14,6 +14,35 @@ class StructuralPersonDetectorTest {
     private final StructuralPersonDetector detector = new StructuralPersonDetector();
 
     @Test
+    void stopsCueNamesBeforeLowercaseProse() {
+        assertPerson("D. François Dupont para ratificar el escrito", "François Dupont");
+        assertPerson("el Sr. Kowalski para ratificar la demanda", "Kowalski");
+        assertPerson("Sr Novak que recibió la citación", "Novak");
+        assertPerson("D. Sean McDonald en calidad de testigo", "Sean McDonald");
+        assertPerson("representado por luis martin saez para ratificar el escrito", "luis martin saez");
+        assertPerson("D. Juan Perez de", "Juan Perez");
+        assertPerson("D. Juan Perez de\nCalle Mayor", "Juan Perez");
+        assertPerson("D. Juan de la Cruz para ratificar el escrito", "Juan de la Cruz");
+        assertPerson("D. juan perez lopez para ratificar el escrito", "juan perez lopez");
+        assertPerson("D. FRANÇOIS DUPONT para ratificar el escrito", "FRANÇOIS DUPONT");
+        assertPerson("D. Juan Perez desconocido Garcia", "Juan Perez");
+        assertEquals(List.of(), detector.detect("D. desconocido inventado"));
+    }
+
+    @Test
+    void existingLowercaseFixturesAreKnownNames() {
+        var gazetteer = new com.docanonymizer.adapter.gazetteer.ResourceGazetteer();
+        org.junit.jupiter.api.Assertions.assertAll(
+                Stream.of("juan", "perez", "lopez", "lucio", "aron", "maria", "garcia",
+                        "luis", "martin", "saez", "françois", "dupont", "łukasz", "kowalski",
+                        "søren", "zoë", "smith", "ştefan", "popescu",
+                        "nguyễn", "tran", "jean-pierre", "o’neal", "d'angelo", "aiko", "tanaka")
+                        .map(word -> () -> org.junit.jupiter.api.Assertions.assertTrue(
+                                gazetteer.isGivenName(word) || gazetteer.isSurname(word),
+                                () -> "lowercase fixture absent from gazetteer: " + word)));
+    }
+
+    @Test
     void recognizesLowercaseNamesAfterStructuralCues() {
         assertPerson("D. juan perez lopez", "juan perez lopez");
         assertPerson("maria garcia, con DNI 12345678Z", "maria garcia");
@@ -58,8 +87,20 @@ class StructuralPersonDetectorTest {
     void recognizesLowercaseUnicodeAndConnectedNamesAfterCue() {
         for (String name : List.of("françois dupont", "łukasz kowalski", "søren kierkegaard",
                 "zoë smith", "ştefan popescu", "nguyễn tran", "jean-pierre o’neal", "d'angelo dupont")) {
-            assertPerson("D. " + name, name);
+            assertPerson(unicodeDetector(), "D. " + name, name);
         }
+    }
+
+    private StructuralPersonDetector unicodeDetector() {
+        var defaults = new com.docanonymizer.adapter.gazetteer.ResourceGazetteer();
+        return new StructuralPersonDetector(new com.docanonymizer.domain.port.GazetteerPort() {
+            @Override public boolean isGivenName(String token) {
+                return defaults.isGivenName(token)
+                        || List.of("kierkegaard", "𐐨𐐩", "𐐪𐐫").contains(token);
+            }
+            @Override public boolean isSurname(String token) { return defaults.isSurname(token); }
+            @Override public int size() { return defaults.size() + 3; }
+        });
     }
 
     @Test
@@ -73,7 +114,7 @@ class StructuralPersonDetectorTest {
     @Test
     void preservesSupplementaryLettersAcrossLineBreakAndInEntityKey() {
         String name = "𐐨𐐩\n𐐪𐐫";
-        assertPerson("D. " + name, name);
+        assertPerson(unicodeDetector(), "D. " + name, name);
         assertEquals("PERSON:" + name.replace('\n', ' '), StructuralPersonDetector.entityKey(name));
     }
 
@@ -121,7 +162,11 @@ class StructuralPersonDetectorTest {
     }
 
     private void assertPerson(String source, String expected) {
-        List<Detection> detections = detector.detect(source);
+        assertPerson(detector, source, expected);
+    }
+
+    private void assertPerson(StructuralPersonDetector subject, String source, String expected) {
+        List<Detection> detections = subject.detect(source);
         assertEquals(1, detections.size(), source);
         Detection detection = detections.get(0);
         assertEquals(expected, detection.value(), source);

@@ -61,7 +61,6 @@ public final class PipelineFactory {
         detectors.add(new CustomerReferenceDetector());
         detectors.add(new PostalCodeDetector());
         detectors.add(new AddressDetector());
-        detectors.add(new StructuralPersonDetector());
         ResourceGazetteer defaults = new ResourceGazetteer();
         var names = rules.people().stream().map(CanonicalForm::forCompare).collect(java.util.stream.Collectors.toSet());
         GazetteerPort gazetteer = new GazetteerPort() {
@@ -72,6 +71,7 @@ public final class PipelineFactory {
             @Override public boolean isExcludedWord(String token) { return defaults.isExcludedWord(token); }
             @Override public int size() { return defaults.size() + names.size(); }
         };
+        detectors.add(new StructuralPersonDetector(gazetteer));
         detectors.add(new GazetteerPersonDetector(gazetteer));
         List<String> organizations = new ArrayList<>(List.of("Banco Pastor", "Banco Popular"));
         organizations.addAll(rules.organizations());
