@@ -144,7 +144,7 @@ test('successful analysis has a compact replacement affordance and mobile readin
 
 test('comparison keeps result actions in the anonymized document header and aligns desktop header tracks', () => {
   const resultPanel = html.match(/<section class="pane tabpanel hidden" id="tab-result"[\s\S]*?<\/section>/)[0];
-  assert.match(resultPanel, /<div class="pane-head">[\s\S]*<h2>Documento anonimizado<\/h2>[\s\S]*id="result-actions"/);
+  assert.match(resultPanel, /<div class="pane-head" id="result-pane-head">[\s\S]*<h2>Documento anonimizado<\/h2>[\s\S]*id="result-actions"/);
   assert.match(html, /<\/div>\s*<section id="result-status"[\s\S]*<div class="main-tabpanels">/);
   assert.match(css, /@media \(min-width: 851px\)[\s\S]*\.pane-main\.comparing\s+\.pane-head\s*\{[\s\S]*min-block-size:\s*58px/);
   assert.match(css, /\.doctext\s*\{[\s\S]*font:\s*16px\/1\.72/);

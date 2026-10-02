@@ -45,23 +45,24 @@ function init() {
 
   el('brand-home').addEventListener('click', goHome);
   el('browse').addEventListener('click', () => fileInput.click());
+  el('change-document').addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', () => {
     if (fileInput.files.length) analyze(fileInput.files[0]);
   });
 
   ['dragenter', 'dragover'].forEach((evt) =>
-    dropzone.addEventListener(evt, (e) => {
+    document.addEventListener(evt, (e) => {
       e.preventDefault();
       dropzone.classList.add('dragging');
     }));
 
   ['dragleave', 'drop'].forEach((evt) =>
-    dropzone.addEventListener(evt, (e) => {
+    document.addEventListener(evt, (e) => {
       e.preventDefault();
       dropzone.classList.remove('dragging');
     }));
 
-  dropzone.addEventListener('drop', (e) => {
+  document.addEventListener('drop', (e) => {
     if (e.dataTransfer.files.length) analyze(e.dataTransfer.files[0]);
   });
 
@@ -174,6 +175,7 @@ function goHome() {
 
 function resetDropzone() {
   el('dropzone').classList.remove('compact');
+  el('document-chip').classList.add('hidden');
   el('drop-title').textContent = 'Arrastra un PDF aquí o ';
   el('drop-sub').textContent = 'PDF con capa de texto, o fotos JPEG/PNG leídas localmente con Tesseract en español.';
 }
@@ -181,6 +183,9 @@ function resetDropzone() {
 function compactDropzone(file) {
   const filename = file && typeof file.name === 'string' && file.name ? file.name : 'documento seleccionado';
   el('dropzone').classList.add('compact');
+  el('document-filename').textContent = filename;
+  el('document-filename').title = filename;
+  el('document-chip').classList.remove('hidden');
   el('drop-title').textContent = 'Documento seleccionado: ' + filename + '. Arrastra otro PDF o ';
   el('drop-sub').textContent = 'Puedes reemplazarlo sin perder la vista del documento actual.';
 }
@@ -1147,8 +1152,14 @@ function setResultStatus(status, title, message) {
   state.resultStatusMessage = message;
   const panel = el('result-status');
   if (!panel) return;
-  panel.className = 'result-status ' + status;
+  const compact = ['pending', 'working', 'success'].includes(status);
+  panel.className = 'result-status ' + status + (compact ? ' visually-hidden' : '');
   panel.textContent = title + ': ' + message;
+  const indicator = el('result-indicator');
+  if (indicator) {
+    indicator.textContent = { pending:'Pendiente', working:'En curso', success:'Listo', blocked:'Revisar', error:'Error' }[status] || 'Revisar';
+    indicator.className = 'result-indicator ' + status;
+  }
 }
 
 function showToast(title, message, tone) {
@@ -1270,6 +1281,8 @@ function renderMainView() {
   document.querySelectorAll('.main-tabpanels > [role="tabpanel"]').forEach((panel) =>
     panel.classList.toggle('hidden', !state.comparing && panel.id !== selectedPanel));
 
+  const actionsHost = el(state.comparing ? 'result-pane-head' : 'result-toolbar');
+  if (actionsHost) actionsHost.append(el('result-actions'));
   setComparisonVisibility('result-actions', !state.comparing && state.activeTab !== 'result');
   setComparisonVisibility('entity-controls', state.comparing);
   el('workspace').classList.toggle('comparing', state.comparing);

@@ -23,7 +23,7 @@ function fixture() {
     }
     return nodes.get(id);
   };
-  const context = vm.createContext({ document: { getElementById: node, querySelectorAll: () => [] }, console });
+  const context = vm.createContext({ document: { getElementById: node, querySelectorAll: () => [], addEventListener() {} }, console });
   vm.runInContext(source, context);
   vm.runInContext('init()', context);
   return { node, context };

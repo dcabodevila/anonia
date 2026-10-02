@@ -4,6 +4,7 @@ const path = require('node:path');
 const runtime = path.resolve(__dirname, '../.runtime');
 
 async function inspect(page, testInfo, viewport, mode, selectors) {
+  await page.evaluate(() => scrollTo({ top:0, behavior:'instant' }));
   const geometry = await page.evaluate(selectors => {
     const surfaces = selectors.map(selector => {
       const element = document.querySelector(selector);
@@ -20,6 +21,9 @@ async function inspect(page, testInfo, viewport, mode, selectors) {
     expect.soft(surface.height, `${mode} ${surface.selector} reading space`).toBeGreaterThan(100);
     if (viewport.width > 1100) {
       expect.soft(surface.top, `${mode} ${surface.selector} top`).toBeGreaterThanOrEqual(0);
+      if ((mode === 'document' && surface.selector === '#doctext') || mode === 'result') {
+        expect.soft(surface.top, `${mode} reading starts within compact chrome`).toBeLessThanOrEqual(170);
+      }
       expect.soft(surface.bottom, `${mode} ${surface.selector} bottom`).toBeLessThanOrEqual(viewport.height - 20);
     }
     const locator = page.locator(surface.selector);
@@ -39,6 +43,10 @@ for (const viewport of [{ width:1920, height:1080 }, { width:1920, height:900 },
     await page.goto(baseUrl);
     await page.locator('#file').setInputFiles(path.join(runtime, 'fixtures/seeded.pdf'));
     await expect(page.locator('#workspace')).toBeVisible();
+    await expect.soft(page.locator('.topbar #document-chip')).toBeVisible();
+    await expect.soft(page.locator('#document-chip')).toContainText('seeded.pdf');
+    await expect.soft(page.locator('#dropzone')).toBeHidden();
+    await expect(page.locator('#result-status[aria-live="polite"]')).toContainText('Resultado pendiente');
     await inspect(page, testInfo, viewport, 'document', ['#doctext', '#entities']);
     await page.locator('#apply').click();
     await expect(page.locator('#result-status')).toContainText('Anonimización completada');
@@ -57,5 +65,21 @@ for (const viewport of [{ width:1920, height:1080 }, { width:1920, height:900 },
     await page.locator('#tab-document-control').click();
     await expect(page.locator('#entity-controls')).toBeVisible();
     await expect(page.locator('#apply')).toBeEnabled();
+    const picker = page.waitForEvent('filechooser');
+    await page.locator('#change-document').click();
+    expect((await picker).element()).toBeTruthy();
+    await page.locator('#file').setInputFiles({ name:'replacement.pdf', mimeType:'application/pdf', buffer:await fs.readFile(path.join(runtime, 'fixtures/seeded.pdf')) });
+    await expect(page.locator('#document-chip')).toContainText('replacement.pdf');
+    await expect(page.locator('#result-status')).toContainText('Resultado pendiente');
+    // Dropping outside the hidden landing dropzone must also replace the file.
+    const transfer = await page.evaluateHandle(async base64 => {
+      const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+      const data = new DataTransfer();
+      data.items.add(new File([bytes], 'dropped.pdf', { type:'application/pdf' }));
+      return data;
+    }, (await fs.readFile(path.join(runtime, 'fixtures/seeded.pdf'))).toString('base64'));
+    await page.locator('#doctext').dispatchEvent('drop', { dataTransfer:transfer });
+    await expect(page.locator('#document-chip')).toContainText('dropped.pdf');
+    await transfer.dispose();
   });
 }

@@ -57,6 +57,21 @@ beforeEach(() => {
   state.editError = null;
 });
 
+test('normal result status is compact but announcements and warnings remain available', async () => {
+  const nodes = fakeDom();
+  state.jobId = 'job';
+  global.fetch = async () => ({ ok:true, json:async () => ({ deliverable:true, markdown:'safe', substitutions:1, entities:1 }) });
+  await app.apply();
+  assert.match(nodes.get('result-status').className, /visually-hidden/);
+  assert.match(nodes.get('result-status').textContent, /Anonimización completada/);
+  assert.equal(nodes.get('result-indicator').textContent, 'Listo');
+  global.fetch = async () => ({ ok:true, json:async () => ({ deliverable:false, markdown:'unsafe', findings:[{ detail:'Residual' }] }) });
+  await app.apply();
+  assert.doesNotMatch(nodes.get('result-status').className, /visually-hidden/);
+  assert.match(nodes.get('result-status').textContent, /Residual/);
+  assert.equal(nodes.get('result-indicator').textContent, 'Revisar');
+});
+
 test('Ubicar marks and focuses exact warning output without altering copied bytes', async () => {
   const nodes = fakeDom();
   state.jobId = 'job';

@@ -19,7 +19,7 @@ function boot(hostname) {
   };
   const documentElement = { dataset: {} };
   const context = vm.createContext({
-    document: { getElementById: node, querySelectorAll: () => [], documentElement },
+    document: { getElementById: node, querySelectorAll: () => [], documentElement, addEventListener() {} },
     location: { hostname }, console
   });
   vm.runInContext(source, context);

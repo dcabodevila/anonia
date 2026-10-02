@@ -143,6 +143,39 @@ select.chip {
   #workspace :is(.disclaimer, #warning-note) { flex-shrink:0; }
 }
 
+/* Loaded documents give the reading surface priority over upload chrome. */
+.document-chip { display:flex; align-items:center; gap:12px; min-width:0; max-width:36%; padding:0 12px; border:1px solid var(--border); border-radius:10px; background:var(--panel-2); }
+#document-filename { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--muted-strong); font-size:13px; }
+.document-chip .link { flex-shrink:0; font-size:13px; }
+body:has(#workspace:not(.hidden)) .hero { display:none; }
+body:has(#workspace:not(.hidden)) .tag { display:none; }
+main:has(#workspace:not(.hidden)) { grid-template-rows:minmax(0,1fr); }
+.pane-main:not(.comparing) .tabpanel > .pane-head { display:none; }
+.result-status.visually-hidden { position:absolute; width:1px; height:1px; padding:0; margin:-1px; border:0; }
+.result-indicator { font-size:11px; color:var(--muted-strong); }
+.result-indicator.success { color:var(--success); }
+.result-indicator:is(.blocked, .warning) { color:var(--warning); }
+.result-indicator.error { color:var(--error); }
+.result-indicator.working { color:var(--accent); }
+.main-tabbar { align-items:center; }
+.main-view-actions { align-items:center; }
+#result-toolbar:empty, #result-actions[hidden] { display:none; }
+#result-toolbar #result-actions { flex-wrap:nowrap; }
+#result-toolbar #result-actions button { font-size:13px; padding:8px; }
+.tab { padding:8px; font-size:13px; flex-wrap:wrap; column-gap:6px; row-gap:0; }
+body:has(.dropzone.dragging) .topbar { border-bottom-color:var(--accent); }
+@media (max-width:1100px) {
+  .main-tabbar { flex-wrap:wrap; }
+  .main-view-actions { flex-wrap:wrap; }
+}
+@media (max-width:600px) {
+  .topbar:has(#document-chip:not(.hidden)) { flex-wrap:wrap; }
+  .document-chip { order:3; max-width:none; width:100%; }
+  #result-toolbar { flex:1 1 100%; }
+  #result-toolbar #result-actions { flex-wrap:wrap; }
+  .result-indicator { flex-basis:100%; }
+}
+
 /* Landing page: hero + feature showcase. */
 .hero { display:grid; grid-template-columns:1fr 1fr; gap:48px; align-items:stretch; max-width:1180px; margin:0 auto; padding:24px 0; min-block-size:calc(100dvh - 65px - 40px); }
 .hero-copy { display:flex; flex-direction:column; justify-content:center; gap:18px; }

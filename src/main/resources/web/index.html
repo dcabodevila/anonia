@@ -16,6 +16,10 @@
     </button></h1>
     <span class="tag">PDF y fotos &rarr; Markdown anonimizado</span>
   </div>
+  <div id="document-chip" class="document-chip hidden">
+    <span id="document-filename"></span>
+    <button id="change-document" type="button" class="link" title="Selecciona otro PDF o una foto">Cambiar</button>
+  </div>
   <div class="offline">100% local &middot; sin red</div>
 </header>
 
@@ -64,15 +68,16 @@
       <section class="pane-main" id="pane-main" aria-label="Documento y resultado">
         <div class="main-tabbar">
           <nav class="tabs" role="tablist" aria-label="Vista principal">
-            <button class="tab active" id="tab-document-control" type="button" role="tab" data-tab="document" aria-controls="tab-document" aria-selected="true"><svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v14H7zM14 3v5h5" /></svg>Documento Original</button>
-            <button class="tab" id="tab-result-control" type="button" role="tab" data-tab="result" aria-controls="tab-result" aria-selected="false" tabindex="-1"><svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14" /></svg>Documento anonimizado</button>
+            <button class="tab active" id="tab-document-control" type="button" role="tab" data-tab="document" aria-controls="tab-document" aria-selected="true" title="Pulsa cualquier marca para ubicarla y revisar la selección"><svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v14H7zM14 3v5h5" /></svg>Documento Original</button>
+            <button class="tab" id="tab-result-control" type="button" role="tab" data-tab="result" aria-controls="tab-result" aria-selected="false" tabindex="-1"><svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14" /></svg>Documento anonimizado <span id="result-indicator" class="result-indicator pending">Pendiente</span></button>
           </nav>
           <div class="main-view-actions">
+            <div id="result-toolbar"></div>
             <button type="button" id="compare" class="compare" aria-pressed="false"><svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h6v14H4zM14 5h6v14h-6z" /></svg><span id="compare-label">Comparar</span></button>
           </div>
         </div>
 
-        <section id="result-status" class="result-status pending" role="status" aria-live="polite" aria-atomic="true">Resultado pendiente: revisa las entidades y pulsa «Anonimizar».</section>
+        <section id="result-status" class="result-status pending visually-hidden" role="status" aria-live="polite" aria-atomic="true">Resultado pendiente: revisa las entidades y pulsa «Anonimizar».</section>
 
         <div class="main-tabpanels">
           <section class="pane tabpanel pane-doc" id="tab-document" role="tabpanel" aria-labelledby="tab-document-control">
@@ -84,7 +89,7 @@
           </section>
 
           <section class="pane tabpanel hidden" id="tab-result" role="tabpanel" aria-labelledby="tab-result-control">
-            <div class="pane-head">
+            <div class="pane-head" id="result-pane-head">
               <h2>Documento anonimizado</h2>
               <div class="actions" id="result-actions">
                 <button type="button" id="download" class="primary" disabled><svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14" /></svg>Descargar .md</button>
