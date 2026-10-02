@@ -24,6 +24,10 @@ async function inspect(page, testInfo, viewport, mode, selectors) {
       if ((mode === 'document' && surface.selector === '#doctext') || mode === 'result') {
         expect.soft(surface.top, `${mode} reading starts within compact chrome`).toBeLessThanOrEqual(170);
       }
+      if (mode === 'comparison') {
+        expect.soft(surface.top, 'comparison compact labels').toBeLessThanOrEqual(200);
+        expect.soft(surface.height, 'comparison reading budget').toBeGreaterThanOrEqual(viewport.height - 310);
+      }
       expect.soft(surface.bottom, `${mode} ${surface.selector} bottom`).toBeLessThanOrEqual(viewport.height - 20);
     }
     const locator = page.locator(surface.selector);
@@ -51,7 +55,22 @@ for (const viewport of [{ width:1920, height:1080 }, { width:1920, height:900 },
     await page.locator('#apply').click();
     await expect(page.locator('#result-status')).toContainText('Anonimización completada');
     await inspect(page, testInfo, viewport, 'result', ['#markdown']);
+    const notice = page.locator('.disclaimer');
+    const checkNotice = async () => {
+      expect.soft(await notice.evaluate(element => element.getBoundingClientRect().height)).toBeLessThanOrEqual(32);
+      await expect.soft(notice).toContainText('Las etiquetas mantienen distinguibles a las personas y fechas, importes, cargos y hechos singulares permanecen intactos.');
+      await expect.soft(notice.locator('summary')).toBeVisible();
+      if (await notice.locator('summary').count()) {
+        await notice.locator('summary').click();
+        await expect.soft(notice.locator('p')).toBeVisible();
+        await notice.locator('summary').click();
+      }
+    };
+    await checkNotice();
     await page.locator('#compare').click();
+    await expect.soft(page.locator('.main-tabbar #download')).toBeVisible();
+    await expect.soft(page.locator('.main-tabbar #copy')).toBeVisible();
+    await checkNotice();
     await inspect(page, testInfo, viewport, 'comparison', ['#doctext', '#markdown']);
     if (viewport.width > 850) {
       const rects = await page.locator('#doctext, #markdown').evaluateAll(elements => elements.map(element => {

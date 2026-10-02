@@ -1281,7 +1281,7 @@ function renderMainView() {
   document.querySelectorAll('.main-tabpanels > [role="tabpanel"]').forEach((panel) =>
     panel.classList.toggle('hidden', !state.comparing && panel.id !== selectedPanel));
 
-  const actionsHost = el(state.comparing ? 'result-pane-head' : 'result-toolbar');
+  const actionsHost = el('result-toolbar');
   if (actionsHost) actionsHost.append(el('result-actions'));
   setComparisonVisibility('result-actions', !state.comparing && state.activeTab !== 'result');
   setComparisonVisibility('entity-controls', state.comparing);

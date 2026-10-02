@@ -66,7 +66,7 @@ test('warning download stays hidden until a warning result exists', () => {
     /warning-download'[\s\S]*classList\.toggle\('hidden', !state\.warningDownloadEligible\)/);
 });
 
-test('comparison names both documents and keeps result controls in the anonymized header', () => {
+test('comparison names both documents and provides shared result controls', () => {
   assert.match(html, /id="tab-document-control"[^>]*>[^<]*[\s\S]*Documento Original/);
   assert.match(html, /id="tab-result-control"[^>]*>[^<]*[\s\S]*Documento anonimizado/);
   assert.match(html, /<h2>Documento Original<\/h2>/);
@@ -83,9 +83,9 @@ test('comparison text surfaces share metrics, scroll height and header offset wi
   for (const declaration of [/height:\s*clamp\(/, /overflow:\s*auto/, /padding:\s*22px/, /white-space:\s*pre-wrap/, /overflow-wrap:\s*anywhere/, /font:\s*16px\/1\.72/]) {
     assert.match(shared, declaration);
   }
-  assert.match(css, /\.pane-main\.comparing \.pane-head\s*\{[^}]*block-size:\s*clamp\(/);
+  assert.match(css, /\.pane-main\.comparing \.pane-head\s*\{[^}]*block-size:\s*32px/);
   assert.match(css, /\.pane-main\.comparing #warning-note\s*\{[^}]*order:\s*3/);
-  assert.match(css, /@media \(max-width:\s*850px\)[\s\S]*\.pane-main\.comparing \.pane-head\s*\{[^}]*block-size:\s*auto/);
+  assert.match(css, /\.pane-main\.comparing \.pane-head \.hint\s*\{[^}]*display:\s*none/);
 });
 
 test('the workspace keeps Entidades fixed and exposes accessible main Documento and Resultado tabs with compare', () => {
@@ -142,11 +142,12 @@ test('successful analysis has a compact replacement affordance and mobile readin
   assert.doesNotMatch(css, /@media \(max-width: 600px\)[\s\S]*\.entities\s*\{\s*max-height:\s*none/);
 });
 
-test('comparison keeps result actions in the anonymized document header and aligns desktop header tracks', () => {
+test('comparison retains pane heading semantics with compact aligned labels', () => {
   const resultPanel = html.match(/<section class="pane tabpanel hidden" id="tab-result"[\s\S]*?<\/section>/)[0];
   assert.match(resultPanel, /<div class="pane-head" id="result-pane-head">[\s\S]*<h2>Documento anonimizado<\/h2>[\s\S]*id="result-actions"/);
   assert.match(html, /<\/div>\s*<section id="result-status"[\s\S]*<div class="main-tabpanels">/);
-  assert.match(css, /@media \(min-width: 851px\)[\s\S]*\.pane-main\.comparing\s+\.pane-head\s*\{[\s\S]*min-block-size:\s*58px/);
+  assert.match(css, /\.pane-main\.comparing\s+\.pane-head\s*\{[^}]*block-size:\s*32px/);
+  assert.match(css, /grid-template-rows:32px minmax\(0,1fr\) auto auto/);
   assert.match(css, /\.doctext\s*\{[\s\S]*font:\s*16px\/1\.72/);
   assert.match(css, /\.pane-main\.comparing\s+\.markdown\s*\{[\s\S]*font:\s*15px\/1\.72/);
 });

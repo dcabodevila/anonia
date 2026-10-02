@@ -736,6 +736,7 @@ test('comparison collapses only entity controls while result actions remain avai
   assert.equal(nodes.get('result-actions').inert, false);
   assert.equal(nodes.get('result-actions').attributes['aria-hidden'], 'false');
   assert.equal(nodes.get('compare').attributes['aria-pressed'], 'true');
+  assert.ok(nodes.get('result-toolbar').children.includes(nodes.get('result-actions')), 'comparison exports stay in shared tab bar');
   assert.equal(nodes.get('compare-label').textContent, 'Salir de comparación');
 
   app.toggleCompare();
@@ -755,7 +756,7 @@ test('comparison collapses only entity controls while result actions remain avai
 
 function comparisonDom() {
   const { node, nodes } = fakeDom();
-  ['workspace', 'pane-side', 'entity-controls', 'result-actions', 'compare', 'compare-label'].forEach(id =>
+  ['workspace', 'pane-side', 'entity-controls', 'result-actions', 'result-toolbar', 'compare', 'compare-label'].forEach(id =>
     document.getElementById(id));
   const documentTab = node();
   documentTab.dataset.tab = 'document';
