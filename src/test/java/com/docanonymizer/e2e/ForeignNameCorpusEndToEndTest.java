@@ -2,6 +2,7 @@ package com.docanonymizer.e2e;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.docanonymizer.adapter.PipelineFactory;
@@ -53,6 +54,8 @@ class ForeignNameCorpusEndToEndTest {
                         () -> "texto extraido distinto: " + seed.sentence())));
         assertAll(ForeignNameCorpusGenerator.T8.stream().flatMap(person -> person.mentions().stream())
                 .map(mention -> () -> assertTrue(extracted.contains(mention.sentence()), mention.sentence())));
+        assertAll(ForeignNameCorpusGenerator.T9.cases().stream()
+                .map(mention -> () -> assertTrue(extracted.contains(mention.sentence()), mention.sentence())));
         assertAll(ForeignNameCorpusGenerator.CONTROL_SENTENCES.stream()
                 .map(sentence -> () -> assertTrue(extracted.contains(sentence),
                         () -> "control no extraido: " + sentence)));
@@ -90,7 +93,8 @@ class ForeignNameCorpusEndToEndTest {
 
     @Test
     void t8EveryMentionUsesItsSeedPlaceholderAndPreservesProse() {
-        var olderWords = ForeignNameCorpusGenerator.GROUPS.stream()
+        var olderWords = Stream.concat(ForeignNameCorpusGenerator.GROUPS.stream(),
+                        Stream.of(ForeignNameCorpusGenerator.T9))
                 .flatMap(group -> group.cases().stream())
                 .flatMap(seed -> Stream.of(seed.name().split(" ")))
                 .map(TextFolding::fold).collect(java.util.stream.Collectors.toSet());
@@ -118,6 +122,40 @@ class ForeignNameCorpusEndToEndTest {
         for (String control : ForeignNameCorpusGenerator.T8_CONTROLS) {
             assertTrue(result.markdown().contains(control), control);
         }
+    }
+
+    @Test
+    void t9SharedSurnameUsesFirstSeedPlaceholderAndPreservesEverySentence() {
+        var otherWords = Stream.concat(
+                        ForeignNameCorpusGenerator.GROUPS.stream()
+                                .flatMap(group -> group.cases().stream()).map(NameCase::name),
+                        ForeignNameCorpusGenerator.T8.stream().map(person -> person.seed()))
+                .flatMap(name -> Stream.of(name.split(" ")))
+                .map(TextFolding::fold).collect(java.util.stream.Collectors.toSet());
+        // El apellido compartido solo es intencional dentro de T9.
+        var words = java.util.List.of("Andrés", "Morales", "Prieto", "Carmen", "Iglesias");
+        for (String word : words) {
+            assertFalse(otherWords.contains(TextFolding.fold(word)), word);
+            assertTrue(TextFolding.findWholeWordOccurrences(result.markdown(), word).isEmpty(),
+                    "nombre presente: " + word);
+        }
+        var seeds = ForeignNameCorpusGenerator.T9.cases();
+        var first = result.accepted().stream()
+                .filter(d -> d.value().equals(seeds.get(0).name())).findFirst().orElseThrow();
+        var second = result.accepted().stream()
+                .filter(d -> d.value().equals(seeds.get(1).name())).findFirst().orElseThrow();
+        String andres = result.pseudonyms().get(first.entityKey());
+        String carmen = result.pseudonyms().get(second.entityKey());
+        assertTrue(andres != null && carmen != null, "faltan etiquetas de las personas");
+        assertNotEquals(andres, carmen, "personas distintas necesitan etiquetas distintas");
+        var expected = java.util.List.of(
+                "Comparece D. " + andres + " para ratificar el escrito.",
+                "Comparece Dña. " + carmen + " para aportar prueba.",
+                "El testigo " + andres + " aportó el contrato.",
+                andres + " firmó el acta y " + carmen + " la recibió.",
+                andres + " e " + carmen + " comparecieron juntos.");
+        assertAll(expected.stream().map(sentence -> () ->
+                assertTrue(result.markdown().contains(sentence), sentence + "\n" + result.markdown())));
     }
 
     @Test

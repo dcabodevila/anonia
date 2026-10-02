@@ -80,6 +80,13 @@ public final class ForeignNameCorpusGenerator {
                     new NameCase("Li Wang", "Comparece D. Li Wang para aportar prueba."),
                     new NameCase("Li", "Li entregó el recibo a WANG."))));
 
+    public static final CaseGroup T9 = new CaseGroup("T9", List.of(
+            new NameCase("Andrés Morales Prieto", "Comparece D. Andrés Morales Prieto para ratificar el escrito."),
+            new NameCase("Carmen Morales Iglesias", "Comparece Dña. Carmen Morales Iglesias para aportar prueba."),
+            new NameCase("Morales", "El testigo Morales aportó el contrato."),
+            new NameCase("Andrés", "Andrés firmó el acta y Carmen la recibió."),
+            new NameCase("Prieto", "Prieto e Iglesias comparecieron juntos.")));
+
     public static final List<String> T8_CONTROLS = List.of(
             "La jueza de paz archivó el expediente.",
             "Segun el informe pericial, procede el archivo.");
@@ -128,6 +135,8 @@ public final class ForeignNameCorpusGenerator {
             T8.forEach(person -> person.mentions().forEach(mention -> t8Lines.add(mention.sentence())));
             t8Lines.addAll(T8_CONTROLS);
             writePage(document, font, "Corpus T8", t8Lines);
+            writePage(document, font, "Corpus " + T9.taskId(),
+                    T9.cases().stream().map(NameCase::sentence).toList());
             writePage(document, font, "Controles negativos", CONTROL_SENTENCES);
             document.save(output.toFile());
         }
