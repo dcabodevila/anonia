@@ -9,14 +9,15 @@ import java.util.Set;
  * Politica compartida sobre que trozos de un nombre cuentan como identificadores.
  *
  * <p>Existe para que el propagador y el verificador no puedan divergir. Si el
- * propagador ocultara los tokens de 4+ caracteres pero el verificador exigiera los de
- * 3+, la puerta de salida bloquearia siempre; al reves, dejaria pasar fugas. Son las
+ * propagador y verificador usaran distinta longitud o caja, la puerta de salida
+ * bloquearia texto legitimo o dejaria pasar fugas. Son las
  * dos caras de la misma regla, asi que la regla vive en un solo sitio.
  */
 public final class NamePolicy {
 
-    /** Un token mas corto genera demasiados falsos positivos para propagarlo solo. */
-    public static final int MIN_TOKEN_LENGTH = 4;
+    /** Los tokens de 2-3 letras necesitan caja de nombre; los de 4+ no. */
+    public static final int MIN_TOKEN_LENGTH = 2;
+    private static final int ANY_CASE_TOKEN_LENGTH = 4;
 
     private static final Set<String> PARTICLES = Set.of(
             "de", "del", "la", "las", "los", "el", "y", "e", "da", "do", "dos", "van", "von",
@@ -44,6 +45,22 @@ public final class NamePolicy {
             tokens.add(raw.strip());
         }
         return List.copyOf(tokens);
+    }
+
+    /** Busqueda compartida: caja y acentos libres salvo los tokens cortos sueltos. */
+    public static List<int[]> findOccurrences(String text, String variant) {
+        String word = variant.strip();
+        var hits = TextFolding.findWholeWordOccurrences(text, word);
+        if (word.matches(".*\\s+.*") || CanonicalForm.forCompare(word).length() >= ANY_CASE_TOKEN_LENGTH) {
+            return hits;
+        }
+        if (significantTokens(word).isEmpty()) {
+            return List.of();
+        }
+        return hits.stream().filter(hit -> {
+            String occurrence = text.substring(hit[0], hit[1]);
+            return occurrence.matches("\\p{Lu}\\p{Ll}+") || occurrence.matches("\\p{Lu}+");
+        }).toList();
     }
 
     /** Trata "Garcia Perez" (los apellidos juntos) como una variante propia a buscar. */

@@ -55,10 +55,34 @@ public final class ForeignNameCorpusGenerator {
                     new NameCase("Xiomara García Pérez", "Según declaró Xiomara García Pérez, procede el archivo."),
                     new NameCase("Brayden López Ruiz", "Según manifestó Brayden López Ruiz, se cumplió el plazo."))),
             new CaseGroup("T6", List.of(
-                    new NameCase("Rosa Martínez Gil", "Según declaró Rosa Martínez Gil, se entregó el escrito."),
+                    new NameCase("Rosa Martínez Soler", "Según declaró Rosa Martínez Soler, se entregó el escrito."),
                     new NameCase("Paz Herrero Soto", "Según manifestó Paz Herrero Soto, procede el archivo."),
                     new NameCase("Victoria Sánchez Mora", "Según declaró Victoria Sánchez Mora, se cumplió el plazo."),
-                    new NameCase("Grace Fernández Vidal", "Según manifestó Grace Fernández Vidal, se abonó la cantidad."))));
+                    new NameCase("Grace Navarro Vidal", "Según manifestó Grace Navarro Vidal, se abonó la cantidad."))));
+
+    public record PersonMentions(String seed, List<NameCase> mentions) {
+        public PersonMentions {
+            mentions = List.copyOf(mentions);
+        }
+    }
+
+    public static final List<PersonMentions> T8 = List.of(
+            new PersonMentions("Oscar fernandez Estrada", List.of(
+                    new NameCase("Oscar fernandez Estrada", "Comparece D. Oscar fernandez Estrada para ratificar el escrito."),
+                    new NameCase("Oscar", "Oscar declaró que no conocía los hechos."),
+                    new NameCase("Fernández", "El testigo Fernández aportó el contrato."),
+                    new NameCase("ESTRADA", "Según ESTRADA, la entrega se hizo tarde."),
+                    new NameCase("fernandez", "Consta la firma de fernandez en el acta."))),
+            new PersonMentions("Lucía Ortega Gil", List.of(
+                    new NameCase("Lucía Ortega Gil", "Según declaró Lucía Ortega Gil, procede el archivo."),
+                    new NameCase("Gil", "Gil firmó el acta y Lucía la recibió."))),
+            new PersonMentions("Li Wang", List.of(
+                    new NameCase("Li Wang", "Comparece D. Li Wang para aportar prueba."),
+                    new NameCase("Li", "Li entregó el recibo a WANG."))));
+
+    public static final List<String> T8_CONTROLS = List.of(
+            "La jueza de paz archivó el expediente.",
+            "Segun el informe pericial, procede el archivo.");
 
     public static final List<String> NEGATIVE_CONTROLS = List.of(
             "Juzgado de Primera Instancia", "Tribunal Supremo", "Real Decreto",
@@ -100,6 +124,10 @@ public final class ForeignNameCorpusGenerator {
                 writePage(document, font, "Corpus " + group.taskId(),
                         group.cases().stream().map(NameCase::sentence).toList());
             }
+            var t8Lines = new java.util.ArrayList<String>();
+            T8.forEach(person -> person.mentions().forEach(mention -> t8Lines.add(mention.sentence())));
+            t8Lines.addAll(T8_CONTROLS);
+            writePage(document, font, "Corpus T8", t8Lines);
             writePage(document, font, "Controles negativos", CONTROL_SENTENCES);
             document.save(output.toFile());
         }

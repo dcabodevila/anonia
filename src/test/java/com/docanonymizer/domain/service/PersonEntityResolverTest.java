@@ -22,6 +22,17 @@ class PersonEntityResolverTest {
     }
 
     @Test
+    void unifiesEveryWordIncludingShortAndAccentVariants() {
+        var resolved = resolver.resolve(List.of(person("seed", "Oscar fernandez Estrada"),
+                person("surname", "FERNÁNDEZ"), person("tail", "ESTRADA"),
+                person("other", "Lucía Ortega Gil"), person("short", "GIL")));
+        assertEquals(resolved.get(0).entityKey(), resolved.get(1).entityKey());
+        assertEquals(resolved.get(0).entityKey(), resolved.get(2).entityKey());
+        assertEquals(resolved.get(3).entityKey(), resolved.get(4).entityKey());
+        assertNotEquals(resolved.get(0).entityKey(), resolved.get(3).entityKey());
+    }
+
+    @Test
     @DisplayName("la mencion corta se absorbe en el nombre completo")
     void mergesShortMentionIntoFullName() {
         List<Detection> resolved = resolver.resolve(List.of(

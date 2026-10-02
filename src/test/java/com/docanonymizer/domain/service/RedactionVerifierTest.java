@@ -30,6 +30,20 @@ class RedactionVerifierTest {
     }
 
     @Test
+    void shortNameLeaksRespectCaseIncludingStandaloneAcceptedMentions() {
+        for (String name : List.of("Lucia Ortega Gil", "Gil", "Paz Herrero Soto", "Paz")) {
+            var seed = person(name);
+            var labels = Map.of(seed.entityKey(), "[PERSONA_001]");
+            String token = name.contains("Gil") ? "Gil" : "Paz";
+            assertTrue(verifier.verify("[PERSONA_001] juez de " + token.toLowerCase(java.util.Locale.ROOT),
+                    List.of(seed), labels).passed(), name);
+            assertFalse(verifier.verify("[PERSONA_001] " + token, List.of(seed), labels).passed(), name);
+            assertFalse(verifier.verify("[PERSONA_001] " + token.toUpperCase(java.util.Locale.ROOT),
+                    List.of(seed), labels).passed(), name);
+        }
+    }
+
+    @Test
     void explicitRejectedPersonDoesNotTriggerC3ButAcceptedPersonStillDoes() {
         Detection rejected = person("Maria Garcia Lopez");
         Detection accepted = new Detection("accepted", DetectionType.PERSON, 30, 46,

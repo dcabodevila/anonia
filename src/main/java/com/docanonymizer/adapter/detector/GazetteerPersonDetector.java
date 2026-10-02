@@ -25,7 +25,20 @@ import java.util.regex.Pattern;
  */
 public final class GazetteerPersonDetector implements DetectorPort {
 
-    private static final Pattern CANDIDATE = Pattern.compile(SpanishNamePatterns.FULL_NAME);
+    // Conectores de prosa nunca forman parte de un nombre, con o sin acentos.
+    private static final String FUNCTION_WORD =
+            "(?iu:seg[uú]n|conforme|ante|tras|desde|hasta|mediante|durante|contra|sobre|entre)(?!\\p{L})";
+    private static final String GUARDED_WORD = "(?!" + FUNCTION_WORD + ")" + SpanishNamePatterns.NAME_WORD;
+    private static final String GUARDED_NAME =
+            SpanishNamePatterns.FULL_NAME.replace(SpanishNamePatterns.NAME_WORD, GUARDED_WORD);
+    private static final Pattern SINGLE_WORD = Pattern.compile(SpanishNamePatterns.NAME_WORD);
+    private static final Pattern CANDIDATE = Pattern.compile(
+            GUARDED_NAME
+                    + "|" + SpanishNamePatterns.NOT_AFTER_LETTER + FUNCTION_WORD
+                    + SpanishNamePatterns.SOFT_SPACE + "(?:"
+                    + GUARDED_NAME + "|" + GUARDED_WORD + "(?!\\p{L}))");
+    private static final Pattern LEADING_FUNCTION = Pattern.compile(
+            FUNCTION_WORD + SpanishNamePatterns.SOFT_SPACE);
     private static final Pattern PARTICLE = Pattern.compile(SpanishNamePatterns.PARTICLE,
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
 
@@ -50,20 +63,30 @@ public final class GazetteerPersonDetector implements DetectorPort {
             if (precededByPostalCode(normalizedText, matcher.start())) {
                 continue;
             }
-            int end = NameSpanRefiner.refine(normalizedText, matcher.start(), matcher.end());
+            int start = matcher.start();
+            Matcher connector = LEADING_FUNCTION.matcher(normalizedText).region(start, matcher.end());
+            boolean afterFunction = connector.lookingAt();
+            if (afterFunction) {
+                start = connector.end();
+            }
+            boolean singleAfterFunction = afterFunction && SINGLE_WORD
+                    .matcher(normalizedText.substring(start, matcher.end())).matches();
+            int end = singleAfterFunction ? matcher.end()
+                    : NameSpanRefiner.refine(normalizedText, start, matcher.end());
             if (end < 0) {
                 continue;
             }
-            String value = normalizedText.substring(matcher.start(), end);
+            String value = normalizedText.substring(start, end);
             String[] words = value.split("\\s+");
             boolean givenName = gazetteer.isGivenName(words[0]);
-            if (!givenName && (gazetteer.isExcludedWord(words[0]) || !hasLaterSurname(words))) {
+            if (gazetteer.isExcludedWord(words[0]) || (!givenName
+                    && !hasLaterSurname(words) && !(afterFunction && gazetteer.isSurname(words[0])))) {
                 continue;
             }
             detections.add(new Detection(
                     "pers-dic-" + sequence.incrementAndGet(),
                     DetectionType.PERSON,
-                    matcher.start(),
+                    start,
                     end,
                     value,
                     StructuralPersonDetector.entityKey(value),

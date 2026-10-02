@@ -106,7 +106,9 @@ public final class RedactionVerifier {
     private void checkLiteralValues(
             String markdown, List<Detection> accepted, String source, List<Finding> findings) {
         for (Detection detection : accepted) {
-            var hits = TextFolding.findWholeWordOccurrences(markdown, detection.value());
+            var hits = detection.type() == DetectionType.PERSON
+                    ? NamePolicy.findOccurrences(markdown, detection.value())
+                    : TextFolding.findWholeWordOccurrences(markdown, detection.value());
             if (!hits.isEmpty()) {
                 int[] hit = hits.get(0);
                 findings.add(new Finding(C1, Severity.BLOCKING,
@@ -169,7 +171,7 @@ public final class RedactionVerifier {
         }
         longestNameByEntity.forEach((entityKey, detection) -> {
             for (String token : NamePolicy.significantTokens(detection.value())) {
-                var hits = TextFolding.findWholeWordOccurrences(remaining.toString(), token);
+                var hits = NamePolicy.findOccurrences(remaining.toString(), token);
                 if (!hits.isEmpty()) {
                     int[] hit = hits.get(0);
                     findings.add(new Finding(C3, Severity.BLOCKING,

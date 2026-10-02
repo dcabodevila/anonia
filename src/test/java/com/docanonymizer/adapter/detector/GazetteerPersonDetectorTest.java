@@ -36,6 +36,17 @@ class GazetteerPersonDetectorTest {
     });
 
     @Test
+    void functionWordsAreNotPartOfPersons() {
+        for (String connector : List.of("Según", "Segun", "Conforme", "Ante", "Tras")) {
+            assertPerson(connector + " García Pérez", "García Pérez");
+            assertEquals(List.of(), detector.detect(connector + " Unknown"));
+        }
+        assertPerson("Segun Sean McDonald", "Sean McDonald");
+        assertPerson("Segun GARCÍA", "GARCÍA");
+        assertPerson("Sean McDonald Segun García Pérez", "Sean McDonald", "García Pérez");
+    }
+
+    @Test
     void recognizesUnicodeGivenNames() {
         assertPerson("Łukasz Kowalski", "Łukasz Kowalski");
         assertPerson("Søren Kierkegaard", "Søren Kierkegaard");
@@ -93,6 +104,10 @@ class GazetteerPersonDetectorTest {
         assertEquals(List.of(), detector.detect("Unlisted DE"));
         assertEquals(List.of(), detector.detect("UNLISTED UNKNOWN\nRuiz"));
         assertEquals(0.85, detector.detect("Sean McDonald").get(0).confidence());
+    }
+
+    private void assertPerson(String source, String first, String second) {
+        assertEquals(List.of(first, second), detector.detect(source).stream().map(Detection::value).toList());
     }
 
     private void assertPerson(String source, String expected) {

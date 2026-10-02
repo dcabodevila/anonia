@@ -31,7 +31,7 @@ public final class EntityPropagator {
                 continue;
             }
             for (String variant : variantsOf(seed.value())) {
-                for (int[] span : TextFolding.findWholeWordOccurrences(normalizedText, variant)) {
+                for (int[] span : NamePolicy.findOccurrences(normalizedText, variant)) {
                     extra.add(new Detection(
                             "prop-" + sequence.incrementAndGet(),
                             DetectionType.PERSON,

@@ -51,6 +51,8 @@ class ForeignNameCorpusEndToEndTest {
                 .flatMap(group -> group.cases().stream())
                 .map(seed -> () -> assertTrue(extracted.contains(seed.sentence()),
                         () -> "texto extraido distinto: " + seed.sentence())));
+        assertAll(ForeignNameCorpusGenerator.T8.stream().flatMap(person -> person.mentions().stream())
+                .map(mention -> () -> assertTrue(extracted.contains(mention.sentence()), mention.sentence())));
         assertAll(ForeignNameCorpusGenerator.CONTROL_SENTENCES.stream()
                 .map(sentence -> () -> assertTrue(extracted.contains(sentence),
                         () -> "control no extraido: " + sentence)));
@@ -84,6 +86,38 @@ class ForeignNameCorpusEndToEndTest {
     @MethodSource("t6")
     void ambiguousNamesAreRedacted(NameCase seed) {
         assertRedacted(seed);
+    }
+
+    @Test
+    void t8EveryMentionUsesItsSeedPlaceholderAndPreservesProse() {
+        var olderWords = ForeignNameCorpusGenerator.GROUPS.stream()
+                .flatMap(group -> group.cases().stream())
+                .flatMap(seed -> Stream.of(seed.name().split(" ")))
+                .map(TextFolding::fold).collect(java.util.stream.Collectors.toSet());
+        ForeignNameCorpusGenerator.T8.stream().flatMap(person -> Stream.of(person.seed().split(" ")))
+                .forEach(word -> assertFalse(olderWords.contains(TextFolding.fold(word)), word));
+        var labels = new java.util.HashSet<String>();
+        for (var person : ForeignNameCorpusGenerator.T8) {
+            var seed = result.accepted().stream()
+                    .filter(d -> d.value().equals(person.seed())).findFirst().orElseThrow();
+            String label = result.pseudonyms().get(seed.entityKey());
+            assertTrue(labels.add(label), "personas distintas necesitan etiquetas distintas");
+            for (var mention : person.mentions()) {
+                String expected = mention.sentence();
+                for (String word : Stream.concat(Stream.of(person.seed()),
+                        Stream.of(person.seed().split(" "))).toList()) {
+                    var hits = TextFolding.findWholeWordOccurrences(expected, word);
+                    for (int i = hits.size() - 1; i >= 0; i--) {
+                        int[] hit = hits.get(i);
+                        expected = expected.substring(0, hit[0]) + label + expected.substring(hit[1]);
+                    }
+                }
+                assertTrue(result.markdown().contains(expected), expected + "\n" + result.markdown());
+            }
+        }
+        for (String control : ForeignNameCorpusGenerator.T8_CONTROLS) {
+            assertTrue(result.markdown().contains(control), control);
+        }
     }
 
     @Test
