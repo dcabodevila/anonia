@@ -387,7 +387,7 @@ class DesktopLauncherTest {
         assertFalse(plan.contains("--win-console"), "launcher must not open a console: " + plan);
         String source = Files.readString(script);
         assertTrue(source.contains("if ($Msi) { 'msi' } else { 'exe' }"));
-        assertTrue(source.contains("anonimuse-0.4.4.$extension"));
+        assertTrue(source.contains("anonimuse-0.5.0.$extension"));
         assertTrue(source.contains("anonimuse-installer.$extension"));
         assertTrue(source.contains("Move-Item -LiteralPath $generatedInstaller -Destination $installer -ErrorAction Stop"));
         assertTrue(source.contains("Test-Path -LiteralPath $generatedInstaller"));
@@ -403,7 +403,7 @@ class DesktopLauncherTest {
                 .redirectErrorStream(true).start();
         String plan = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertEquals(0, process.waitFor(), plan);
-        assertTrue(plan.contains("0.4.4"), "installer version missing: " + plan);
+        assertTrue(plan.contains("0.5.0"), "installer version missing: " + plan);
         assertTrue(plan.contains("anonimuse"), "application name missing: " + plan);
         assertTrue(plan.contains("--icon"), "Windows icon option missing: " + plan);
         assertTrue(plan.contains("anonimuse-logo.ico"), "Windows .ico icon missing: " + plan);
@@ -445,7 +445,7 @@ class DesktopLauncherTest {
                 "packaging must publish the exact installer filename for the selected format");
         assertTrue(source.contains("Move-Item -LiteralPath $generatedInstaller -Destination $installer -ErrorAction Stop"),
                 "packaging must rename the freshly generated installer");
-        assertTrue(source.contains("anonimuse-0.4.4.$extension"),
+        assertTrue(source.contains("anonimuse-0.5.0.$extension"),
                 "packaging must identify the jpackage versioned output");
         assertTrue(source.contains("Copy-Item -LiteralPath $jar -Destination $inputDirectory"));
         assertFalse(source.contains("OcrBundleRoot"));
