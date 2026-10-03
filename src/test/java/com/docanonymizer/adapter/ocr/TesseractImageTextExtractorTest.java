@@ -19,6 +19,8 @@ import java.security.MessageDigest;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 class TesseractImageTextExtractorTest {
@@ -86,6 +88,7 @@ class TesseractImageTextExtractorTest {
     }
 
     @Test
+    @EnabledOnOs(OS.WINDOWS)
     void rotatesExifOrientedPhotoBeforeOcrAndRemovesTemporaryImage(@TempDir Path dir) throws Exception {
         Path photo = dir.resolve("photo.jpg");
         Files.write(photo, jpegWithOrientation(40, 20, 6));
@@ -107,6 +110,7 @@ class TesseractImageTextExtractorTest {
     }
 
     @Test
+    @EnabledOnOs(OS.WINDOWS)
     void passesUnrotatedPhotoToOcrUnchanged(@TempDir Path dir) throws Exception {
         Path photo = dir.resolve("photo.jpg");
         Files.write(photo, jpegWithOrientation(40, 20, 1));
