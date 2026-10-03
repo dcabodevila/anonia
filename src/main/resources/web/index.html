@@ -51,6 +51,11 @@
           <p class="drop-title"><span id="drop-title">Arrastra un PDF aqu&iacute; o una foto </span><button type="button" id="browse" class="link" title="Selecciona un PDF" aria-label="Selecciona un PDF o una foto"><svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L8 8m4-4 4 4M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" /></svg>selecci&oacute;nalo</button></p>
           <p id="drop-sub" class="drop-sub">PDF con capa de texto, o fotos JPEG/PNG le&iacute;das localmente con Tesseract en espa&ntilde;ol. Podr&aacute;s visualizar los cambios a anonimizar antes de generar el Markdown.</p>
         </div>
+        <div id="loading" class="loading hidden" role="status" aria-live="polite">
+          <svg class="loading-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c.6 4.8 2.2 6.4 7 7-4.8.6-6.4 2.2-7 7-.6-4.8-2.2-6.4-7-7 4.8-.6 6.4-2.2 7-7Z" /><path d="M18.5 15c.3 2 .9 2.6 2.5 2.8-1.6.2-2.2.8-2.5 2.7-.3-1.9-.9-2.5-2.5-2.7 1.6-.2 2.2-.8 2.5-2.8Z" /></svg>
+          <span class="loading-title">Anonimusing&hellip;</span>
+          <span class="loading-sub">Analizando documento&hellip;</span>
+        </div>
       </section>
     </div>
   </section>
@@ -58,9 +63,6 @@
   <section id="error" class="error hidden" role="alert"></section>
   <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
 
-  <section id="loading" class="loading hidden" role="status" aria-live="polite">
-    <span>Analizando documento&hellip;</span>
-  </section>
 
   <section id="workspace" class="workspace hidden">
 
