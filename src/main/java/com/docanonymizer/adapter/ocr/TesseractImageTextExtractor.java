@@ -3,6 +3,8 @@ package com.docanonymizer.adapter.ocr;
 import com.docanonymizer.domain.model.ExtractedDocument;
 import com.docanonymizer.domain.model.PageText;
 import com.docanonymizer.domain.port.TextExtractorPort;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
@@ -13,6 +15,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.List;
+import javax.imageio.ImageIO;
 
 /** Local OCR adapter for JPEG and PNG document photos using Tesseract's Spanish model. */
 public final class TesseractImageTextExtractor implements TextExtractorPort {
@@ -52,10 +55,39 @@ public final class TesseractImageTextExtractor implements TextExtractorPort {
     @Override
     public ExtractedDocument extract(Path source) throws IOException {
         validate(source);
-        String text = runTesseract(source);
+        byte[] bytes = Files.readAllBytes(source);
+        Path upright = uprightCopy(bytes);
+        String text;
+        try {
+            text = runTesseract(upright == null ? source : upright);
+        } finally {
+            if (upright != null) {
+                Files.deleteIfExists(upright);
+            }
+        }
         return new ExtractedDocument(
                 java.util.List.of(new PageText(1, Arrays.asList(text.split("\\R", -1)))),
-                sha256(source));
+                sha256(bytes));
+    }
+
+    /** Writes an EXIF-corrected temporary PNG, or returns null when the photo is already upright. */
+    private static Path uprightCopy(byte[] bytes) throws IOException {
+        int orientation = JpegExifOrientation.read(bytes);
+        if (orientation == 1) {
+            return null;
+        }
+        BufferedImage image = ImageIO.read(new ByteArrayInputStream(bytes));
+        if (image == null) {
+            return null;
+        }
+        Path upright = Files.createTempFile("doc-anonymizer-ocr-", ".png");
+        try {
+            ImageIO.write(ExifOrientationTransform.apply(image, orientation), "png", upright.toFile());
+        } catch (IOException | RuntimeException e) {
+            Files.deleteIfExists(upright);
+            throw e;
+        }
+        return upright;
     }
 
     private void validate(Path source) throws IOException {
@@ -204,10 +236,10 @@ public final class TesseractImageTextExtractor implements TextExtractorPort {
 
     private record OcrConfiguration(String command, Path tessdataDirectory, Path bundledOcrDirectory) {}
 
-    private String sha256(Path source) throws IOException {
+    private static String sha256(byte[] bytes) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(Files.readAllBytes(source));
+            byte[] hash = digest.digest(bytes);
             StringBuilder out = new StringBuilder(hash.length * 2);
             for (byte b : hash) {
                 out.append(String.format("%02x", b));

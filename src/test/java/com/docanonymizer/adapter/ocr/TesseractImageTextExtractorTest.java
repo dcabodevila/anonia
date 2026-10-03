@@ -5,14 +5,21 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.docanonymizer.domain.model.ExtractedDocument;
 import com.docanonymizer.domain.port.TextExtractorPort.ExtractionException;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import javax.imageio.ImageIO;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class TesseractImageTextExtractorTest {
     private static final String COMMAND_PROPERTY = "doc.anonymizer.tesseract.command";
@@ -76,6 +83,82 @@ class TesseractImageTextExtractorTest {
                 "El OCR incluido esta incompleto. Reinstala la aplicacion; no se usara OCR externo.",
                 failure.getMessage());
         Files.deleteIfExists(image);
+    }
+
+    @Test
+    void rotatesExifOrientedPhotoBeforeOcrAndRemovesTemporaryImage(@TempDir Path dir) throws Exception {
+        Path photo = dir.resolve("photo.jpg");
+        Files.write(photo, jpegWithOrientation(40, 20, 6));
+        Path received = dir.resolve("received.png");
+        Path receivedPath = dir.resolve("received-path.txt");
+
+        ExtractedDocument document = new TesseractImageTextExtractor(
+                        fakeTesseract(dir, received, receivedPath), 1024 * 1024)
+                .extract(photo);
+
+        BufferedImage ocrInput = ImageIO.read(received.toFile());
+        assertEquals(20, ocrInput.getWidth());
+        assertEquals(40, ocrInput.getHeight());
+        Path temporary = Path.of(Files.readString(receivedPath, StandardCharsets.UTF_8).strip());
+        assertFalse(temporary.equals(photo.toAbsolutePath()), "OCR must receive the rotated copy");
+        assertFalse(Files.exists(temporary), "temporary rotated image must be deleted");
+        assertEquals(sha256(Files.readAllBytes(photo)), document.sourceSha256());
+        assertEquals("texto ocr", document.pages().get(0).lines().get(0).strip());
+    }
+
+    @Test
+    void passesUnrotatedPhotoToOcrUnchanged(@TempDir Path dir) throws Exception {
+        Path photo = dir.resolve("photo.jpg");
+        Files.write(photo, jpegWithOrientation(40, 20, 1));
+        Path received = dir.resolve("received.png");
+        Path receivedPath = dir.resolve("received-path.txt");
+
+        new TesseractImageTextExtractor(fakeTesseract(dir, received, receivedPath), 1024 * 1024)
+                .extract(photo);
+
+        assertEquals(
+                photo.toAbsolutePath().toString(),
+                Files.readString(receivedPath, StandardCharsets.UTF_8).strip());
+    }
+
+    private static String fakeTesseract(Path dir, Path received, Path receivedPath) throws Exception {
+        Path script = dir.resolve("fake-tesseract.cmd");
+        Files.writeString(script, String.join("\r\n",
+                "@echo off",
+                "copy /y \"%~1\" \"" + received + "\" >nul",
+                "echo %~1> \"" + receivedPath + "\"",
+                "echo texto ocr",
+                ""));
+        return script.toString();
+    }
+
+    /** Encodes a real JPEG and splices a big-endian EXIF APP1 segment with the given orientation. */
+    private static byte[] jpegWithOrientation(int width, int height, int orientation) throws Exception {
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        ByteArrayOutputStream encoded = new ByteArrayOutputStream();
+        ImageIO.write(image, "jpg", encoded);
+        byte[] jpeg = encoded.toByteArray();
+        byte[] app1 = {
+            (byte) 0xFF, (byte) 0xE1, 0x00, 0x22,
+            'E', 'x', 'i', 'f', 0x00, 0x00,
+            'M', 'M', 0x00, 0x2A, 0x00, 0x00, 0x00, 0x08,
+            0x00, 0x01,
+            0x01, 0x12, 0x00, 0x03, 0x00, 0x00, 0x00, 0x01, 0x00, (byte) orientation, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00
+        };
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        out.write(jpeg, 0, 2);
+        out.write(app1);
+        out.write(jpeg, 2, jpeg.length - 2);
+        return out.toByteArray();
+    }
+
+    private static String sha256(byte[] bytes) throws Exception {
+        StringBuilder out = new StringBuilder();
+        for (byte b : MessageDigest.getInstance("SHA-256").digest(bytes)) {
+            out.append(String.format("%02x", b));
+        }
+        return out.toString();
     }
 
     private Path createCompleteBundle() throws Exception {
