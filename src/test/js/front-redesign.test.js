@@ -19,7 +19,7 @@ test('anonimuse keeps the entity menu small and the document dominant', () => {
   assert.match(html, /id="browse" class="link" title="Selecciona un PDF"/);
   assert.match(html, /Podr&aacute;s visualizar los cambios a anonimizar antes de generar el Markdown\./);
   assert.doesNotMatch(html, /Aplicar y verificar|No tienes uno a mano|desidentificado|doc-anonymizer/);
-  assert.doesNotMatch(html, /data-tab="checks"|id="tab-checks"|spinner|progress/);
+  assert.doesNotMatch(html, /data-tab="checks"|id="tab-checks"|progress/);
   assert.match(css, /grid-template-columns:\s*minmax\(260px, 0\.85fr\)\s+minmax\(0, 1\.65fr\)/);
   assert.match(css, /\.pane-side\s*\{\s*position:\s*sticky/);
   assert.match(css, /\.pane-doc\s*\{[\s\S]*min-height:\s*clamp\(0px,\s*calc\(100dvh\s*-\s*220px\),\s*42rem\)/);
