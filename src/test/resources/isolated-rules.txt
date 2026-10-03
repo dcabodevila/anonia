@@ -1,0 +1,1 @@
+# Empty rules for the test suite; keeps tests independent of ~/.anonimuse/rules.txt.
