@@ -51,6 +51,10 @@
           <p class="drop-title"><span id="drop-title">Arrastra un PDF aqu&iacute; o una foto </span><button type="button" id="browse" class="link" title="Selecciona un PDF" aria-label="Selecciona un PDF o una foto"><svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L8 8m4-4 4 4M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" /></svg>selecci&oacute;nalo</button></p>
           <p id="drop-sub" class="drop-sub">PDF con capa de texto, o fotos JPEG/PNG le&iacute;das localmente con Tesseract en espa&ntilde;ol. Podr&aacute;s visualizar los cambios a anonimizar antes de generar el Markdown.</p>
         </div>
+        <div id="loading" class="loading hidden" role="status" aria-live="polite">
+          <span class="loading-spinner" aria-hidden="true"></span>
+          <span>Analizando documento&hellip;</span>
+        </div>
       </section>
     </div>
   </section>
@@ -58,10 +62,6 @@
   <section id="error" class="error hidden" role="alert"></section>
   <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
 
-  <section id="loading" class="loading hidden" role="status" aria-live="polite">
-    <span class="loading-spinner" aria-hidden="true"></span>
-    <span>Analizando documento&hellip;</span>
-  </section>
 
   <section id="workspace" class="workspace hidden">
 

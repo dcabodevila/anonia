@@ -9,7 +9,7 @@ const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'app.css'), 'utf8');
 
 function loadingSection() {
-  const match = html.match(/<section id="loading"[\s\S]*?<\/section>/);
+  const match = html.match(/<div id="loading"[\s\S]*?<\/div>/);
   assert.ok(match, 'loading section missing');
   return match[0];
 }
@@ -19,6 +19,13 @@ test('loading status shows a decorative spinner next to its announced text', () 
   assert.match(section, /role="status"/);
   assert.match(section, /<span class="loading-spinner" aria-hidden="true"><\/span>/);
   assert.match(section, /Analizando documento&hellip;/);
+});
+
+test('loading status renders inside the dropzone, where the user just dropped the file', () => {
+  const dropzone = html.match(/<section id="dropzone"[\s\S]*?<\/section>/);
+  assert.ok(dropzone, 'dropzone missing');
+  assert.match(dropzone[0], /id="loading"/, 'the hero fills the viewport, so loading below it is off-screen');
+  assert.match(css, /\.dropzone:has\(#loading:not\(\.hidden\)\)\s+\.drop-inner\s*\{[^}]*display:\s*none/);
 });
 
 test('spinner rotates only when the user has not asked for reduced motion', () => {
