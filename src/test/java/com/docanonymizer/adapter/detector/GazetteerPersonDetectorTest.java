@@ -106,6 +106,12 @@ class GazetteerPersonDetectorTest {
         assertEquals(0.85, detector.detect("Sean McDonald").get(0).confidence());
     }
 
+    @Test
+    void namesNeverCrossATableCell() {
+        assertPerson("Titular\tBrayden López Ruiz", "Brayden López Ruiz");
+        assertPerson("Brayden López Ruiz\tGarcía", "Brayden López Ruiz");
+    }
+
     private void assertPerson(String source, String first, String second) {
         assertEquals(List.of(first, second), detector.detect(source).stream().map(Detection::value).toList());
     }

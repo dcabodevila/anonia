@@ -23,9 +23,10 @@ import org.apache.poi.ss.usermodel.WorkbookFactory;
  * <p>Each sheet with text starts with a {@code ## <sheet name>} line followed by one line per
  * non-empty row: its non-blank cells, formatted as Excel displays them and separated by tabs.
  * Blank cells are skipped rather than padded, so a far sparse cell cannot inflate the output.
- * Sheets without text are left out. Formulas contribute their cached result, never their
- * expression, and are not re-evaluated. A single page keeps column headers that repeat across
- * sheets from being removed as page headers.
+ * Rows are separated by blank lines, so no name spans two rows. Sheets without text are left
+ * out. Formulas contribute their cached result, never their expression, and are not
+ * re-evaluated. A single page keeps column headers that repeat across sheets from being
+ * removed as page headers.
  */
 public final class ExcelTextExtractor implements TextExtractorPort {
 
@@ -78,7 +79,11 @@ public final class ExcelTextExtractor implements TextExtractorPort {
                 lines.add("");
             }
             lines.add("## " + sheet.getSheetName());
-            lines.addAll(rows);
+            // A blank line makes every row its own paragraph, which names never cross.
+            for (String row : rows) {
+                lines.add("");
+                lines.add(row);
+            }
         }
         return lines;
     }

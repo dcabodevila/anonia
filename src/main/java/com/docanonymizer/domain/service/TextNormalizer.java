@@ -65,9 +65,14 @@ public final class TextNormalizer {
         text = LINE_BREAK_HYPHEN.matcher(text).replaceAll("$1$2");
         text = collapseLetterSpacing(text);
         text = TRAILING_SPACES.matcher(text).replaceAll("\n");
-        text = HORIZONTAL_RUNS.matcher(text).replaceAll(" ");
+        text = HORIZONTAL_RUNS.matcher(text).replaceAll(run -> collapseRun(run.group()));
         text = EXTRA_BLANK_LINES.matcher(text).replaceAll("\n\n");
         return text.strip();
+    }
+
+    /** A run of spaces collapses to one; a run holding a tab keeps the tab as a cell boundary. */
+    private static String collapseRun(String run) {
+        return run.indexOf('\t') >= 0 ? "\t" : " ";
     }
 
     /** Normalized matching text with UTF-16 ranges in the original retained source. */
@@ -82,7 +87,7 @@ public final class TextNormalizer {
         mapped = replace(mapped, Pattern.compile("[^\\n]*"),
                 line -> isLetterSpaced(line) ? joinSpacedLetters(line) : line);
         mapped = replace(mapped, TRAILING_SPACES, part -> "\n");
-        mapped = replace(mapped, HORIZONTAL_RUNS, part -> " ");
+        mapped = replace(mapped, HORIZONTAL_RUNS, TextNormalizer::collapseRun);
         mapped = replace(mapped, EXTRA_BLANK_LINES, part -> "\n\n");
         String text = mapped.text.strip();
         int from = mapped.text.indexOf(text);

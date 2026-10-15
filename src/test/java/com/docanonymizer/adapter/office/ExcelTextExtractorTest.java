@@ -27,11 +27,15 @@ class ExcelTextExtractorTest {
 
     private static final List<String> EXPECTED_LINES = List.of(
             "## Clientes",
+            "",
             "Nombre\tDNI\tImporte",
+            "",
             "Juan García Pérez\t12345678Z\t1500\t3000",
             "",
             "## Proveedores",
+            "",
             "Nombre\tDNI\tImporte",
+            "",
             "María López Ruiz\t87654321X\t1500\t3000");
 
     @TempDir Path temp;
@@ -93,7 +97,7 @@ class ExcelTextExtractorTest {
         }
         Path source = Files.write(temp.resolve("disperso.xlsx"), content);
 
-        assertEquals(List.of("## Datos", "Juan García Pérez\t12345678Z\tMadrid"),
+        assertEquals(List.of("## Datos", "", "Juan García Pérez\t12345678Z\tMadrid"),
                 new ExcelTextExtractor().extract(source).pages().get(0).lines());
     }
 
@@ -113,7 +117,7 @@ class ExcelTextExtractorTest {
         }
         Path source = Files.write(temp.resolve("hojas.xlsx"), content);
 
-        assertEquals(List.of("## Datos", "12345678Z"),
+        assertEquals(List.of("## Datos", "", "12345678Z"),
                 new ExcelTextExtractor().extract(source).pages().get(0).lines());
     }
 
@@ -133,7 +137,7 @@ class ExcelTextExtractorTest {
         try {
             for (Locale machine : List.of(Locale.US, Locale.GERMANY, Locale.ROOT)) {
                 Locale.setDefault(machine);
-                assertEquals(List.of("## Importes", "1.234,50"),
+                assertEquals(List.of("## Importes", "", "1.234,50"),
                         new ExcelTextExtractor().extract(source).pages().get(0).lines(), machine.toString());
             }
         } finally {
