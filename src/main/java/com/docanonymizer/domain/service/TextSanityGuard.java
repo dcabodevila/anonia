@@ -8,8 +8,8 @@ package com.docanonymizer.domain.service;
  * comprobacion el pipeline no detectaria nada, la verificacion pasaria (no hay valores
  * que buscar) y entregaria un Markdown ilegible que el usuario creeria anonimizado.
  *
- * <p>Tambien captura por el mismo camino los PDF escaneados sin capa de texto, que
- * estan fuera del alcance de este prototipo.
+ * <p>Tambien captura por el mismo camino los PDF sin capa de texto que no pasaron por OCR
+ * y las paginas cuyo OCR no produjo texto utilizable.
  */
 public final class TextSanityGuard {
 

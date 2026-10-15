@@ -20,10 +20,13 @@ public final class DeterministicDetectors {
         return List.of(
                 new DniDetector(),
                 new NieDetector(),
+                new PassportDetector(),
                 new IbanDetector(),
                 new EmailDetector(),
                 new PhoneDetector(),
                 new PlateDetector(),
+                new DocumentShapedCodeDetector(),
+                new PassportShapedCodeDetector(),
                 new CodeDetector());
     }
 
@@ -36,13 +39,59 @@ public final class DeterministicDetectors {
         }
     }
 
-    /** DNI: 8 digitos y letra, con separador opcional. La letra se valida. */
+    /** Letra final opcional; un decimal o un grupo mas de cifras cierra la puerta al valor. */
+    private static final String LETTER_SUFFIX = "(?:\\s?-?\\s?[A-Za-z])?(?![0-9A-Za-z]|[.,]\\d)";
+
+    /**
+     * Se queda con la letra final si va pegada o tras guion. Separada solo por espacio,
+     * una minuscula que no cuadra con el control es casi siempre la palabra siguiente:
+     * "expedientes 12345678 y 87654321".
+     */
+    private static String trimLetter(String matched, boolean checksumValid) {
+        char last = matched.charAt(matched.length() - 1);
+        if (!Character.isLetter(last)) {
+            return matched;
+        }
+        int bodyEnd = matched.length() - 1;
+        while (bodyEnd > 0 && !Character.isDigit(matched.charAt(bodyEnd - 1))) {
+            bodyEnd--;
+        }
+        String separator = matched.substring(bodyEnd, matched.length() - 1);
+        boolean spaceOnly = !separator.isEmpty() && separator.isBlank();
+        if (spaceOnly && Character.isLowerCase(last) && !checksumValid) {
+            return matched.substring(0, bodyEnd);
+        }
+        return matched;
+    }
+
+    private static final String DNI_BODY = "(?:\\d{8}|\\d{2}\\.\\d{3}\\.\\d{3})";
+    private static final String NIE_DIGITS = "(?:\\d{7}|\\d\\.\\d{3}\\.\\d{3})";
+    /** Prefijo estrecho para codigos sin validar: en "y 1234567" la y es una conjuncion. */
+    private static final String NIE_BODY = "(?:[XYZ][\\s.-]?|[xyz]-?)" + NIE_DIGITS;
+    /** Con letra de control valida se admite guion entre espacios tras el prefijo: "X - 1234567L". */
+    private static final String VALIDATED_NIE_BODY = "[XYZxyz](?:\\s?-?\\s?|\\.)" + NIE_DIGITS;
+    /** Sin letra y seguido de moneda es un importe, no un codigo: "12.345.678 €". */
+    private static final String NOT_AN_AMOUNT = "(?!\\s?(?:€|(?i:eur(?:os?)?)(?![A-Za-z])))";
+
+    private static boolean validDocument(String value) {
+        return IdentifierValidators.isValidDni(value) || IdentifierValidators.isValidNie(value);
+    }
+
+    /**
+     * DNI: 8 digitos, seguidos o agrupados con puntos ("35.933.864K"), y una letra de
+     * control que cuadra. Sin letra, o con una que no cuadra, es un CODIGO.
+     */
     public static final class DniDetector extends RegexDetector {
         private static final Pattern PATTERN =
-                Pattern.compile("(?<![0-9A-Za-z])\\d{8}\\s?-?\\s?[A-Za-z](?![0-9A-Za-z])");
+                Pattern.compile("(?<![0-9A-Za-z])" + DNI_BODY + LETTER_SUFFIX);
 
         public DniDetector() {
             super("dni", PATTERN, DetectionType.DNI, Provenance.CHECKSUM_VALIDATED, 0.99);
+        }
+
+        @Override
+        protected String trim(String matched) {
+            return trimLetter(matched, IdentifierValidators.isValidDni(matched));
         }
 
         @Override
@@ -51,19 +100,91 @@ public final class DeterministicDetectors {
         }
     }
 
-    /** NIE: X, Y o Z, 7 digitos y letra de control. */
+    /** NIE: X, Y o Z, 7 digitos seguidos o agrupados con puntos, y letra de control valida. */
     public static final class NieDetector extends RegexDetector {
         private static final Pattern PATTERN =
-                Pattern.compile("(?<![0-9A-Za-z])[XYZxyz]\\s?-?\\s?\\d{7}\\s?-?\\s?[A-Za-z]"
-                        + "(?![0-9A-Za-z])");
+                Pattern.compile("(?<![0-9A-Za-z])" + VALIDATED_NIE_BODY + LETTER_SUFFIX);
 
         public NieDetector() {
             super("nie", PATTERN, DetectionType.NIE, Provenance.CHECKSUM_VALIDATED, 0.99);
         }
 
         @Override
+        protected String trim(String matched) {
+            return trimLetter(matched, IdentifierValidators.isValidNie(matched));
+        }
+
+        @Override
         protected boolean accepts(String value) {
             return IdentifierValidators.isValidNie(value);
+        }
+    }
+
+    /**
+     * Forma de DNI o NIE sin letra o con letra que no cuadra: un CODIGO que abarca el
+     * numero entero, puntos y letra incluidos, para no dejar fragmentos a la vista.
+     */
+    public static final class DocumentShapedCodeDetector extends RegexDetector {
+        private static final Pattern PATTERN = Pattern.compile(
+                "(?<![0-9A-Za-z])(?:" + DNI_BODY + "|" + NIE_BODY + ")"
+                        + "(?:\\s?-?\\s?[A-Za-z]|" + NOT_AN_AMOUNT + ")(?![0-9A-Za-z]|[.,]\\d)");
+
+        public DocumentShapedCodeDetector() {
+            super("codigo-documento", PATTERN, DetectionType.CODIGO, Provenance.REGEX, 0.80);
+        }
+
+        @Override
+        protected String trim(String matched) {
+            return trimLetter(matched, validDocument(matched));
+        }
+
+        @Override
+        protected boolean accepts(String value) {
+            return !validDocument(value);
+        }
+    }
+
+    /** Valor que sigue a "pasaporte" o "passport", con "n.º", "numero", "number"... opcionales. */
+    private static final Pattern PASSPORT_CONTEXT = Pattern.compile(
+            "(?iu)(?<![\\p{L}\\p{N}])(?:pasaporte|passport)"
+                    + "(?:\\s+(?:n\\.?\\s?[º°o]\\.?|n[uú]m(?:ero|\\.)?|number|nr\\.?))?"
+                    + "\\s*[:#]?\\s*([A-Za-z0-9]{6,9})(?![\\p{L}\\p{N}])");
+    private static final Pattern SPANISH_PASSPORT = Pattern.compile("[A-Z]{3}\\d{6}");
+
+    /**
+     * Pasaporte espanol: tres letras mayusculas y seis cifras ("PAA123456"), solo tras
+     * la palabra pasaporte. No tiene digito de control; el contexto es la garantia.
+     */
+    public static final class PassportDetector extends RegexDetector {
+        public PassportDetector() {
+            super("pasaporte", PASSPORT_CONTEXT, DetectionType.PASSPORT, Provenance.REGEX, 0.90);
+        }
+
+        @Override
+        protected int captureGroup() {
+            return 1;
+        }
+
+        @Override
+        protected boolean accepts(String value) {
+            return SPANISH_PASSPORT.matcher(value).matches();
+        }
+    }
+
+    /** Cualquier otro numero tras la palabra pasaporte, con al menos una cifra, es un CODIGO. */
+    public static final class PassportShapedCodeDetector extends RegexDetector {
+        public PassportShapedCodeDetector() {
+            super("codigo-pasaporte", PASSPORT_CONTEXT, DetectionType.CODIGO, Provenance.REGEX, 0.80);
+        }
+
+        @Override
+        protected int captureGroup() {
+            return 1;
+        }
+
+        @Override
+        protected boolean accepts(String value) {
+            return value.chars().anyMatch(Character::isDigit) && !SPANISH_PASSPORT.matcher(value).matches();
         }
     }
 

@@ -13,5 +13,5 @@ test('the document picker takes its accepted formats from the server-side format
 test('the empty dropzone names every supported format family', () => {
   const html = fs.readFileSync('src/main/resources/web/index.html', 'utf8');
 
-  assert.match(html, /id="drop-sub" class="drop-sub">PDF con capa de texto, Word, Excel, Markdown o TXT, o fotos JPEG\/PNG/);
+  assert.match(html, /id="drop-sub" class="drop-sub">PDF con capa de texto o escaneados, Word, Excel, Markdown o TXT, o fotos JPEG\/PNG; lo escaneado se lee localmente con Tesseract/);
 });

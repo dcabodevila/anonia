@@ -51,7 +51,8 @@ public abstract class RegexDetector implements DetectorPort {
         int group = captureGroup();
 
         while (matcher.find()) {
-            String value = matcher.group(group);
+            String matched = matcher.group(group);
+            String value = matched == null ? null : trim(matched);
             if (value == null || value.isBlank() || !accepts(value)) {
                 continue;
             }
@@ -59,7 +60,7 @@ public abstract class RegexDetector implements DetectorPort {
                     name + "-" + sequence.incrementAndGet(),
                     type,
                     matcher.start(group),
-                    matcher.end(group),
+                    matcher.start(group) + value.length(),
                     value,
                     entityKey(value),
                     provenance,
@@ -71,6 +72,11 @@ public abstract class RegexDetector implements DetectorPort {
     /** Grupo de captura que delimita el valor. Por defecto la coincidencia entera. */
     protected int captureGroup() {
         return 0;
+    }
+
+    /** Recorta por la derecha lo que el patron admite pero no forma parte del valor. */
+    protected String trim(String matched) {
+        return matched;
     }
 
     /** Validacion adicional: digito de control, rango, lista negra de falsos amigos. */

@@ -25,12 +25,14 @@ public final class DocumentFormatRegistry {
     }
 
     public static DocumentFormatRegistry standard() {
-        TextExtractorPort images = new TesseractImageTextExtractor();
+        TesseractImageTextExtractor images = new TesseractImageTextExtractor();
+        // Scanned PDF pages reuse the same local Tesseract configuration as photos.
+        TextExtractorPort pdfs = new PdfBoxTextExtractor(500, 50L * 1024 * 1024, images::recognize);
         TextExtractorPort words = new WordTextExtractor();
         TextExtractorPort workbooks = new ExcelTextExtractor();
         return new DocumentFormatRegistry(List.of(
                 new SignatureFormat("PDF", List.of(".pdf"), List.of("application/pdf"),
-                        new PdfBoxTextExtractor(), new int[] {'%', 'P', 'D', 'F', '-'}),
+                        pdfs, new int[] {'%', 'P', 'D', 'F', '-'}),
                 new SignatureFormat("JPEG", List.of(".jpg", ".jpeg"), List.of("image/jpeg"),
                         images, new int[] {0xff, 0xd8, 0xff}),
                 new SignatureFormat("PNG", List.of(".png"), List.of("image/png"),

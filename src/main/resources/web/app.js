@@ -17,7 +17,7 @@ const state = {
   detections: [],
   entities: new Map(),   // entityKey -> {type, sample, ids:[], count}
   rejected: new Set(),   // entityKeys descartadas
-  markdown: '', warningMarkdown: '', warningDownloadEligible: false,
+  markdown: '', warningMarkdown: '', warningDownloadEligible: false, resultEdited: false, resultPrefix: '',
   resultStatus: 'pending', resultStatusTitle: 'Resultado pendiente', resultStatusMessage: '', resultFindings: [],
   types: [], edits: [], revision: 0, analysisRequest: 0, applyRequest: 0, copyRequest: 0,
   activeTab: 'document', comparing: false,
@@ -73,6 +73,7 @@ function init() {
   el('apply').addEventListener('click', apply);
   el('download').addEventListener('click', download);
   el('copy').addEventListener('click', copyMarkdown);
+  el('markdown').addEventListener('input', editResult);
 
   el('compare').addEventListener('click', toggleCompare);
   el('entity-search').addEventListener('input', () => {
@@ -185,7 +186,7 @@ function resetDropzone() {
   el('dropzone').classList.remove('compact');
   el('document-chip').classList.add('hidden');
   el('drop-title').textContent = 'Arrastra un documento aquí o ';
-  el('drop-sub').textContent = 'PDF con capa de texto, Word, Excel, Markdown o TXT, o fotos JPEG/PNG leídas localmente con Tesseract en español.';
+  el('drop-sub').textContent = 'PDF con capa de texto o escaneados, Word, Excel, Markdown o TXT, o fotos JPEG/PNG; lo escaneado se lee localmente con Tesseract en español.';
 }
 
 function compactDropzone(file) {
@@ -823,6 +824,7 @@ function invalidateResult() {
   state.markdown = '';
   state.warningMarkdown = '';
   state.warningDownloadEligible = false;
+  state.resultEdited = false;
   state.resultFindings = [];
   resetResultPanels();
   setResultStatus('pending', 'Resultado pendiente', 'Revisa las entidades y pulsa «Anonimizar».');
@@ -1004,6 +1006,7 @@ function colorOf(type) {
 
 async function apply() {
   if (!state.jobId) return;
+  if (state.resultEdited && !confirm('Volver a anonimizar descartará tus ediciones del documento anonimizado. ¿Continuar?')) return;
   invalidateResult();
   const revision = state.revision;
   const request = ++state.applyRequest;
@@ -1111,11 +1114,32 @@ function renderResult(data, hasResult) {
     : 'ANONIMIZACIÓN BLOQUEADA: el resultado no se entrega.\n\n'
       + 'Revisa el estado del resultado para conocer el control que falló.';
   if (hasResult) renderComparisonResult(previewMarkdown(data.markdown), data.labels);
+  state.resultPrefix = hasResult ? data.markdown.slice(0, data.markdown.length - previewMarkdown(data.markdown).length) : '';
+  setResultEditable(hasResult);
   el('warning-note').textContent = 'Este resultado puede contener datos personales residuales. Descargar o copiar implica aceptar ese riesgo; no es seguro para entregar.';
   el('download').disabled = !deliverable && !(state.warningDownloadEligible && state.warningMarkdown);
   el('copy').disabled = !deliverable && !state.warningDownloadEligible;
   el('copy-label').textContent = 'Copiar';
   el('warning-note').classList.toggle('hidden', !state.warningDownloadEligible);
+}
+
+function setResultEditable(editable) {
+  const output = el('markdown');
+  output.contentEditable = editable ? 'plaintext-only' : 'false';
+  output.ariaReadOnly = String(!editable);
+  output.title = editable ? 'Puedes editar el resultado antes de descargarlo o copiarlo.' : '';
+}
+
+// Keep the hidden metadata comment: the preview strips it, the deliverable keeps it.
+function editResult() {
+  const warning = !state.markdown && state.warningDownloadEligible && !!state.warningMarkdown;
+  const original = warning ? state.warningMarkdown : state.markdown;
+  if (!original) return;
+  const output = el('markdown');
+  const edited = state.resultPrefix + (typeof output.innerText === 'string' ? output.innerText : output.textContent);
+  if (warning) state.warningMarkdown = edited;
+  else state.markdown = edited;
+  state.resultEdited = true;
 }
 
 function renderChecks(data, hasResult) {
@@ -1214,6 +1238,7 @@ function showToast(title, message, tone) {
 
 function resetResultPanels() {
   el('markdown').textContent = 'Pulsa «Anonimizar» para generar el resultado.'
+  setResultEditable(false);
   el('download').disabled = true;
   el('warning-note').classList.add('hidden');
   el('copy').disabled = true;
@@ -1403,5 +1428,5 @@ if (typeof module !== 'undefined') module.exports = {
   renderEntities,
   selectTab, toggleCompare, download, filteredEntities, setEntityFilters,
   selectEntityLocation, navigateEntityOccurrence, occurrenceIds, isHighlightActivation, restoreFocus,
-  copyMarkdown, previewMarkdown, projectComparison
+  copyMarkdown, previewMarkdown, projectComparison, editResult
 };

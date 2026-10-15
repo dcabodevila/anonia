@@ -70,6 +70,17 @@ public final class TesseractImageTextExtractor implements TextExtractorPort {
                 sha256(bytes));
     }
 
+    /** Recognizes one rendered PDF page through a temporary PNG that never outlives the call. */
+    public String recognize(int pageNumber, BufferedImage page) throws IOException {
+        Path image = Files.createTempFile("doc-anonymizer-page-", ".png");
+        try {
+            ImageIO.write(page, "png", image.toFile());
+            return runTesseract(image);
+        } finally {
+            Files.deleteIfExists(image);
+        }
+    }
+
     /** Writes an EXIF-corrected temporary PNG, or returns null when the photo is already upright. */
     private static Path uprightCopy(byte[] bytes) throws IOException {
         int orientation = JpegExifOrientation.read(bytes);

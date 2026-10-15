@@ -2,14 +2,14 @@
 
 **Versión 0.5.0** — Prototipo: **documentos y fotos → Markdown desidentificado**, 100 % offline.
 
-> **Instalación en Windows:** siga la [guía de instalación para clientes](packaging/windows/INSTALAR-WINDOWS.md). Para PDF con capa de texto, Word, Excel, Markdown o TXT, instale la aplicación directamente. Para imágenes JPEG/PNG, instale primero Tesseract OCR administrado externamente con español (`spa`) y valide `--list-langs`; después instale la aplicación. Java está incluido en el instalador. El procesamiento de documentos no usa red externa.
+> **Instalación en Windows:** siga la [guía de instalación para clientes](packaging/windows/INSTALAR-WINDOWS.md). Para PDF con capa de texto, Word, Excel, Markdown o TXT, instale la aplicación directamente. Para imágenes JPEG/PNG o PDF escaneados, instale primero Tesseract OCR administrado externamente con español (`spa`) y valide `--list-langs`; después instale la aplicación. Java está incluido en el instalador. El procesamiento de documentos no usa red externa.
 
 Toma un documento (PDF con capa de texto, Word `.docx`/`.doc`, Excel `.xlsx`/`.xls`,
 Markdown o TXT), detecta identificadores personales, los sustituye por
 etiquetas estables (`[PERSONA_001]`, `[DNI_002]`) y verifica sobre el fichero final que
 ningún valor detectado sobrevive. Si algún control falla, **no escribe el Markdown**.
 
-Procesa fotos JPEG/PNG con OCR local. No aplica OCR a PDF escaneados, no sale a la red y no genera un PDF.
+Procesa fotos JPEG/PNG y páginas escaneadas de PDF con OCR local. No sale a la red y no genera un PDF.
 
 ---
 
@@ -20,8 +20,8 @@ mvn -o clean package          # el jar se construye fuera de la imagen
 docker compose up -d --build
 ```
 
-Abre **http://127.0.0.1:8080**. Arrastra un documento (PDF con capa de texto, Word, Excel,
-Markdown o TXT) o una foto JPEG/PNG y
+Abre **http://127.0.0.1:8080**. Arrastra un documento (PDF con capa de texto o escaneado, Word,
+Excel, Markdown o TXT) o una foto JPEG/PNG y
 verás el documento con las detecciones resaltadas en su sitio.
 
 Para tener un PDF con datos sembrados a mano:
@@ -112,7 +112,7 @@ se mantienen las reglas incluidas; la revisión existente sigue disponible.
 
 | Formato | Extensiones | Cómo se reconoce | Qué se extrae |
 | --- | --- | --- | --- |
-| PDF | `.pdf` | firma `%PDF-` | capa de texto, página a página |
+| PDF | `.pdf` | firma `%PDF-` | capa de texto, página a página; las páginas escaneadas pasan por OCR local |
 | Fotos | `.jpg`, `.jpeg`, `.png` | firma JPEG/PNG | OCR local (Tesseract `spa`) |
 | Word | `.docx`, `.doc` | ZIP con `word/document.xml` / OLE2 con `WordDocument` | párrafos y tablas (celdas separadas por tabulador; un nombre nunca se extiende de una celda a otra) |
 | Excel | `.xlsx`, `.xls` | ZIP con `xl/workbook.xml` / OLE2 con `Workbook` | cada hoja como `## <hoja>` y una línea por fila, separadas por una línea en blanco, con sus celdas no vacías separadas por tabulador (las vacías se omiten), con números y fechas en formato español (`1.234,50`); las fórmulas aportan su valor guardado |
@@ -162,6 +162,26 @@ instalar o actualizar para que el proceso nuevo reciba la variable. El instalado
 incluye Tesseract, no cambia `PATH` ni `TESSDATA_PREFIX`, y no escribe configuración de
 máquina. Los errores de OCR no incluyen el contenido de la imagen ni rutas configuradas.
 
+### PDF escaneados
+
+La decisión se toma **por página**, así que un PDF puede mezclar páginas digitales y
+escaneadas:
+
+| Página | Lectura |
+|---|---|
+| Sin imágenes | Extracción exacta de la capa de texto |
+| Con imágenes y menos de 40 caracteres de texto | OCR local de la página completa |
+| Con imágenes que cubren al menos la mitad de la página | OCR local de la página completa |
+| Con texto y solo imágenes pequeñas (logos, sellos) | Extracción exacta; no necesita Tesseract |
+
+La página se renderiza completa a 300 ppp y se lee con el mismo Tesseract (`spa`) que las
+fotos, mediante una imagen temporal que se borra al terminar. En una página leída por OCR
+se usa solo el texto reconocido: nunca se mezcla con la capa de texto. Si el OCR falla o
+devuelve una página vacía, el documento se rechaza indicando el número de página.
+
+El texto dentro de imágenes pequeñas de una página con texto no se lee. El OCR puede
+omitir o deformar nombres: revise el resultado antes de compartirlo.
+
 ### Códigos de salida
 
 | Código | Significado |
@@ -199,8 +219,8 @@ el texto ya normalizado, y el 9 corre sobre el artefacto exacto que se escribe.
 **Guarda de cordura (2).** Hay PDF que se renderizan perfectamente y extraen basura,
 porque su `/ToUnicode` es incorrecto. Sin esta comprobación no se detectaría nada, la
 verificación pasaría —no hay valores que buscar— y se entregaría un fichero ilegible que
-el usuario creería anonimizado. Falla cerrado. Los PDF escaneados siguen fuera de alcance;
-para fotos JPEG/PNG se usa el OCR local descrito arriba. La guarda solo se aplica al texto
+el usuario creería anonimizado. Falla cerrado. Las páginas escaneadas de un PDF y las fotos JPEG/PNG pasan antes por el
+OCR local descrito arriba, y la guarda se aplica igual al texto reconocido. La guarda solo se aplica al texto
 inferido a partir de lo renderizado (PDF y OCR): Word, Excel, Markdown y TXT guardan su texto
 tal cual (`ExtractedDocument.nativeText`), así que un documento corto o numérico es válido y
 solo se rechaza si no contiene texto.
@@ -339,7 +359,15 @@ reformateado, ni sin acentos, ni como apellido suelto.
 Incluye **controles negativos**, sin los cuales la prueba sería vacua: un pipeline que lo
 ocultara todo pasaría cualquier test de fugas siendo inútil. Por eso se exige además que
 `87654321A` (forma de DNI, dígito de control inválido → referencia interna, no dato
-personal) **siga presente**, y que el contenido legítimo del documento se conserve.
+personal) **no se clasifique como DNI**, sino como `CODIGO`, y que el contenido legítimo
+del documento se conserve.
+
+Solo es DNI o NIE el número cuya letra de control cuadra, con o sin puntos y con la
+letra pegada, tras guion o tras espacio (`35.933.864K`, `45.411.121-J`). Sin letra o con
+letra errónea (`35.933.864`, `34.544.121P`) es un único `CODIGO`, salvo que le siga una
+moneda (`12.345.678 €`, `12.345.678 euros`): entonces es un importe y se conserva. Pasaporte
+(`[PASAPORTE_001]`) es solo el formato español, tres letras y seis cifras (`PAA123456`),
+tras la palabra «pasaporte» o «passport»; cualquier otro número en esa posición es `CODIGO`.
 
 ---
 
