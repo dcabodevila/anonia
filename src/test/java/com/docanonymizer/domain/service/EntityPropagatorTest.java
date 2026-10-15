@@ -30,4 +30,28 @@ class EntityPropagatorTest {
                 hits.stream().map(Detection::value).toList());
         assertTrue(hits.stream().allMatch(d -> d.entityKey().equals(seed.entityKey())));
     }
+
+    @Test
+    void propagatedRepetitionsNeverCrossATableCellOrABlankLine() {
+        String text = "Juan Perez Lopez\n\nJuan Perez\tLopez\n\nJuan Perez\n\nLopez";
+        var seed = new Detection("seed", DetectionType.PERSON, 0, 16,
+                "Juan Perez Lopez", "seed-key", Provenance.STRUCTURAL_CUE, .95);
+
+        var found = new EntityPropagator().propagate(text, List.of(seed));
+
+        assertTrue(found.stream().noneMatch(d -> d.value().contains("\t") || d.value().contains("\n\n")),
+                () -> found.stream().map(Detection::value).toList().toString());
+    }
+
+    @Test
+    void propagatedRepetitionStillJoinsASingleLineWrap() {
+        String text = "Juan Perez Lopez. Comparece de nuevo Juan Perez\nLopez en el acto.";
+        var seed = new Detection("seed", DetectionType.PERSON, 0, 16,
+                "Juan Perez Lopez", "seed-key", Provenance.STRUCTURAL_CUE, .95);
+
+        var found = new EntityPropagator().propagate(text, List.of(seed));
+
+        assertTrue(found.stream().anyMatch(d -> d.value().equals("Juan Perez\nLopez")),
+                () -> found.stream().map(Detection::value).toList().toString());
+    }
 }

@@ -22,4 +22,10 @@ class NamePolicyTest {
         assertEquals(3, NamePolicy.findOccurrences("Fernández fernandez FERNÁNDEZ", "fernandez").size());
         assertEquals(1, NamePolicy.findOccurrences("li wang", "Li Wang").size());
     }
+
+    @Test
+    void leakSearchStillFindsANameSplitAcrossCellsOrParagraphs() {
+        assertEquals(1, NamePolicy.findOccurrences("x Juan Perez\tLopez y", "Juan Perez Lopez").size());
+        assertEquals(1, NamePolicy.findOccurrences("x Juan Perez\n\nLopez y", "Juan Perez Lopez").size());
+    }
 }
