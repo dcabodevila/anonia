@@ -102,4 +102,21 @@ class NativeTextSanityTest {
             return out.toByteArray();
         }
     }
+
+    @Test void workbookWithoutTextIsRejectedWithAFormatNeutralMessage() throws Exception {
+        byte[] content;
+        try (Workbook workbook = new XSSFWorkbook()) {
+            workbook.createSheet("Hoja1");
+            workbook.createSheet("Hoja2").createRow(0).createCell(0).setCellValue(" ");
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            workbook.write(out);
+            content = out.toByteArray();
+        }
+        Path source = Files.write(temp.resolve("vacio.xlsx"), content);
+
+        var error = assertThrows(DocumentNotProcessableException.class,
+                () -> PipelineFactory.standard().analyze(source));
+
+        assertEquals("El documento no contiene texto.", error.getMessage());
+    }
 }

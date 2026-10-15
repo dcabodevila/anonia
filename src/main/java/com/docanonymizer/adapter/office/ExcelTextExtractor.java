@@ -19,11 +19,12 @@ import org.apache.poi.ss.usermodel.WorkbookFactory;
 /**
  * Extracts Excel workbook text (.xlsx and legacy .xls) as a single page.
  *
- * <p>Each sheet starts with a {@code ## <sheet name>} line followed by one line per non-empty
- * row: its non-blank cells, formatted as Excel displays them and separated by tabs. Blank
- * cells are skipped rather than padded, so a far sparse cell cannot inflate the output. Formulas contribute their cached result,
- * never their expression, and are not re-evaluated. A single page keeps column headers that
- * repeat across sheets from being removed as page headers.
+ * <p>Each sheet with text starts with a {@code ## <sheet name>} line followed by one line per
+ * non-empty row: its non-blank cells, formatted as Excel displays them and separated by tabs.
+ * Blank cells are skipped rather than padded, so a far sparse cell cannot inflate the output.
+ * Sheets without text are left out. Formulas contribute their cached result, never their
+ * expression, and are not re-evaluated. A single page keeps column headers that repeat across
+ * sheets from being removed as page headers.
  */
 public final class ExcelTextExtractor implements TextExtractorPort {
 
@@ -55,16 +56,22 @@ public final class ExcelTextExtractor implements TextExtractorPort {
         formatter.setUseCachedValuesForFormulaCells(true);
         List<String> lines = new ArrayList<>();
         for (Sheet sheet : workbook) {
+            List<String> rows = new ArrayList<>();
+            for (Row row : sheet) {
+                String line = rowText(row, formatter);
+                if (!line.isBlank()) {
+                    rows.add(line);
+                }
+            }
+            if (rows.isEmpty()) {
+                // A heading alone would make a workbook without text look non-empty.
+                continue;
+            }
             if (!lines.isEmpty()) {
                 lines.add("");
             }
             lines.add("## " + sheet.getSheetName());
-            for (Row row : sheet) {
-                String line = rowText(row, formatter);
-                if (!line.isBlank()) {
-                    lines.add(line);
-                }
-            }
+            lines.addAll(rows);
         }
         return lines;
     }

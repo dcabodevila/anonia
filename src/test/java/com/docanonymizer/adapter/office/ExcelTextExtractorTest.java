@@ -99,4 +99,18 @@ class ExcelTextExtractorTest {
         workbook.write(out);
         return out.toByteArray();
     }
+
+    @Test void sheetsWithoutTextAreLeftOut() throws Exception {
+        byte[] content;
+        try (Workbook workbook = new XSSFWorkbook()) {
+            workbook.createSheet("Vacía");
+            workbook.createSheet("Datos").createRow(0).createCell(0).setCellValue("12345678Z");
+            workbook.createSheet("Blancos").createRow(3).createCell(1).setCellValue("  ");
+            content = bytes(workbook);
+        }
+        Path source = Files.write(temp.resolve("hojas.xlsx"), content);
+
+        assertEquals(List.of("## Datos", "12345678Z"),
+                new ExcelTextExtractor().extract(source).pages().get(0).lines());
+    }
 }
