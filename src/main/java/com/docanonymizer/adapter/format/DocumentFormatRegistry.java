@@ -1,6 +1,7 @@
 package com.docanonymizer.adapter.format;
 
 import com.docanonymizer.adapter.ocr.TesseractImageTextExtractor;
+import com.docanonymizer.adapter.office.ExcelTextExtractor;
 import com.docanonymizer.adapter.office.WordTextExtractor;
 import com.docanonymizer.adapter.pdf.PdfBoxTextExtractor;
 import com.docanonymizer.adapter.text.PlainTextExtractor;
@@ -26,6 +27,7 @@ public final class DocumentFormatRegistry {
     public static DocumentFormatRegistry standard() {
         TextExtractorPort images = new TesseractImageTextExtractor();
         TextExtractorPort words = new WordTextExtractor();
+        TextExtractorPort workbooks = new ExcelTextExtractor();
         return new DocumentFormatRegistry(List.of(
                 new SignatureFormat("PDF", List.of(".pdf"), List.of("application/pdf"),
                         new PdfBoxTextExtractor(), new int[] {'%', 'P', 'D', 'F', '-'}),
@@ -38,6 +40,11 @@ public final class DocumentFormatRegistry {
                         words, ContainerFormat.Container.ZIP, "word/document.xml"),
                 new ContainerFormat("Word", List.of(".doc"), List.of("application/msword"),
                         words, ContainerFormat.Container.OLE2, "WordDocument"),
+                new ContainerFormat("Excel", List.of(".xlsx"),
+                        List.of("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+                        workbooks, ContainerFormat.Container.ZIP, "xl/workbook.xml"),
+                new ContainerFormat("Excel", List.of(".xls"), List.of("application/vnd.ms-excel"),
+                        workbooks, ContainerFormat.Container.OLE2, "Workbook"),
                 // Extension-recognised formats last: any real signature above wins.
                 new TextFormat("Markdown", List.of(".md", ".markdown"), List.of("text/markdown"),
                         new PlainTextExtractor()),
