@@ -20,7 +20,8 @@ import org.apache.poi.ss.usermodel.WorkbookFactory;
  * Extracts Excel workbook text (.xlsx and legacy .xls) as a single page.
  *
  * <p>Each sheet starts with a {@code ## <sheet name>} line followed by one line per non-empty
- * row, cells separated by tabs as Excel displays them. Formulas contribute their cached result,
+ * row: its non-blank cells, formatted as Excel displays them and separated by tabs. Blank
+ * cells are skipped rather than padded, so a far sparse cell cannot inflate the output. Formulas contribute their cached result,
  * never their expression, and are not re-evaluated. A single page keeps column headers that
  * repeat across sheets from being removed as page headers.
  */
@@ -70,14 +71,12 @@ public final class ExcelTextExtractor implements TextExtractorPort {
 
     private static String rowText(Row row, DataFormatter formatter) {
         List<String> cells = new ArrayList<>();
-        for (int column = 0; column < Math.max(row.getLastCellNum(), 0); column++) {
-            Cell cell = row.getCell(column);
-            cells.add(cell == null ? "" : formatter.formatCellValue(cell).replaceAll("\\R", " "));
+        for (Cell cell : row) {
+            String value = formatter.formatCellValue(cell).replaceAll("\\R", " ");
+            if (!value.isBlank()) {
+                cells.add(value);
+            }
         }
-        int end = cells.size();
-        while (end > 0 && cells.get(end - 1).isBlank()) {
-            end--;
-        }
-        return String.join("\t", cells.subList(0, end));
+        return String.join("\t", cells);
     }
 }

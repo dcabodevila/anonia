@@ -12,7 +12,11 @@ import com.docanonymizer.domain.port.TextExtractorPort;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.io.ByteArrayOutputStream;
 import java.util.List;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -72,5 +76,27 @@ class ExcelTextExtractorTest {
         assertTrue(registry.unsupportedMessage().equals(
                 "Formato no admitido. Formatos admitidos: PDF, JPEG, PNG, Word, Excel, Markdown, TXT."),
                 registry.unsupportedMessage());
+    }
+
+    @Test void sparseRowsKeepOnlyTheirNonBlankCells() throws Exception {
+        byte[] content;
+        try (Workbook workbook = new XSSFWorkbook()) {
+            Row row = workbook.createSheet("Datos").createRow(0);
+            row.createCell(0).setCellValue("Juan García Pérez");
+            row.createCell(2).setCellValue("12345678Z");
+            row.createCell(5).setCellValue("");
+            row.createCell(16_383).setCellValue("Madrid");
+            content = bytes(workbook);
+        }
+        Path source = Files.write(temp.resolve("disperso.xlsx"), content);
+
+        assertEquals(List.of("## Datos", "Juan García Pérez\t12345678Z\tMadrid"),
+                new ExcelTextExtractor().extract(source).pages().get(0).lines());
+    }
+
+    private static byte[] bytes(Workbook workbook) throws Exception {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        workbook.write(out);
+        return out.toByteArray();
     }
 }
