@@ -75,12 +75,12 @@ function textPng(text) {
   ]);
 }
 
-function runJava(args) {
+function runJava(args, label = 'JPEG fixture generator') {
   return new Promise((resolve, reject) => {
     const child = spawn('java', args, { windowsHide: true, stdio: 'ignore' });
     child.once('error', reject);
     child.once('exit', code => code === 0 ? resolve() : reject(
-      new Error(`JPEG fixture generator exited with ${code}`)));
+      new Error(`${label} exited with ${code}`)));
   });
 }
 
@@ -109,7 +109,8 @@ class JpegFixture {
 async function createFixtures(runtime) {
   const fixtureDir = path.join(runtime, 'fixtures');
   await fs.mkdir(fixtureDir, { recursive: true });
-  await fs.writeFile(path.join(fixtureDir, 'invalid.txt'), 'not a supported document');
+  await fs.writeFile(path.join(fixtureDir, 'invalid.bin'), Buffer.from([0x00, 0x01, 0x02, 0xff, 0xfe, 0x00, 0x7f, 0x80]));
+  await fs.writeFile(path.join(fixtureDir, 'blank.txt'), ' \n\t\n');
   await fs.writeFile(path.join(fixtureDir, 'empty.pdf'), Buffer.alloc(0));
   await fs.writeFile(path.join(fixtureDir, 'corrupt.pdf'), '%PDF-1.7\nnot a real PDF');
   await fs.writeFile(path.join(fixtureDir, 'ocr-seeded.png'),
@@ -118,4 +119,68 @@ async function createFixtures(runtime) {
   return fixtureDir;
 }
 
-module.exports = { createFixtures };
+// Same synthetic text as src/test/resources/formats/sample.doc, so every format shares one oracle.
+const SEEDED_LINES = [
+  'Acta de prueba sintética',
+  'Comparece Juan García Pérez con DNI 12345678Z.',
+  'Titular: María López Ruiz'
+];
+
+/**
+ * Native-text fixtures for the formats added after PDF/JPEG/PNG. Word and Excel files are
+ * written by Apache POI from the packaged JAR, so the suite needs no extra npm dependency.
+ */
+async function createDocumentFixtures(runtime, jar) {
+  const root = path.resolve(__dirname, '..', '..');
+  const fixtureDir = path.join(runtime, 'fixtures');
+  await fs.writeFile(path.join(fixtureDir, 'seeded.txt'), SEEDED_LINES.join('\n') + '\n', 'utf8');
+  await fs.writeFile(path.join(fixtureDir, 'seeded.md'),
+    ['# ' + SEEDED_LINES[0], '', SEEDED_LINES[1], '', '- ' + SEEDED_LINES[2]].join('\n') + '\n', 'utf8');
+  await fs.copyFile(path.join(root, 'src', 'test', 'resources', 'formats', 'sample.doc'),
+    path.join(fixtureDir, 'seeded.doc'));
+  const generator = path.join(runtime, 'OfficeFixture.java');
+  await fs.writeFile(generator, `
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.apache.poi.xwpf.usermodel.XWPFTable;
+class OfficeFixture {
+  public static void main(String[] args) throws Exception {
+    Path dir = Path.of(args[0]);
+    try (XWPFDocument document = new XWPFDocument();
+         OutputStream out = Files.newOutputStream(dir.resolve("seeded.docx"))) {
+      document.createParagraph().createRun().setText("${SEEDED_LINES[0]}");
+      document.createParagraph().createRun().setText("${SEEDED_LINES[1]}");
+      XWPFTable table = document.createTable(1, 2);
+      table.getRow(0).getCell(0).setText("Titular");
+      table.getRow(0).getCell(1).setText("María López Ruiz");
+      document.write(out);
+    }
+    workbook(new XSSFWorkbook(), dir.resolve("seeded.xlsx"));
+    workbook(new HSSFWorkbook(), dir.resolve("seeded.xls"));
+  }
+  static void workbook(Workbook workbook, Path target) throws Exception {
+    try (workbook; OutputStream out = Files.newOutputStream(target)) {
+      Sheet sheet = workbook.createSheet("Comparecientes");
+      String[][] rows = {{"Descripción", "Importe"},
+          {"${SEEDED_LINES[1]}", "1500"}, {"${SEEDED_LINES[2]}", "3000"}};
+      for (int i = 0; i < rows.length; i++) {
+        Row row = sheet.createRow(i);
+        row.createCell(0).setCellValue(rows[i][0]);
+        if (i == 0) row.createCell(1).setCellValue(rows[i][1]);
+        else row.createCell(1).setCellValue(Double.parseDouble(rows[i][1]));
+      }
+      workbook.write(out);
+    }
+  }
+}`, 'utf8');
+  await runJava(['-Dfile.encoding=UTF-8', '-cp', jar, generator, fixtureDir], 'Office fixture generator');
+}
+
+module.exports = { createFixtures, createDocumentFixtures };
