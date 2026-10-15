@@ -1,10 +1,11 @@
 # doc-anonymizer
 
-**Versión 0.5.0** — Prototipo: **PDF y fotos → Markdown desidentificado**, 100 % offline.
+**Versión 0.5.0** — Prototipo: **documentos y fotos → Markdown desidentificado**, 100 % offline.
 
-> **Instalación en Windows:** siga la [guía de instalación para clientes](packaging/windows/INSTALAR-WINDOWS.md). Para PDF con capa de texto, instale la aplicación directamente. Para imágenes JPEG/PNG, instale primero Tesseract OCR administrado externamente con español (`spa`) y valide `--list-langs`; después instale la aplicación. Java está incluido en el instalador. El procesamiento de documentos no usa red externa.
+> **Instalación en Windows:** siga la [guía de instalación para clientes](packaging/windows/INSTALAR-WINDOWS.md). Para PDF con capa de texto, Word, Excel, Markdown o TXT, instale la aplicación directamente. Para imágenes JPEG/PNG, instale primero Tesseract OCR administrado externamente con español (`spa`) y valide `--list-langs`; después instale la aplicación. Java está incluido en el instalador. El procesamiento de documentos no usa red externa.
 
-Toma un PDF con capa de texto, detecta identificadores personales, los sustituye por
+Toma un documento (PDF con capa de texto, Word `.docx`/`.doc`, Excel `.xlsx`/`.xls`,
+Markdown o TXT), detecta identificadores personales, los sustituye por
 etiquetas estables (`[PERSONA_001]`, `[DNI_002]`) y verifica sobre el fichero final que
 ningún valor detectado sobrevive. Si algún control falla, **no escribe el Markdown**.
 
@@ -19,7 +20,8 @@ mvn -o clean package          # el jar se construye fuera de la imagen
 docker compose up -d --build
 ```
 
-Abre **http://127.0.0.1:8080**. Arrastra un PDF con capa de texto o una foto JPEG/PNG y
+Abre **http://127.0.0.1:8080**. Arrastra un documento (PDF con capa de texto, Word, Excel,
+Markdown o TXT) o una foto JPEG/PNG y
 verás el documento con las detecciones resaltadas en su sitio.
 
 Para tener un PDF con datos sembrados a mano:
@@ -105,6 +107,21 @@ se aplican a todos los documentos procesados con ese archivo:** el texto excluid
 seguir apareciendo en claro. Revise el resultado antes de compartirlo. Los términos
 explícitos reciben `[TERMINO_###]` y las organizaciones `[ORGANIZACION_###]`. Sin archivo
 se mantienen las reglas incluidas; la revisión existente sigue disponible.
+
+### Formatos de entrada
+
+| Formato | Extensiones | Cómo se reconoce | Qué se extrae |
+| --- | --- | --- | --- |
+| PDF | `.pdf` | firma `%PDF-` | capa de texto, página a página |
+| Fotos | `.jpg`, `.jpeg`, `.png` | firma JPEG/PNG | OCR local (Tesseract `spa`) |
+| Word | `.docx`, `.doc` | ZIP con `word/document.xml` / OLE2 con `WordDocument` | párrafos y tablas (celdas separadas por tabulador) |
+| Excel | `.xlsx`, `.xls` | ZIP con `xl/workbook.xml` / OLE2 con `Workbook` | cada hoja como `## <hoja>` y una línea por fila; las fórmulas aportan su valor guardado |
+| Markdown | `.md`, `.markdown` | extensión declarada y contenido no binario | el texto tal cual |
+| TXT | `.txt` | extensión declarada y contenido no binario | el texto tal cual (UTF-8/UTF-16 con BOM o windows-1252) |
+
+Los formatos binarios se reconocen por su contenido real, nunca por la extensión. Markdown y
+TXT no tienen firma, así que la interfaz web envía el nombre del fichero (cabecera
+`X-File-Name`) y el servidor solo conserva su extensión.
 
 ### OCR local para fotos JPEG/PNG
 
@@ -276,8 +293,11 @@ domain/
   port/      TextExtractorPort, DetectorPort, GazetteerPort, ReviewPort
   service/   pipeline, normalización, detección, propagación, verificación
 adapter/
+  format/    DocumentFormat, DocumentFormatRegistry (alta de formatos), LocalDocumentTextExtractor
   pdf/       PdfBoxTextExtractor
   ocr/       TesseractImageTextExtractor (JPEG/PNG, modelo spa local)
+  office/    WordTextExtractor, ExcelTextExtractor (Apache POI)
+  text/      PlainTextExtractor (Markdown y TXT)
   detector/  regex + validadores + pistas estructurales + diccionario
   gazetteer/ ResourceGazetteer
   review/    AutoAcceptReview
@@ -288,6 +308,17 @@ tools/       SampleDocumentGenerator (corpus de prueba)
 
 El dominio no conoce PDFBox, Tesseract ni las expresiones regulares: solo puertos. El OCR
 local implementa `TextExtractorPort` sin tocar el núcleo.
+
+### Añadir un formato de entrada
+
+1. Implementa `TextExtractorPort` para el formato (lee con `SourceFiles.readBounded` y
+   devuelve `ExtractedDocument`; los mensajes de error nunca incluyen contenido).
+2. Regístralo en `DocumentFormatRegistry.standard()` con el reconocedor que le toque:
+   `SignatureFormat` (firma fija), `ContainerFormat` (entrada dentro de un ZIP/OLE2),
+   `TextFormat` (solo extensión, siempre al final) o una implementación propia de
+   `DocumentFormat`. El orden de registro es la prioridad.
+3. Actualiza el `accept` de `index.html`: `PickerFormatsTest` falla hasta que coincida con
+   el registro. La ayuda del CLI y el mensaje de formato no admitido salen del registro solos.
 
 ---
 
@@ -313,7 +344,8 @@ personal) **siga presente**, y que el contenido legítimo del documento se conse
 
 - Java 17+ (probado con 17.0.6; el briefing apuntaba a 21, no disponible en este equipo)
 - Maven 3.8+
-- Apache PDFBox 3.0.6 — única dependencia de ejecución
+- Apache PDFBox 3.0.6 — extracción de PDF
+- Apache POI 5.5.1 (`poi`, `poi-ooxml`, `poi-scratchpad`) — Word y Excel
 
 Sin red en tiempo de ejecución. Sin telemetría. Sin descarga de modelos.
 

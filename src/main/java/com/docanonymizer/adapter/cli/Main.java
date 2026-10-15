@@ -1,6 +1,8 @@
 package com.docanonymizer.adapter.cli;
 
 import com.docanonymizer.adapter.PipelineFactory;
+import com.docanonymizer.adapter.format.DocumentFormat;
+import com.docanonymizer.adapter.format.DocumentFormatRegistry;
 import com.docanonymizer.domain.model.AnonymizationResult;
 import com.docanonymizer.domain.model.Detection;
 import com.docanonymizer.domain.model.Finding;
@@ -12,6 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.stream.Collectors;
 
 /**
  * Punto de entrada del prototipo.
@@ -124,10 +127,12 @@ public final class Main {
 
     private static void printUsage() {
         System.out.println("""
-                doc-anonymizer - PDF nativo -> Markdown desidentificado (100% offline)
+                doc-anonymizer - documento -> Markdown desidentificado (100%% offline)
 
                 Uso:
-                  doc-anonymizer <entrada.pdf> [opciones]
+                  doc-anonymizer <documento> [opciones]
+
+                %s
 
                 Opciones:
                   -o, --output <fichero>   Markdown de salida (por defecto: <entrada>.anon.md)
@@ -141,7 +146,14 @@ public final class Main {
                   0  documento entregado
                   1  error de uso o documento rechazado
                   2  verificacion bloqueada: el resultado NO se escribe
-                """);
+                """.formatted(supportedFormats()));
+    }
+
+    private static String supportedFormats() {
+        return DocumentFormatRegistry.standard().formats().stream()
+                .map(DocumentFormat::displayName)
+                .distinct()
+                .collect(Collectors.joining(", ", "Formatos admitidos: ", "."));
     }
 
     record Options(
@@ -185,7 +197,7 @@ public final class Main {
                 }
             }
             if (input == null) {
-                throw new IllegalArgumentException("Falta el fichero PDF de entrada.");
+                throw new IllegalArgumentException("Falta el documento de entrada.");
             }
             return new Options(
                     input,
