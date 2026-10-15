@@ -47,7 +47,7 @@ public final class WebServer {
     private static final int THREADS = 4;
     private static final String ACCEPT_MARKER = "{{DOCUMENT_ACCEPT}}";
 
-    private final AnonymizationPipeline pipeline = PipelineFactory.standard();
+    private final AnonymizationPipeline pipeline;
     private final JobStore jobs = new JobStore();
     private final String bindAddress;
     private final int port;
@@ -61,6 +61,8 @@ public final class WebServer {
         this.bindAddress = bindAddress;
         this.port = port;
         this.formats = formats;
+        // One registry for both: the picker never offers a format the pipeline would reject.
+        this.pipeline = PipelineFactory.standard(formats);
     }
 
     public static void main(String[] args) throws IOException {

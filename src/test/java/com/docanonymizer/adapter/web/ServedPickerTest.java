@@ -13,13 +13,14 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
-/** Registering a format is enough for the browser picker to offer it: no HTML edit. */
+/** Registering a format is enough for the browser picker to offer it and the server to analyse it. */
 class ServedPickerTest {
 
     @Test void servedPickerAcceptsExactlyTheStandardRegistry() throws Exception {
@@ -40,6 +41,28 @@ class ServedPickerTest {
 
         assertEquals(registry.acceptAttribute(), accept);
         assertTrue(accept.contains(".future") && accept.contains("text/x-future"), accept);
+    }
+
+    @Test void aNewlyRegisteredFormatIsAlsoAnalysed() throws Exception {
+        List<DocumentFormat> formats = new ArrayList<>(DocumentFormatRegistry.standard().formats());
+        formats.add(new TextFormat("Futuro", List.of(".future"), List.of("text/x-future"),
+                source -> ExtractedDocument.nativeText(List.of(new PageText(1,
+                        List.of("Juan García Pérez firmó con DNI 12345678Z."))), "sha")));
+        HttpServer server = new WebServer("127.0.0.1", 0, new DocumentFormatRegistry(formats)).start();
+        try {
+            HttpResponse<String> response = HttpClient.newHttpClient().send(
+                    HttpRequest.newBuilder(URI.create(
+                                    "http://127.0.0.1:" + server.getAddress().getPort() + "/api/analyze"))
+                            .header("X-File-Name", "nota.future")
+                            .POST(HttpRequest.BodyPublishers.ofString("contenido futuro", StandardCharsets.UTF_8))
+                            .build(),
+                    HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+
+            assertEquals(200, response.statusCode(), response.body());
+            assertTrue(response.body().contains("12345678Z"), response.body());
+        } finally {
+            server.stop(0);
+        }
     }
 
     private static String servedAccept(DocumentFormatRegistry registry, String path) throws Exception {

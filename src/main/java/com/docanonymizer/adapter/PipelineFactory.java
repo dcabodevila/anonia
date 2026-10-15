@@ -12,6 +12,7 @@ import com.docanonymizer.adapter.gazetteer.ResourceGazetteer;
 import com.docanonymizer.adapter.gazetteer.UserRules;
 import com.docanonymizer.domain.port.GazetteerPort;
 import com.docanonymizer.domain.service.CanonicalForm;
+import com.docanonymizer.adapter.format.DocumentFormatRegistry;
 import com.docanonymizer.adapter.format.LocalDocumentTextExtractor;
 import com.docanonymizer.adapter.review.AutoAcceptReview;
 import com.docanonymizer.domain.port.DetectorPort;
@@ -34,13 +35,23 @@ public final class PipelineFactory {
     }
 
     public static AnonymizationPipeline standard() {
-        return withReview(new AutoAcceptReview(), Clock.systemUTC());
+        return standard(DocumentFormatRegistry.standard());
+    }
+
+    /** Standard pipeline that accepts exactly the formats of {@code formats}. */
+    public static AnonymizationPipeline standard(DocumentFormatRegistry formats) {
+        return withReview(new AutoAcceptReview(), Clock.systemUTC(), formats);
     }
 
     public static AnonymizationPipeline withReview(ReviewPort review, Clock clock) {
+        return withReview(review, clock, DocumentFormatRegistry.standard());
+    }
+
+    private static AnonymizationPipeline withReview(ReviewPort review, Clock clock,
+            DocumentFormatRegistry formats) {
         UserRules rules = UserRules.loadDefault();
         return new AnonymizationPipeline(
-                new LocalDocumentTextExtractor(),
+                new LocalDocumentTextExtractor(formats),
                 new DetectionEngine(defaultDetectors(rules)),
                 review,
                 new RunScopedIdentifier(),
