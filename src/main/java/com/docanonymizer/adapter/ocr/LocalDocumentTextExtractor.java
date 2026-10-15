@@ -14,7 +14,12 @@ public final class LocalDocumentTextExtractor implements TextExtractorPort {
     private final TextExtractorPort imageExtractor;
 
     public LocalDocumentTextExtractor() {
-        this(new PdfBoxTextExtractor(), new TesseractImageTextExtractor());
+        this(new TesseractImageTextExtractor());
+    }
+
+    /** Scanned PDF pages reuse the same local Tesseract configuration as photos. */
+    private LocalDocumentTextExtractor(TesseractImageTextExtractor ocr) {
+        this(new PdfBoxTextExtractor(500, 50L * 1024 * 1024, ocr::recognize), ocr);
     }
 
     LocalDocumentTextExtractor(TextExtractorPort pdfExtractor, TextExtractorPort imageExtractor) {

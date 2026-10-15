@@ -184,7 +184,7 @@ function resetDropzone() {
   el('dropzone').classList.remove('compact');
   el('document-chip').classList.add('hidden');
   el('drop-title').textContent = 'Arrastra un PDF aquí o ';
-  el('drop-sub').textContent = 'PDF con capa de texto, o fotos JPEG/PNG leídas localmente con Tesseract en español.';
+  el('drop-sub').textContent = 'PDF con capa de texto o escaneados, o fotos JPEG/PNG; lo escaneado se lee localmente con Tesseract en español.';
 }
 
 function compactDropzone(file) {

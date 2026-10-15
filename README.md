@@ -2,13 +2,13 @@
 
 **Versión 0.5.0** — Prototipo: **PDF y fotos → Markdown desidentificado**, 100 % offline.
 
-> **Instalación en Windows:** siga la [guía de instalación para clientes](packaging/windows/INSTALAR-WINDOWS.md). Para PDF con capa de texto, instale la aplicación directamente. Para imágenes JPEG/PNG, instale primero Tesseract OCR administrado externamente con español (`spa`) y valide `--list-langs`; después instale la aplicación. Java está incluido en el instalador. El procesamiento de documentos no usa red externa.
+> **Instalación en Windows:** siga la [guía de instalación para clientes](packaging/windows/INSTALAR-WINDOWS.md). Para PDF con capa de texto, instale la aplicación directamente. Para imágenes JPEG/PNG o PDF escaneados, instale primero Tesseract OCR administrado externamente con español (`spa`) y valide `--list-langs`; después instale la aplicación. Java está incluido en el instalador. El procesamiento de documentos no usa red externa.
 
 Toma un PDF con capa de texto, detecta identificadores personales, los sustituye por
 etiquetas estables (`[PERSONA_001]`, `[DNI_002]`) y verifica sobre el fichero final que
 ningún valor detectado sobrevive. Si algún control falla, **no escribe el Markdown**.
 
-Procesa fotos JPEG/PNG con OCR local. No aplica OCR a PDF escaneados, no sale a la red y no genera un PDF.
+Procesa fotos JPEG/PNG y páginas escaneadas de PDF con OCR local. No sale a la red y no genera un PDF.
 
 ---
 
@@ -19,7 +19,7 @@ mvn -o clean package          # el jar se construye fuera de la imagen
 docker compose up -d --build
 ```
 
-Abre **http://127.0.0.1:8080**. Arrastra un PDF con capa de texto o una foto JPEG/PNG y
+Abre **http://127.0.0.1:8080**. Arrastra un PDF (con capa de texto o escaneado) o una foto JPEG/PNG y
 verás el documento con las detecciones resaltadas en su sitio.
 
 Para tener un PDF con datos sembrados a mano:
@@ -145,6 +145,26 @@ instalar o actualizar para que el proceso nuevo reciba la variable. El instalado
 incluye Tesseract, no cambia `PATH` ni `TESSDATA_PREFIX`, y no escribe configuración de
 máquina. Los errores de OCR no incluyen el contenido de la imagen ni rutas configuradas.
 
+### PDF escaneados
+
+La decisión se toma **por página**, así que un PDF puede mezclar páginas digitales y
+escaneadas:
+
+| Página | Lectura |
+|---|---|
+| Sin imágenes | Extracción exacta de la capa de texto |
+| Con imágenes y menos de 40 caracteres de texto | OCR local de la página completa |
+| Con imágenes que cubren al menos la mitad de la página | OCR local de la página completa |
+| Con texto y solo imágenes pequeñas (logos, sellos) | Extracción exacta; no necesita Tesseract |
+
+La página se renderiza completa a 300 ppp y se lee con el mismo Tesseract (`spa`) que las
+fotos, mediante una imagen temporal que se borra al terminar. En una página leída por OCR
+se usa solo el texto reconocido: nunca se mezcla con la capa de texto. Si el OCR falla o
+devuelve una página vacía, el documento se rechaza indicando el número de página.
+
+El texto dentro de imágenes pequeñas de una página con texto no se lee. El OCR puede
+omitir o deformar nombres: revise el resultado antes de compartirlo.
+
 ### Códigos de salida
 
 | Código | Significado |
@@ -182,8 +202,8 @@ el texto ya normalizado, y el 9 corre sobre el artefacto exacto que se escribe.
 **Guarda de cordura (2).** Hay PDF que se renderizan perfectamente y extraen basura,
 porque su `/ToUnicode` es incorrecto. Sin esta comprobación no se detectaría nada, la
 verificación pasaría —no hay valores que buscar— y se entregaría un fichero ilegible que
-el usuario creería anonimizado. Falla cerrado. Los PDF escaneados siguen fuera de alcance;
-para fotos JPEG/PNG se usa el OCR local descrito arriba.
+el usuario creería anonimizado. Falla cerrado. Las páginas escaneadas de un PDF y las fotos JPEG/PNG pasan antes por el
+OCR local descrito arriba, y la guarda se aplica igual al texto reconocido.
 
 **Normalización (4).** Un NIF partido por un guion de fin de línea o un título escrito
 `A C T A` no lo captura ninguna expresión regular. El fallo es silencioso: el pipeline
