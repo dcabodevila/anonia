@@ -348,3 +348,4 @@ main:has(#loading:not(.hidden)) #landing { display:none; }
     }
   }
 }
+.markdown[contenteditable="plaintext-only"] { cursor:text; }.markdown[contenteditable="plaintext-only"]:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
