@@ -30,6 +30,13 @@ class StructuralPersonDetectorTest {
     }
 
     @Test
+    void cueSeparatorAcceptsATabAsACellBoundary() {
+        assertPerson("D.\tJuan Perez de", "Juan Perez");
+        assertPerson("D. \t Juan Perez de", "Juan Perez");
+        assertPerson("representado por\tJuan Perez de", "Juan Perez");
+    }
+
+    @Test
     void existingLowercaseFixturesAreKnownNames() {
         var gazetteer = new com.docanonymizer.adapter.gazetteer.ResourceGazetteer();
         org.junit.jupiter.api.Assertions.assertAll(

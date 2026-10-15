@@ -110,9 +110,16 @@ public final class AnonymizationPipeline {
     public Analysis analyze(Path pdf) throws IOException {
         ExtractedDocument extracted = extractor.extract(pdf);
 
-        TextSanityGuard.Result sanity = sanityGuard.check(extracted.rawText());
-        if (!sanity.usable()) {
-            throw new DocumentNotProcessableException("Extraccion no fiable: " + sanity.reason());
+        if (extracted.nativeText()) {
+            // El texto nativo es exacto: ser corto o numerico no indica una extraccion fallida.
+            if (extracted.rawText().isBlank()) {
+                throw new DocumentNotProcessableException("El documento no contiene texto.");
+            }
+        } else {
+            TextSanityGuard.Result sanity = sanityGuard.check(extracted.rawText());
+            if (!sanity.usable()) {
+                throw new DocumentNotProcessableException("Extraccion no fiable: " + sanity.reason());
+            }
         }
 
         ExtractedDocument cleaned = headerFooterStripper.strip(extracted).document();

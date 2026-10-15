@@ -295,17 +295,23 @@ test.describe('principal anonymization journeys against the local Java server', 
     await expect(page.locator('#download')).toBeDisabled();
   });
 
-  test('rejects unsupported, empty, and corrupt documents without retaining a workspace', async ({ page }) => {
+  test('rejects unsupported, blank, empty, and corrupt documents without retaining a workspace', async ({ page }) => {
+    const unsupported = 'Formato no admitido. Formatos admitidos: PDF, JPEG, PNG, Word, Excel, Markdown, TXT.';
     await open(page);
-    await page.locator('#file').setInputFiles(path.join(runtime, 'fixtures', 'invalid.txt'));
-    await expect(page.locator('#error')).toContainText('Solo se admiten documentos PDF y fotos JPEG o PNG');
+    await page.locator('#file').setInputFiles(path.join(runtime, 'fixtures', 'invalid.bin'));
+    await expect(page.locator('#error')).toContainText(unsupported);
+    await expect(page.locator('#workspace')).toBeHidden();
+    // Plain text is supported now; a text file without words is what gets rejected.
+    await page.locator('#file').setInputFiles(path.join(runtime, 'fixtures', 'blank.txt'));
+    await expect(page.locator('#error')).toContainText('El documento no contiene texto.');
     await expect(page.locator('#workspace')).toBeHidden();
     await page.locator('#file').setInputFiles(path.join(runtime, 'fixtures', 'empty.pdf'));
     await expect(page.locator('#error')).toContainText('Cuerpo vacio');
     await expect(page.locator('#workspace')).toBeHidden();
     await page.locator('#file').setInputFiles(path.join(runtime, 'fixtures', 'corrupt.pdf'));
     await expect(page.locator('#error')).not.toHaveText('');
-    await expect(page.locator('#error')).not.toContainText('Solo se admiten documentos PDF y fotos JPEG o PNG');
+    // A PDF signature reaches the PDF route rather than the unsupported-format gate.
+    await expect(page.locator('#error')).not.toContainText('Formato no admitido');
     await expect(page.locator('#workspace')).toBeHidden();
   });
 

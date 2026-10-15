@@ -46,6 +46,19 @@ public final class TextFolding {
      * mayusculas y acentos. Los espacios del patron admiten cualquier separador.
      */
     public static List<int[]> findWholeWordOccurrences(String haystack, String needle) {
+        return findWholeWordOccurrences(haystack, needle, false);
+    }
+
+    /**
+     * Como {@link #findWholeWordOccurrences(String, String)}, pero los espacios del patron
+     * no cruzan un tabulador (frontera de celda) ni una linea en blanco (parrafo o fila);
+     * un unico salto de linea si, porque el nombre puede venir partido al final de linea.
+     */
+    public static List<int[]> findWholeWordOccurrencesWithinCell(String haystack, String needle) {
+        return findWholeWordOccurrences(haystack, needle, true);
+    }
+
+    private static List<int[]> findWholeWordOccurrences(String haystack, String needle, boolean withinCell) {
         List<int[]> hits = new ArrayList<>();
         String foldedHaystack = fold(haystack);
         String foldedNeedle = fold(needle.strip());
@@ -54,7 +67,7 @@ public final class TextFolding {
         }
 
         if (foldedNeedle.indexOf(' ') >= 0) {
-            return findMultiWord(foldedHaystack, foldedNeedle, hits);
+            return findMultiWord(foldedHaystack, foldedNeedle, hits, withinCell);
         }
 
         int from = 0;
@@ -76,14 +89,16 @@ public final class TextFolding {
      * espacios o saltos de linea en el texto, porque el nombre puede venir partido.
      */
     private static List<int[]> findMultiWord(
-            String foldedHaystack, String foldedNeedle, List<int[]> hits) {
+            String foldedHaystack, String foldedNeedle, List<int[]> hits, boolean withinCell) {
         String[] words = foldedNeedle.split(" +");
         for (int start = 0; start < foldedHaystack.length(); start++) {
             int cursor = start;
             boolean matched = true;
             for (int w = 0; w < words.length; w++) {
                 if (w > 0) {
-                    int afterSeparator = skipSeparators(foldedHaystack, cursor);
+                    int afterSeparator = withinCell
+                            ? skipCellSeparators(foldedHaystack, cursor)
+                            : skipSeparators(foldedHaystack, cursor);
                     if (afterSeparator == cursor) {
                         matched = false;
                         break;
@@ -111,6 +126,17 @@ public final class TextFolding {
             i++;
         }
         return i;
+    }
+
+    private static int skipCellSeparators(String text, int from) {
+        int i = from;
+        boolean newline = false;
+        while (i < text.length() && (text.charAt(i) == ' ' || (text.charAt(i) == '\n' && !newline))) {
+            newline |= text.charAt(i) == '\n';
+            i++;
+        }
+        boolean crossesBoundary = i < text.length() && (text.charAt(i) == '\t' || text.charAt(i) == '\n');
+        return crossesBoundary ? from : i;
     }
 
     private static boolean isWholeWord(String text, int start, int end) {

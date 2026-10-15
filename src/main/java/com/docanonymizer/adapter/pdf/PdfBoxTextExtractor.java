@@ -121,6 +121,10 @@ public final class PdfBoxTextExtractor implements TextExtractorPort {
             if (pageOcr != null && needsOcr(document.getPage(pageNumber - 1), text)) {
                 text = recognize(renderer, pageNumber);
             }
+            // El tabulador solo es frontera de celda en Word/Excel nativos; un PDF no tiene
+            // celdas, asi que un codigo de glifo que su ToUnicode mapea a U+0009 (o un tabulador
+            // del OCR de la pagina) se trata como el espacio que es.
+            text = text.replace('\t', ' ');
             pages.add(new PageText(pageNumber, Arrays.asList(text.split("\\R", -1))));
         }
         return pages;

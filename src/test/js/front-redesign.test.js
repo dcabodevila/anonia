@@ -15,8 +15,8 @@ test('anonimuse keeps the entity menu small and the document dominant', () => {
   assert.match(html, /Anonimizar/);
   assert.doesNotMatch(html, /id="reset"|Aceptar todo/);
   assert.ok((html.match(/class="button-icon"/g) || []).length >= 7);
-  assert.match(html, /drop-icon[\s\S]*Arrastra un PDF aqu&iacute; o/);
-  assert.match(html, /id="browse" class="link" title="Selecciona un PDF"/);
+  assert.match(html, /drop-icon[\s\S]*Arrastra un documento aqu&iacute; o/);
+  assert.match(html, /id="browse" class="link" title="Selecciona un documento"/);
   assert.match(html, /Podr&aacute;s visualizar los cambios a anonimizar antes de generar el Markdown\./);
   assert.doesNotMatch(html, /Aplicar y verificar|No tienes uno a mano|desidentificado|doc-anonymizer/);
   assert.doesNotMatch(html, /data-tab="checks"|id="tab-checks"|progress/);

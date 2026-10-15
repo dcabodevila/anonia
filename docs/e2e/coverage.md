@@ -2,7 +2,7 @@
 
 ## Observed result
 
-The final run passed **11 of 11** Playwright cases against the packaged Java server: zero skipped, unexpected, or flaky results. Environment values recorded in `e2e/test-results/summary.json` were Node `v24.14.0`, OpenJDK `21.0.12.1`, and Chromium `153.0.8010.12`. Both synthetic OCR formats completed review and a verified download:
+The final run passed **26 of 26** Playwright cases against the packaged Java server: zero skipped, unexpected, or flaky results. Environment values recorded in `e2e/test-results/summary.json` were Node `v24.14.0`, OpenJDK `21.0.12.1`, and Chromium `153.0.8010.12`. Both synthetic OCR formats completed review and a verified download:
 
 ```json
 {"status":"available","jpeg":"verified-download","png":"verified-download"}
@@ -20,7 +20,10 @@ The final run passed **11 of 11** Playwright cases against the packaged Java ser
 | Clipboard export | Grant Chromium clipboard permission, copy, then read clipboard bytes | Clipboard contains labels and excludes seeded email. This standalone case can skip only when permission grant is unavailable. |
 | Blocked delivery and warning export | Reject a person group, require normal controls disabled, then save warning artifact | The warning file contains the displayed partial result and pseudonyms while ordinary delivery remains disabled. |
 | Successful replacement | Deliver one PDF, upload a second valid PDF, then inspect reset state | A replacement clears prior Markdown and disables normal download until review completes again. |
-| Invalid document boundaries | Upload unsupported text, empty PDF, and PDF-signature corrupt bytes | Each fails visibly without retaining a workspace; corrupt PDF reaches the PDF route rather than extension rejection. |
+| Invalid document boundaries | Upload unknown binary bytes, a blank TXT, an empty PDF, and PDF-signature corrupt bytes | Each fails visibly without retaining a workspace: the unknown file lists the supported formats, the blank TXT reports `El documento no contiene texto.`, and the corrupt PDF reaches the PDF route rather than the unsupported-format gate. |
+| Served picker formats | Read the `accept` attribute of the file input | The server-injected list contains every registered extension and no unreplaced marker. |
+| Native-text formats | Upload Markdown, TXT, `.docx`, `.doc`, `.xlsx` and `.xls` fixtures with the same synthetic text, apply, and download | DNI and person are absent from the downloaded Markdown; the title, the `Titular` label and the spreadsheet sheet name and header row survive (a name never spans two table cells or spreadsheet rows). |
+| Content-based Word routing | Upload `.docx` bytes named `adjunto.bin` | The document is recognised by its content and delivers anonymized Markdown. |
 | JPEG OCR delivery | Generate a text JPEG through JDK ImageIO, upload, apply, and download | Local JPEG OCR detects synthetic identifiers and delivers anonymized Markdown. |
 | PNG OCR delivery | Upload generated text PNG, apply review, and download Markdown | Local PNG OCR detects synthetic identifiers and delivers anonymized Markdown. |
 

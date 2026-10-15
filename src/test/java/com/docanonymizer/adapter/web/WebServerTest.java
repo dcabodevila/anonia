@@ -145,6 +145,50 @@ class WebServerTest {
         }
     }
 
+    @Test void analyzesPlainTextUploadsUsingTheDeclaredFileName() throws Exception {
+        HttpResponse<String> response = postAnalyze(
+                "Juan García Pérez firmó el contrato con DNI 12345678Z ante el notario del distrito.",
+                "acta%20final.txt");
+
+        assertEquals(200, response.statusCode(), response.body());
+        assertTrue(response.body().contains("\"jobId\""));
+        assertTrue(response.body().contains("12345678Z"));
+    }
+
+    @Test void rejectsTextUploadsWithoutADeclaredFileNameListingSupportedFormats() throws Exception {
+        HttpResponse<String> response = postAnalyze(
+                "Juan García Pérez firmó el contrato con DNI 12345678Z ante el notario del distrito.",
+                null);
+
+        assertEquals(422, response.statusCode());
+        assertTrue(response.body().contains("Formato no admitido. Formatos admitidos: PDF, JPEG, PNG"),
+                response.body());
+        assertTrue(!response.body().contains("12345678Z"));
+    }
+
+    private HttpResponse<String> postAnalyze(String body, String encodedFileName) throws Exception {
+        PrintStream original = System.out;
+        HttpServer server;
+        try {
+            System.setOut(new PrintStream(new ByteArrayOutputStream(), true, StandardCharsets.UTF_8));
+            server = new WebServer("127.0.0.1", 0).start();
+        } finally {
+            System.setOut(original);
+        }
+        try {
+            HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(
+                            "http://127.0.0.1:" + server.getAddress().getPort() + "/api/analyze"))
+                    .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8));
+            if (encodedFileName != null) {
+                request.header("X-File-Name", encodedFileName);
+            }
+            return HttpClient.newHttpClient().send(request.build(),
+                    HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+        } finally {
+            server.stop(0);
+        }
+    }
+
     private void assertStartsOn(int port, Map<String, String> environment, String[] arguments)
             throws Exception {
         ProcessBuilder builder = new ProcessBuilder();

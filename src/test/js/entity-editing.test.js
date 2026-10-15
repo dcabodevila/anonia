@@ -428,12 +428,12 @@ test('successful analysis compacts the replacement dropzone while a failed repla
 
   await app.analyze({ name: 'contrato.pdf' });
   assert.equal(nodes.get('dropzone').classList.contains('compact'), true);
-  assert.equal(nodes.get('drop-title').textContent, 'Documento seleccionado: contrato.pdf. Arrastra otro PDF o ');
+  assert.equal(nodes.get('drop-title').textContent, 'Documento seleccionado: contrato.pdf. Arrastra otro documento o ');
 
   global.fetch = async () => ({ ok: false, json: async () => ({ error: 'PDF inválido' }) });
   await app.analyze({ name: 'fallido.pdf' });
   assert.equal(nodes.get('dropzone').classList.contains('compact'), false);
-  assert.equal(nodes.get('drop-title').textContent, 'Arrastra un PDF aquí o ');
+  assert.equal(nodes.get('drop-title').textContent, 'Arrastra un documento aquí o ');
 });
 
 test('discarded entity rows state the preserved text and name checkbox group effects', async () => {

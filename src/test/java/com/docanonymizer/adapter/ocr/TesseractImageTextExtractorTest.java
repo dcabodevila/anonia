@@ -125,6 +125,33 @@ class TesseractImageTextExtractorTest {
                 Files.readString(receivedPath, StandardCharsets.UTF_8).strip());
     }
 
+    @Test
+    @EnabledOnOs(OS.WINDOWS)
+    void ocrOutputTabsBecomePlainSpaces(@TempDir Path dir) throws Exception {
+        Path photo = dir.resolve("photo.jpg");
+        Files.write(photo, jpegWithOrientation(40, 20, 1));
+        Path stdoutFixture = dir.resolve("stdout.txt");
+        Files.write(stdoutFixture, "D. \tJuan. Documento de prueba suficiente para analizar sin errores."
+                .getBytes(StandardCharsets.UTF_8));
+
+        ExtractedDocument document = new TesseractImageTextExtractor(
+                        typeFileTesseract(dir, stdoutFixture), 1024 * 1024)
+                .extract(photo);
+
+        String text = document.pages().get(0).lines().get(0);
+        assertFalse(text.contains("\t"), text);
+        assertEquals("D.  Juan. Documento de prueba suficiente para analizar sin errores.", text);
+    }
+
+    private static String typeFileTesseract(Path dir, Path stdoutFixture) throws Exception {
+        Path script = dir.resolve("fake-tesseract-tab.cmd");
+        Files.writeString(script, String.join("\r\n",
+                "@echo off",
+                "type \"" + stdoutFixture + "\"",
+                ""));
+        return script.toString();
+    }
+
     private static String fakeTesseract(Path dir, Path received, Path receivedPath) throws Exception {
         Path script = dir.resolve("fake-tesseract.cmd");
         Files.writeString(script, String.join("\r\n",

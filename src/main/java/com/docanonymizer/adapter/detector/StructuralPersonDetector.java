@@ -28,21 +28,21 @@ import java.util.regex.Pattern;
  */
 public final class StructuralPersonDetector implements DetectorPort {
 
-    private static final String SPACE = SpanishNamePatterns.SOFT_SPACE;
+    private static final String CUE_SPACE = SpanishNamePatterns.CUE_SPACE;
     private static final String BOUNDARY = SpanishNamePatterns.NOT_AFTER_LETTER;
 
     /** "D. Juan Perez Lopez", "Dna. Maria Garcia". El tratamiento no entra en la captura. */
     private static final Pattern AFTER_HONORIFIC = Pattern.compile(
-            SpanishNamePatterns.HONORIFIC + SPACE + "(" + SpanishNamePatterns.FULL_NAME_AFTER_CUE
+            SpanishNamePatterns.HONORIFIC + CUE_SPACE + "(" + SpanishNamePatterns.FULL_NAME_AFTER_CUE
                     + "|" + SpanishNamePatterns.SINGLE_NAME_AFTER_HONORIFIC + ")",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
 
     /** "Maria Garcia Perez, con DNI 12345678Z" y variantes del giro. */
     private static final Pattern BEFORE_ID_DOCUMENT = Pattern.compile(
             "(" + SpanishNamePatterns.FULL_NAME_AFTER_CUE + ")"
-                    + "[ \\t]*,?" + SPACE + "(?:mayor de edad[ \\t]*,?" + SPACE + ")?"
+                    + "[ \\t]*,?" + CUE_SPACE + "(?:mayor de edad[ \\t]*,?" + CUE_SPACE + ")?"
                     + BOUNDARY + "(?:con|provisto de|provista de|titular del|titular de)"
-                    + SPACE + "(?:D\\.?N\\.?I\\.?|N\\.?I\\.?F\\.?|N\\.?I\\.?E\\.?|documento)"
+                    + CUE_SPACE + "(?:D\\.?N\\.?I\\.?|N\\.?I\\.?F\\.?|N\\.?I\\.?E\\.?|documento)"
                     + "(?![\\p{L}])",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
 
@@ -50,7 +50,7 @@ public final class StructuralPersonDetector implements DetectorPort {
     private static final Pattern AFTER_ROLE = Pattern.compile(
             BOUNDARY
                     + "(?:representad[oa] por|en nombre de|a favor de|demandante|demandado)"
-                    + SPACE + "(?!" + SpanishNamePatterns.HONORIFIC + SPACE + ")"
+                    + CUE_SPACE + "(?!" + SpanishNamePatterns.HONORIFIC + CUE_SPACE + ")"
                     + "(" + SpanishNamePatterns.FULL_NAME_AFTER_CUE + ")",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
 

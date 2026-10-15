@@ -49,8 +49,16 @@ public final class NamePolicy {
 
     /** Busqueda compartida: caja y acentos libres salvo los tokens cortos sueltos. */
     public static List<int[]> findOccurrences(String text, String variant) {
+        return filterShortTokens(text, variant, TextFolding.findWholeWordOccurrences(text, variant));
+    }
+
+    /** Igual que {@link #findOccurrences}, pero un nombre no cruza una celda ni un parrafo. */
+    public static List<int[]> findOccurrencesWithinCell(String text, String variant) {
+        return filterShortTokens(text, variant, TextFolding.findWholeWordOccurrencesWithinCell(text, variant));
+    }
+
+    private static List<int[]> filterShortTokens(String text, String variant, List<int[]> hits) {
         String word = variant.strip();
-        var hits = TextFolding.findWholeWordOccurrences(text, word);
         if (word.matches(".*\\s+.*") || CanonicalForm.forCompare(word).length() >= ANY_CASE_TOKEN_LENGTH) {
             return hits;
         }

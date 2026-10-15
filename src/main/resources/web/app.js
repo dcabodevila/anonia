@@ -109,7 +109,8 @@ async function analyze(file) {
   el('loading').classList.remove('hidden');
 
   try {
-    const response = await fetch('/api/analyze', { method: 'POST', body: file });
+    const headers = state.sourceFilename ? { 'X-File-Name': encodeURIComponent(state.sourceFilename) } : {};
+    const response = await fetch('/api/analyze', { method: 'POST', headers, body: file });
     const data = await response.json();
     if (request !== state.analysisRequest) return;
 
@@ -184,8 +185,8 @@ function goHome() {
 function resetDropzone() {
   el('dropzone').classList.remove('compact');
   el('document-chip').classList.add('hidden');
-  el('drop-title').textContent = 'Arrastra un PDF aquí o ';
-  el('drop-sub').textContent = 'PDF con capa de texto o escaneados, o fotos JPEG/PNG; lo escaneado se lee localmente con Tesseract en español.';
+  el('drop-title').textContent = 'Arrastra un documento aquí o ';
+  el('drop-sub').textContent = 'PDF con capa de texto o escaneados, Word, Excel, Markdown o TXT, o fotos JPEG/PNG; lo escaneado se lee localmente con Tesseract en español.';
 }
 
 function compactDropzone(file) {
@@ -194,7 +195,7 @@ function compactDropzone(file) {
   el('document-filename').textContent = filename;
   el('document-filename').title = filename;
   el('document-chip').classList.remove('hidden');
-  el('drop-title').textContent = 'Documento seleccionado: ' + filename + '. Arrastra otro PDF o ';
+  el('drop-title').textContent = 'Documento seleccionado: ' + filename + '. Arrastra otro documento o ';
   el('drop-sub').textContent = 'Puedes reemplazarlo sin perder la vista del documento actual.';
 }
 

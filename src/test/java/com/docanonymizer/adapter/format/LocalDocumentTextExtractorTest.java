@@ -1,4 +1,4 @@
-package com.docanonymizer.adapter.ocr;
+package com.docanonymizer.adapter.format;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

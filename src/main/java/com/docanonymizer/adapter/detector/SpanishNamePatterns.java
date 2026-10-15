@@ -15,8 +15,23 @@ public final class SpanishNamePatterns {
      * <p>Un nombre si puede partirse al final de linea ("Juan Perez\nLopez"), pero nunca
      * cruza un parrafo. Usar {@code \s+} a secas permite que una pista al final de un
      * parrafo capture el titulo del parrafo siguiente.
+     *
+     * <p>Tampoco cruza un tabulador: solo lo emiten las tablas de Word y las hojas de Excel,
+     * como frontera entre celdas, y una etiqueta ("Titular") no es parte del nombre de la
+     * celda contigua.
      */
-    public static final String SOFT_SPACE = "(?:[ \\t]|\\n(?!\\n))+";
+    public static final String SOFT_SPACE = "(?: |\\n(?!\\n))+";
+
+    /**
+     * Separador entre una pista estructural (tratamiento, "con DNI", rol) y el nombre.
+     *
+     * <p>Al contrario que {@link #SOFT_SPACE}, admite el tabulador: la pista y el nombre
+     * pueden venir en celdas contiguas de una tabla o una hoja de calculo ("D.\tJuan" en
+     * la celda siguiente), y ese tabulador no es parte del nombre en si, solo el hueco
+     * entre la pista y donde empieza. El nombre completo capturado sigue usando
+     * SOFT_SPACE entre sus propias palabras, que no cruza un tabulador.
+     */
+    public static final String CUE_SPACE = "(?:[ \\t]|\\n(?!\\n))+";
 
     /** Impide que un patron enganche con el final de otra palabra. */
     public static final String NOT_AFTER_LETTER = "(?<![\\p{L}.])";

@@ -65,9 +65,14 @@ public final class TextNormalizer {
         text = LINE_BREAK_HYPHEN.matcher(text).replaceAll("$1$2");
         text = collapseLetterSpacing(text);
         text = TRAILING_SPACES.matcher(text).replaceAll("\n");
-        text = HORIZONTAL_RUNS.matcher(text).replaceAll(" ");
+        text = HORIZONTAL_RUNS.matcher(text).replaceAll(run -> collapseRun(run.group()));
         text = EXTRA_BLANK_LINES.matcher(text).replaceAll("\n\n");
         return text.strip();
+    }
+
+    /** A run of spaces collapses to one; a run holding a tab keeps the tab as a cell boundary. */
+    private static String collapseRun(String run) {
+        return run.indexOf('\t') >= 0 ? "\t" : " ";
     }
 
     /** Normalized matching text with UTF-16 ranges in the original retained source. */
@@ -79,10 +84,10 @@ public final class TextNormalizer {
         mapped = replace(mapped, Pattern.compile("[\\u00A0\\u2000-\\u200A\\u202F]"), part -> " ");
         mapped = replace(mapped, Pattern.compile("[\\u2010-\\u2015\\u2212]"), part -> "-");
         mapped = replace(mapped, LINE_BREAK_HYPHEN, part -> "" + part.charAt(0) + part.charAt(part.length() - 1));
-        mapped = replace(mapped, Pattern.compile("[^\\n]*"),
-                line -> isLetterSpaced(line) ? joinSpacedLetters(line) : line);
+        mapped = replace(mapped, Pattern.compile("[^\\n\\t]*"),
+                cell -> isLetterSpaced(cell) ? joinSpacedLetters(cell) : cell);
         mapped = replace(mapped, TRAILING_SPACES, part -> "\n");
-        mapped = replace(mapped, HORIZONTAL_RUNS, part -> " ");
+        mapped = replace(mapped, HORIZONTAL_RUNS, TextNormalizer::collapseRun);
         mapped = replace(mapped, EXTRA_BLANK_LINES, part -> "\n\n");
         String text = mapped.text.strip();
         int from = mapped.text.indexOf(text);
@@ -230,9 +235,14 @@ public final class TextNormalizer {
     }
 
     /**
-     * Junta los titulos escritos letra a letra. Trabaja linea a linea y solo actua si la
-     * linea entera parece espaciada; dentro de ella, dos o mas espacios seguidos separan
-     * palabras y un espacio simple separa letras de la misma palabra.
+     * Junta los titulos escritos letra a letra. Trabaja celda a celda, es decir, una
+     * linea partida por tabuladores, y solo actua si la celda entera parece espaciada;
+     * dentro de ella, dos o mas espacios seguidos separan palabras y un espacio simple
+     * separa letras de la misma palabra.
+     *
+     * <p>No trabaja linea a linea a secas porque el tabulador es frontera de celda de
+     * tabla o de hoja de calculo: si dos celdas contiguas vienen ambas espaciadas por
+     * letra, unirlas a traves del tabulador fundiria dos nombres distintos en uno.
      */
     private String collapseLetterSpacing(String text) {
         StringBuilder out = new StringBuilder(text.length());
@@ -241,7 +251,19 @@ public final class TextNormalizer {
             if (i > 0) {
                 out.append('\n');
             }
-            out.append(isLetterSpaced(lines[i]) ? joinSpacedLetters(lines[i]) : lines[i]);
+            out.append(collapseLetterSpacingInLine(lines[i]));
+        }
+        return out.toString();
+    }
+
+    private String collapseLetterSpacingInLine(String line) {
+        String[] cells = line.split("\t", -1);
+        StringBuilder out = new StringBuilder(line.length());
+        for (int i = 0; i < cells.length; i++) {
+            if (i > 0) {
+                out.append('\t');
+            }
+            out.append(isLetterSpaced(cells[i]) ? joinSpacedLetters(cells[i]) : cells[i]);
         }
         return out.toString();
     }

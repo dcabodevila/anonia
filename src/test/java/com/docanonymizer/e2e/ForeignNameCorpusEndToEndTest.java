@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.docanonymizer.adapter.PipelineFactory;
-import com.docanonymizer.adapter.ocr.LocalDocumentTextExtractor;
+import com.docanonymizer.adapter.format.LocalDocumentTextExtractor;
 import com.docanonymizer.domain.model.AnonymizationResult;
 import com.docanonymizer.domain.model.DetectionType;
 import com.docanonymizer.domain.service.CanonicalForm;

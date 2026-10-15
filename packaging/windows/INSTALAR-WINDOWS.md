@@ -2,14 +2,14 @@
 
 Recibirá el instalador `anonimuse-installer.exe`. Elija la ruta antes de instalar:
 
-- **Solo documentos PDF con capa de texto:** instale DocAnonymizer directamente.
+- **Solo documentos con texto (PDF con capa de texto, Word, Excel, Markdown o TXT):** instale DocAnonymizer directamente.
 - **Imágenes JPEG o PNG, o PDF escaneados:** primero instale y configure Tesseract OCR administrado externamente con el idioma español (`spa`); después instale DocAnonymizer.
 
 El instalador incluye Java. No incluye ni descarga Tesseract ni sus modelos OCR. En cada instalación o actualización configura para el usuario actual `TESSERACT_COMMAND` como `C:\Program Files\Tesseract-OCR\tesseract.exe`, aunque Tesseract no exista todavía.
 
 ## Instalación rápida
 
-### Si solo procesará PDF con capa de texto
+### Si no procesará fotos JPEG/PNG ni PDF escaneados
 
 1. Localice el archivo recibido `anonimuse-installer.exe`.
 2. Ejecute el instalador y siga las indicaciones de Windows.
@@ -47,7 +47,7 @@ Use una regla activa por línea, con la clave exacta en minúsculas, `: ` y un v
 
 | Componente | Cómo se obtiene | Para qué se necesita |
 |---|---|---|
-| DocAnonymizer y Java | El instalador `anonimuse-installer.exe` | Procesar PDF con capa de texto y ejecutar la aplicación. |
+| DocAnonymizer y Java | El instalador `anonimuse-installer.exe` | Procesar PDF con capa de texto, Word, Excel, Markdown y TXT, y ejecutar la aplicación. |
 | Tesseract y `spa` | Instalación externa administrada por el usuario u organización | Extraer texto de imágenes JPEG/PNG y de páginas escaneadas de PDF. |
 
 El procesamiento de documentos se realiza localmente y no usa servicios ni conexiones externas de red. Tesseract tampoco se instala automáticamente al instalar DocAnonymizer. Al desinstalar DocAnonymizer, se elimina el valor de `TESSERACT_COMMAND` administrado por el instalador.
@@ -56,7 +56,7 @@ El procesamiento de documentos se realiza localmente y no usa servicios ni conex
 
 | Situación | Acción segura |
 |---|---|
-| Solo necesita PDF | No instale Tesseract; continúe con el instalador de DocAnonymizer. |
+| No necesita fotos JPEG/PNG | No instale Tesseract; continúe con el instalador de DocAnonymizer. |
 | Va a procesar JPEG/PNG y `spa` no aparece | Revise o agregue el idioma español en Tesseract y repita `--list-langs`. |
 | Tesseract está instalado en otra carpeta | Use la ruta real de `tesseract.exe` al validar y siga la guía de configuración. |
 | Windows muestra una advertencia al abrir el instalador | Consulte con el equipo que le proporcionó el instalador antes de continuar. |

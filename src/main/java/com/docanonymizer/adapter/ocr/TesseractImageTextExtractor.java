@@ -135,7 +135,9 @@ public final class TesseractImageTextExtractor implements TextExtractorPort {
             Thread.currentThread().interrupt();
             throw new ExtractionException("OCR local interrumpido.", e);
         }
-        return new String(output, StandardCharsets.UTF_8);
+        // El tabulador no es frontera de celda en una foto: Tesseract puede emitirlo como
+        // espaciado de columna, pero aqui no hay tabla que delimitar.
+        return new String(output, StandardCharsets.UTF_8).replace('\t', ' ');
     }
 
     private List<String> commandLine(Path source) {

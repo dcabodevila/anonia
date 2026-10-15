@@ -2,7 +2,7 @@ const fs = require('node:fs/promises');
 const net = require('node:net');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
-const { createFixtures } = require('./fixtures');
+const { createFixtures, createDocumentFixtures } = require('./fixtures');
 
 const root = path.resolve(__dirname, '..', '..');
 const runtime = path.join(root, 'e2e', '.runtime');
@@ -65,6 +65,7 @@ module.exports = async function globalSetup() {
     throw new Error('Missing target/doc-anonymizer.jar. Run mvn -o -DskipTests package first.');
   }
 
+  await createDocumentFixtures(runtime, jar);
   const seededPdf = path.join(runtime, 'fixtures', 'seeded.pdf');
   await generateSeededPdf(jar, seededPdf);
   await fs.copyFile(seededPdf, path.join(runtime, 'fixtures', 'replacement.pdf'));
