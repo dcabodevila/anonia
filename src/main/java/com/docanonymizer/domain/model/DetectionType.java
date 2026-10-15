@@ -8,6 +8,8 @@ package com.docanonymizer.domain.model;
 public enum DetectionType {
     DNI("DNI", 100),
     NIE("NIE", 100),
+    /** Solo se detecta tras la palabra "pasaporte": gana al patron de DNI sobre el mismo valor. */
+    PASSPORT("PASAPORTE", 105),
     IBAN("IBAN", 100),
     EMAIL("EMAIL", 90),
     /** Referencia que identifica al interesado en el sistema del emisor. */

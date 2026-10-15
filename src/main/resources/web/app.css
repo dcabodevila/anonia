@@ -11,7 +11,7 @@
   --data-mono:"Cascadia Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   --entity-list-visible-rows:6; --entity-row-block-size:calc(8.25rem + 9px);
   --entity-list-block-padding:4px; --entity-list-viewport-max-height:clamp(14rem,calc(100dvh - 440px),42rem);
-  --t-persona:#ffb1dd; --t-codigo:#c6b7f2; --t-dni:#b0c7ff; --t-nie:#b6c2f4;
+  --t-persona:#ffb1dd; --t-codigo:#c6b7f2; --t-dni:#b0c7ff; --t-nie:#b6c2f4; --t-pasaporte:#a9d4f5;
   --t-iban:#98d9d0; --t-email:#d3b2e9; --t-telefono:#e0c27a; --t-direccion:#b4e7c7;
   --t-cp:#8ed9c5; --t-matricula:#f0b47c;
   --error-border:rgba(255,113,143,.55); --error-soft:rgba(255,113,143,.12); --warning-border:rgba(224,194,122,.65); --warning-soft:rgba(224,194,122,.14); --hover-tint:rgba(255,255,255,.14); --shadow-deep:rgba(0,0,0,.6);

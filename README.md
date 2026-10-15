@@ -325,7 +325,14 @@ reformateado, ni sin acentos, ni como apellido suelto.
 Incluye **controles negativos**, sin los cuales la prueba sería vacua: un pipeline que lo
 ocultara todo pasaría cualquier test de fugas siendo inútil. Por eso se exige además que
 `87654321A` (forma de DNI, dígito de control inválido → referencia interna, no dato
-personal) **siga presente**, y que el contenido legítimo del documento se conserve.
+personal) **no se clasifique como DNI**, sino como `CODIGO`, y que el contenido legítimo
+del documento se conserve.
+
+Solo es DNI o NIE el número cuya letra de control cuadra, con o sin puntos y con la
+letra pegada, tras guion o tras espacio (`35.933.864K`, `45.411.121-J`). Sin letra o con
+letra errónea (`35.933.864`, `34.544.121P`) es un único `CODIGO`. Pasaporte
+(`[PASAPORTE_001]`) es solo el formato español, tres letras y seis cifras (`PAA123456`),
+tras la palabra «pasaporte» o «passport»; cualquier otro número en esa posición es `CODIGO`.
 
 ---
 
