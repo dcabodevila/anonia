@@ -8,8 +8,7 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Locale;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
+import java.util.zip.ZipFile;
 import org.apache.poi.poifs.filesystem.POIFSFileSystem;
 
 /**
@@ -19,7 +18,6 @@ import org.apache.poi.poifs.filesystem.POIFSFileSystem;
 public final class DocumentProbe {
 
     static final int HEADER_BYTES = 8192;
-    private static final int MAX_ZIP_ENTRIES = 10_000;
 
     private final byte[] header;
     private final String extension;
@@ -84,16 +82,32 @@ public final class DocumentProbe {
 
     /** True when the content is a readable ZIP archive containing this exact entry name. */
     public boolean containsZipEntry(String name) {
-        try (ZipInputStream zip = new ZipInputStream(openContent())) {
-            ZipEntry entry;
-            for (int seen = 0; seen < MAX_ZIP_ENTRIES && (entry = zip.getNextEntry()) != null; seen++) {
-                if (entry.getName().equals(name)) {
-                    return true;
-                }
-            }
+        if (!startsWith(0x50, 0x4b, 0x03, 0x04)) {
             return false;
+        }
+        try {
+            if (path != null) {
+                return zipFileContains(path, name);
+            }
+            Path copy = Files.createTempFile("doc-anonymizer-probe-", ".zip");
+            try {
+                Files.write(copy, content);
+                return zipFileContains(copy, name);
+            } finally {
+                Files.deleteIfExists(copy);
+            }
         } catch (IOException | RuntimeException e) {
             return false;
+        }
+    }
+
+    /**
+     * Looks the entry up in the central directory only. Streaming the entries would inflate
+     * every preceding one, and a small archive can expand to gigabytes (zip bomb).
+     */
+    private static boolean zipFileContains(Path zip, String name) throws IOException {
+        try (ZipFile file = new ZipFile(zip.toFile())) {
+            return file.getEntry(name) != null;
         }
     }
 
@@ -106,10 +120,6 @@ public final class DocumentProbe {
         } catch (IOException | RuntimeException e) {
             return false;
         }
-    }
-
-    InputStream openContent() throws IOException {
-        return path != null ? Files.newInputStream(path) : new ByteArrayInputStream(content);
     }
 
     static String extensionOf(String fileName) {
