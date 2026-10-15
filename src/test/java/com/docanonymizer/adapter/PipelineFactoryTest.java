@@ -171,6 +171,16 @@ class PipelineFactoryTest {
     }
 
     @Test
+    void analyzesWordDocumentsThroughTheStandardPipeline() throws Exception {
+        Path docx = Files.write(temporaryDirectory.resolve("acta.docx"),
+                com.docanonymizer.adapter.office.OfficeFixtures.docx());
+
+        var candidates = PipelineFactory.standard().analyze(docx).candidates();
+
+        assertTrue(candidates.stream().anyMatch(d -> d.value().equals("12345678Z")), () -> candidates.toString());
+    }
+
+    @Test
     void routesPngPhotosThroughLocalSpanishOcr() throws Exception {
         Path image = temporaryDirectory.resolve("document.png");
         ImageIO.write(new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB), "png", image.toFile());
