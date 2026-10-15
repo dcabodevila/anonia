@@ -4,13 +4,10 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const test = require('node:test');
 
-test('the document picker accepts PDF, photos, Word, Excel, Markdown, and plain text uploads', () => {
+test('the document picker takes its accepted formats from the server-side format registry', () => {
   const html = fs.readFileSync('src/main/resources/web/index.html', 'utf8');
 
-  assert.ok(html.includes('accept="application/pdf,image/jpeg,image/png,'
-    + 'application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,'
-    + 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,'
-    + 'text/markdown,text/plain,.pdf,.jpg,.jpeg,.png,.docx,.doc,.xlsx,.xls,.md,.markdown,.txt"'));
+  assert.ok(html.includes('<input type="file" id="file" accept="{{DOCUMENT_ACCEPT}}" hidden>'));
 });
 
 test('the empty dropzone names every supported format family', () => {

@@ -320,8 +320,8 @@ local implementa `TextExtractorPort` sin tocar el núcleo.
    `SignatureFormat` (firma fija), `ContainerFormat` (entrada dentro de un ZIP/OLE2),
    `TextFormat` (solo extensión, siempre al final) o una implementación propia de
    `DocumentFormat`. El orden de registro es la prioridad.
-3. Actualiza el `accept` de `index.html`: `PickerFormatsTest` falla hasta que coincida con
-   el registro. La ayuda del CLI y el mensaje de formato no admitido salen del registro solos.
+   No hay más pasos: el selector de ficheros de la web (`index.html` solo tiene el marcador
+   `{{DOCUMENT_ACCEPT}}`), la ayuda del CLI y el mensaje de formato no admitido salen del registro.
 
 ---
 

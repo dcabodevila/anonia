@@ -1,6 +1,7 @@
 package com.docanonymizer.adapter.web;
 
 import com.docanonymizer.adapter.PipelineFactory;
+import com.docanonymizer.adapter.format.DocumentFormatRegistry;
 import com.docanonymizer.domain.model.AnonymizationResult;
 import com.docanonymizer.domain.model.Detection;
 import com.docanonymizer.domain.model.DetectionType;
@@ -44,15 +45,22 @@ public final class WebServer {
 
     private static final long MAX_UPLOAD_BYTES = 50L * 1024 * 1024;
     private static final int THREADS = 4;
+    private static final String ACCEPT_MARKER = "{{DOCUMENT_ACCEPT}}";
 
     private final AnonymizationPipeline pipeline = PipelineFactory.standard();
     private final JobStore jobs = new JobStore();
     private final String bindAddress;
     private final int port;
+    private final DocumentFormatRegistry formats;
 
     public WebServer(String bindAddress, int port) {
+        this(bindAddress, port, DocumentFormatRegistry.standard());
+    }
+
+    WebServer(String bindAddress, int port, DocumentFormatRegistry formats) {
         this.bindAddress = bindAddress;
         this.port = port;
+        this.formats = formats;
     }
 
     public static void main(String[] args) throws IOException {
@@ -248,8 +256,21 @@ public final class WebServer {
                 respondError(exchange, 500, "Recurso ausente en el empaquetado.");
                 return;
             }
-            respondBytes(exchange, 200, contentTypeOf(resource), in.readAllBytes());
+            byte[] body = in.readAllBytes();
+            if (resource.equals("/web/index.html")) {
+                body = withRegisteredFormats(body);
+            }
+            respondBytes(exchange, 200, contentTypeOf(resource), body);
         }
+    }
+
+    /** The file picker offers exactly the registered formats; index.html only holds a marker. */
+    private byte[] withRegisteredFormats(byte[] page) {
+        String accept = formats.acceptAttribute()
+                .replace("&", "&amp;").replace("\"", "&quot;").replace("<", "&lt;").replace(">", "&gt;");
+        return new String(page, StandardCharsets.UTF_8)
+                .replace(ACCEPT_MARKER, accept)
+                .getBytes(StandardCharsets.UTF_8);
     }
 
     private String contentTypeOf(String resource) {
