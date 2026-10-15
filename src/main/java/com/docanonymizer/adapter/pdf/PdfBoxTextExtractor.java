@@ -86,7 +86,10 @@ public final class PdfBoxTextExtractor implements TextExtractorPort {
             stripper.setSortByPosition(true);
             stripper.setStartPage(pageNumber);
             stripper.setEndPage(pageNumber);
-            String text = stripper.getText(document);
+            // El tabulador solo es frontera de celda en Word/Excel nativos; un PDF no tiene
+            // celdas, asi que un codigo de glifo que su ToUnicode mapea a U+0009 se trata
+            // como el espacio que es.
+            String text = stripper.getText(document).replace('\t', ' ');
             pages.add(new PageText(pageNumber, Arrays.asList(text.split("\\R", -1))));
         }
         return pages;

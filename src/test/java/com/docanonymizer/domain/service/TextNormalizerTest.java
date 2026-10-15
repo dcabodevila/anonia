@@ -50,6 +50,18 @@ class TextNormalizerTest {
     }
 
     @Test
+    @DisplayName("junta un titulo letra a letra por celda, sin saltar el tabulador")
+    void collapsesLetterSpacingPerTabCellWithoutCrossingTheBoundary() {
+        String source = "J U A N   G A R C Í A \tP É R E Z";
+
+        String result = normalizer.normalize(source);
+
+        assertEquals("JUAN GARCÍA\tPÉREZ", result);
+        var mapped = normalizer.normalizeMapped(source);
+        assertEquals(result, mapped.text());
+    }
+
+    @Test
     @DisplayName("no toca una linea normal con palabras de una sola letra")
     void leavesOrdinaryLineAlone() {
         String line = "el articulo 5 y la letra a del apartado b";
