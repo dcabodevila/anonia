@@ -115,7 +115,7 @@ se mantienen las reglas incluidas; la revisión existente sigue disponible.
 | PDF | `.pdf` | firma `%PDF-` | capa de texto, página a página |
 | Fotos | `.jpg`, `.jpeg`, `.png` | firma JPEG/PNG | OCR local (Tesseract `spa`) |
 | Word | `.docx`, `.doc` | ZIP con `word/document.xml` / OLE2 con `WordDocument` | párrafos y tablas (celdas separadas por tabulador) |
-| Excel | `.xlsx`, `.xls` | ZIP con `xl/workbook.xml` / OLE2 con `Workbook` | cada hoja como `## <hoja>` y una línea por fila con sus celdas no vacías separadas por tabulador (las vacías se omiten); las fórmulas aportan su valor guardado |
+| Excel | `.xlsx`, `.xls` | ZIP con `xl/workbook.xml` / OLE2 con `Workbook` | cada hoja como `## <hoja>` y una línea por fila con sus celdas no vacías separadas por tabulador (las vacías se omiten), con números y fechas en formato español (`1.234,50`); las fórmulas aportan su valor guardado |
 | Markdown | `.md`, `.markdown` | extensión declarada y contenido no binario | el texto tal cual |
 | TXT | `.txt` | extensión declarada y contenido no binario | el texto tal cual (UTF-8/UTF-16 con BOM o windows-1252) |
 

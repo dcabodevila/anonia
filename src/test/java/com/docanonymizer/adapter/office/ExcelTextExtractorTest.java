@@ -14,6 +14,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.io.ByteArrayOutputStream;
 import java.util.List;
+import java.util.Locale;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -112,5 +115,29 @@ class ExcelTextExtractorTest {
 
         assertEquals(List.of("## Datos", "12345678Z"),
                 new ExcelTextExtractor().extract(source).pages().get(0).lines());
+    }
+
+    @Test void cellsAreFormattedInSpanishWhateverTheMachineLocale() throws Exception {
+        byte[] content;
+        try (Workbook workbook = new XSSFWorkbook()) {
+            CellStyle amount = workbook.createCellStyle();
+            amount.setDataFormat(workbook.createDataFormat().getFormat("#,##0.00"));
+            Cell cell = workbook.createSheet("Importes").createRow(0).createCell(0);
+            cell.setCellValue(1234.5);
+            cell.setCellStyle(amount);
+            content = bytes(workbook);
+        }
+        Path source = Files.write(temp.resolve("importes.xlsx"), content);
+
+        Locale original = Locale.getDefault();
+        try {
+            for (Locale machine : List.of(Locale.US, Locale.GERMANY, Locale.ROOT)) {
+                Locale.setDefault(machine);
+                assertEquals(List.of("## Importes", "1.234,50"),
+                        new ExcelTextExtractor().extract(source).pages().get(0).lines(), machine.toString());
+            }
+        } finally {
+            Locale.setDefault(original);
+        }
     }
 }

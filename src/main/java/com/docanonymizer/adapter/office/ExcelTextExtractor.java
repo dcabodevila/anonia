@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.Row;
@@ -27,6 +28,12 @@ import org.apache.poi.ss.usermodel.WorkbookFactory;
  * sheets from being removed as page headers.
  */
 public final class ExcelTextExtractor implements TextExtractorPort {
+
+    /**
+     * Cells are rendered as a Spanish Excel would show them, not in the JVM default locale, so
+     * the same workbook yields the same text on every machine.
+     */
+    private static final Locale CELL_LOCALE = Locale.forLanguageTag("es-ES");
 
     private final long maxBytes;
 
@@ -52,7 +59,7 @@ public final class ExcelTextExtractor implements TextExtractorPort {
     }
 
     private static List<String> lines(Workbook workbook) {
-        DataFormatter formatter = new DataFormatter();
+        DataFormatter formatter = new DataFormatter(CELL_LOCALE);
         formatter.setUseCachedValuesForFormulaCells(true);
         List<String> lines = new ArrayList<>();
         for (Sheet sheet : workbook) {
