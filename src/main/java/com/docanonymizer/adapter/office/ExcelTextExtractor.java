@@ -46,7 +46,7 @@ public final class ExcelTextExtractor implements TextExtractorPort {
             // POI messages may describe the file structure; never forward them to the user.
             throw new ExtractionException("No se pudo leer el libro de Excel.");
         }
-        return new ExtractedDocument(List.of(new PageText(1, lines)), SourceFiles.sha256(content));
+        return ExtractedDocument.nativeText(List.of(new PageText(1, lines)), SourceFiles.sha256(content));
     }
 
     private static List<String> lines(Workbook workbook) {

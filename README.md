@@ -200,7 +200,10 @@ el texto ya normalizado, y el 9 corre sobre el artefacto exacto que se escribe.
 porque su `/ToUnicode` es incorrecto. Sin esta comprobación no se detectaría nada, la
 verificación pasaría —no hay valores que buscar— y se entregaría un fichero ilegible que
 el usuario creería anonimizado. Falla cerrado. Los PDF escaneados siguen fuera de alcance;
-para fotos JPEG/PNG se usa el OCR local descrito arriba.
+para fotos JPEG/PNG se usa el OCR local descrito arriba. La guarda solo se aplica al texto
+inferido a partir de lo renderizado (PDF y OCR): Word, Excel, Markdown y TXT guardan su texto
+tal cual (`ExtractedDocument.nativeText`), así que un documento corto o numérico es válido y
+solo se rechaza si no contiene texto.
 
 **Normalización (4).** Un NIF partido por un guion de fin de línea o un título escrito
 `A C T A` no lo captura ninguna expresión regular. El fallo es silencioso: el pipeline

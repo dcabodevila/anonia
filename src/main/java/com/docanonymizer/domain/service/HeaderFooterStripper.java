@@ -70,7 +70,7 @@ public final class HeaderFooterStripper {
             cleaned.add(new PageText(page.number(), kept));
         }
         return new Result(
-                new ExtractedDocument(cleaned, document.sourceSha256()), removed, repeated);
+                new ExtractedDocument(cleaned, document.sourceSha256(), document.nativeText()), removed, repeated);
     }
 
     private Map<String, Integer> countKeysAcrossPages(ExtractedDocument document) {

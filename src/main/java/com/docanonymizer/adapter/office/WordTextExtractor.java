@@ -40,7 +40,7 @@ public final class WordTextExtractor implements TextExtractorPort {
             // POI messages may describe the file structure; never forward them to the user.
             throw new ExtractionException("No se pudo leer el documento de Word.");
         }
-        return new ExtractedDocument(List.of(new PageText(1, SourceFiles.lines(text))),
+        return ExtractedDocument.nativeText(List.of(new PageText(1, SourceFiles.lines(text))),
                 SourceFiles.sha256(content));
     }
 

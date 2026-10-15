@@ -37,7 +37,7 @@ public final class PlainTextExtractor implements TextExtractorPort {
     public ExtractedDocument extract(Path source) throws IOException {
         byte[] content = SourceFiles.readBounded(source, maxBytes);
         String text = decode(content);
-        return new ExtractedDocument(List.of(new PageText(1, SourceFiles.lines(text))),
+        return ExtractedDocument.nativeText(List.of(new PageText(1, SourceFiles.lines(text))),
                 SourceFiles.sha256(content));
     }
 
