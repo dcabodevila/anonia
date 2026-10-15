@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import com.docanonymizer.adapter.PipelineFactory;
-import com.docanonymizer.adapter.ocr.LocalDocumentTextExtractor;
+import com.docanonymizer.adapter.format.LocalDocumentTextExtractor;
 import com.docanonymizer.adapter.review.AutoAcceptReview;
 import com.docanonymizer.domain.model.Detection;
 import com.docanonymizer.domain.model.DetectionType;

@@ -12,7 +12,7 @@ import com.docanonymizer.adapter.gazetteer.ResourceGazetteer;
 import com.docanonymizer.adapter.gazetteer.UserRules;
 import com.docanonymizer.domain.port.GazetteerPort;
 import com.docanonymizer.domain.service.CanonicalForm;
-import com.docanonymizer.adapter.ocr.LocalDocumentTextExtractor;
+import com.docanonymizer.adapter.format.LocalDocumentTextExtractor;
 import com.docanonymizer.adapter.review.AutoAcceptReview;
 import com.docanonymizer.domain.port.DetectorPort;
 import com.docanonymizer.domain.port.ReviewPort;
