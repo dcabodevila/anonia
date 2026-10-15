@@ -96,12 +96,12 @@ class SecurityCorpusEndToEndTest {
     }
 
     @Test
-    @DisplayName("un DNI invalido no se clasifica como DNI; sus digitos son CODIGO")
+    @DisplayName("un DNI invalido no se clasifica como DNI; numero y letra son un CODIGO")
     void invalidChecksumIsNotRedacted() {
         assertFalse(result.accepted().stream().anyMatch(d -> d.type() == DetectionType.DNI
                 && d.value().contains("87654321A")));
         assertTrue(result.accepted().stream().anyMatch(d -> d.type() == DetectionType.CODIGO
-                && d.value().equals("87654321")));
+                && d.value().equals("87654321A")));
         assertFalse(markdown.contains("87654321A"));
     }
 
