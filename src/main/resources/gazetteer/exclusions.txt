@@ -166,3 +166,8 @@ Cuarto
 Cuarta
 Quinto
 Quinta
+# Identity-document acronyms; "Nie" is also a listed surname.
+DNI
+NIE
+NIF
+CIF
