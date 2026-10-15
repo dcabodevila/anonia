@@ -2,6 +2,7 @@ package com.docanonymizer.adapter.format;
 
 import com.docanonymizer.adapter.ocr.TesseractImageTextExtractor;
 import com.docanonymizer.adapter.pdf.PdfBoxTextExtractor;
+import com.docanonymizer.adapter.text.PlainTextExtractor;
 import com.docanonymizer.domain.port.TextExtractorPort;
 import java.io.IOException;
 import java.util.List;
@@ -29,7 +30,11 @@ public final class DocumentFormatRegistry {
                 new SignatureFormat("JPEG", List.of(".jpg", ".jpeg"), List.of("image/jpeg"),
                         images, new int[] {0xff, 0xd8, 0xff}),
                 new SignatureFormat("PNG", List.of(".png"), List.of("image/png"),
-                        images, new int[] {0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a})));
+                        images, new int[] {0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a}),
+                // Extension-recognised formats last: any real signature above wins.
+                new TextFormat("Markdown", List.of(".md", ".markdown"), List.of("text/markdown"),
+                        new PlainTextExtractor()),
+                new TextFormat("TXT", List.of(".txt"), List.of("text/plain"), new PlainTextExtractor())));
     }
 
     public List<DocumentFormat> formats() {

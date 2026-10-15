@@ -103,7 +103,10 @@ public final class WebServer {
             }
             // Los extractores locales trabajan sobre fichero. El temporal vive lo minimo y se
             // borra siempre: es una copia del documento original en claro.
-            temp = Files.createTempFile("doc-anonymizer-", uploadSuffix(body));
+            // The declared name only contributes its extension, needed by text formats that
+            // have no signature; the format registry still decides from the real content.
+            temp = Files.createTempFile("doc-anonymizer-",
+                    uploadSuffix(exchange.getRequestHeaders().getFirst("X-File-Name")));
             Files.write(temp, body);
 
             long startedAt = System.nanoTime();
@@ -267,22 +270,20 @@ public final class WebServer {
 
     // ------------------------------------------------------------------ utils
 
-    private String uploadSuffix(byte[] body) {
-        if (body.length >= 5 && body[0] == '%' && body[1] == 'P' && body[2] == 'D'
-                && body[3] == 'F' && body[4] == '-') {
-            return ".pdf";
+    /** Sanitised extension of the URL-encoded declared file name, or ".bin" when unusable. */
+    static String uploadSuffix(String encodedFileName) {
+        if (encodedFileName == null) {
+            return ".bin";
         }
-        if (body.length >= 3 && (body[0] & 0xff) == 0xff && (body[1] & 0xff) == 0xd8
-                && (body[2] & 0xff) == 0xff) {
-            return ".jpg";
+        String fileName;
+        try {
+            fileName = java.net.URLDecoder.decode(encodedFileName, StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException e) {
+            return ".bin";
         }
-        if (body.length >= 8 && (body[0] & 0xff) == 0x89 && body[1] == 'P' && body[2] == 'N'
-                && body[3] == 'G' && body[4] == 0x0d && body[5] == 0x0a && body[6] == 0x1a
-                && body[7] == 0x0a) {
-            return ".png";
-        }
-        throw new TextExtractorPort.ExtractionException(
-                "Solo se admiten documentos PDF y fotos JPEG o PNG.");
+        int dot = fileName.lastIndexOf('.');
+        String extension = dot < 0 ? "" : fileName.substring(dot).toLowerCase(java.util.Locale.ROOT);
+        return extension.matches("\\.[a-z0-9]{1,10}") ? extension : ".bin";
     }
 
     private byte[] readLimited(InputStream in) throws IOException {

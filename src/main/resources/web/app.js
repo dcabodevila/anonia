@@ -108,7 +108,8 @@ async function analyze(file) {
   el('loading').classList.remove('hidden');
 
   try {
-    const response = await fetch('/api/analyze', { method: 'POST', body: file });
+    const headers = state.sourceFilename ? { 'X-File-Name': encodeURIComponent(state.sourceFilename) } : {};
+    const response = await fetch('/api/analyze', { method: 'POST', headers, body: file });
     const data = await response.json();
     if (request !== state.analysisRequest) return;
 

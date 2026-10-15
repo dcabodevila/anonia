@@ -15,7 +15,7 @@ import java.util.Locale;
  */
 public final class DocumentProbe {
 
-    static final int HEADER_BYTES = 16;
+    static final int HEADER_BYTES = 8192;
 
     private final byte[] header;
     private final String extension;
@@ -58,6 +58,19 @@ public final class DocumentProbe {
     /** Lower-case extension including the dot, or an empty string when there is none. */
     public String extension() {
         return extension;
+    }
+
+    /** True when the leading bytes contain NUL and are not UTF-16 text with a byte order mark. */
+    public boolean looksBinary() {
+        if (startsWith(0xff, 0xfe) || startsWith(0xfe, 0xff)) {
+            return false;
+        }
+        for (byte value : header) {
+            if (value == 0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public boolean hasExtension(Collection<String> extensions) {
