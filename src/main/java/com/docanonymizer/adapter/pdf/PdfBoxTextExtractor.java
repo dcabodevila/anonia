@@ -5,6 +5,7 @@ import com.docanonymizer.domain.model.PageText;
 import com.docanonymizer.domain.port.TextExtractorPort;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Area;
+import java.awt.geom.GeneralPath;
 import java.awt.geom.PathIterator;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
@@ -147,6 +148,9 @@ public final class PdfBoxTextExtractor implements TextExtractorPort {
         } catch (ExtractionException e) {
             throw new ExtractionException(
                     "No se pudo aplicar OCR local a la pagina " + pageNumber + ": " + e.getMessage(), e);
+        } catch (IOException e) {
+            // The cause may name temporary paths, so only the page reaches the message.
+            throw new ExtractionException("No se pudo aplicar OCR local a la pagina " + pageNumber + ".", e);
         }
         if (recognized == null || recognized.isBlank()) {
             throw new ExtractionException("La pagina " + pageNumber
@@ -162,6 +166,8 @@ public final class PdfBoxTextExtractor implements TextExtractorPort {
     /** Fraction of the page area painted by images, including images nested in forms. */
     private static final class ImageCoverage extends PDFGraphicsStreamEngine {
         private final Area painted = new Area();
+        private final GeneralPath path = new GeneralPath();
+        private int pendingClipRule = -1;
 
         private ImageCoverage(PDPage page) {
             super(page);
@@ -213,46 +219,85 @@ public final class PdfBoxTextExtractor implements TextExtractorPort {
         public void drawImage(PDImage image) {
             AffineTransform transform =
                     getGraphicsState().getCurrentTransformationMatrix().createAffineTransform();
-            painted.add(new Area(transform.createTransformedShape(new Rectangle2D.Double(0, 0, 1, 1))));
+            Area visible = new Area(transform.createTransformedShape(new Rectangle2D.Double(0, 0, 1, 1)));
+            visible.intersect(getGraphicsState().getCurrentClippingPath());
+            painted.add(visible);
+        }
+
+        // Path operators are tracked only so clipping paths limit the measured image area.
+
+        @Override
+        public void appendRectangle(Point2D p0, Point2D p1, Point2D p2, Point2D p3) {
+            path.moveTo(p0.getX(), p0.getY());
+            path.lineTo(p1.getX(), p1.getY());
+            path.lineTo(p2.getX(), p2.getY());
+            path.lineTo(p3.getX(), p3.getY());
+            path.closePath();
         }
 
         @Override
-        public void appendRectangle(Point2D p0, Point2D p1, Point2D p2, Point2D p3) {}
+        public void clip(int windingRule) {
+            pendingClipRule = windingRule;
+        }
 
         @Override
-        public void clip(int windingRule) {}
+        public void moveTo(float x, float y) {
+            path.moveTo(x, y);
+        }
 
         @Override
-        public void moveTo(float x, float y) {}
+        public void lineTo(float x, float y) {
+            path.lineTo(x, y);
+        }
 
         @Override
-        public void lineTo(float x, float y) {}
-
-        @Override
-        public void curveTo(float x1, float y1, float x2, float y2, float x3, float y3) {}
+        public void curveTo(float x1, float y1, float x2, float y2, float x3, float y3) {
+            path.curveTo(x1, y1, x2, y2, x3, y3);
+        }
 
         @Override
         public Point2D getCurrentPoint() {
-            return new Point2D.Float();
+            Point2D current = path.getCurrentPoint();
+            return current == null ? new Point2D.Float() : current;
         }
 
         @Override
-        public void closePath() {}
+        public void closePath() {
+            path.closePath();
+        }
 
         @Override
-        public void endPath() {}
+        public void endPath() {
+            consumePath();
+        }
 
         @Override
-        public void strokePath() {}
+        public void strokePath() {
+            consumePath();
+        }
 
         @Override
-        public void fillPath(int windingRule) {}
+        public void fillPath(int windingRule) {
+            consumePath();
+        }
 
         @Override
-        public void fillAndStrokePath(int windingRule) {}
+        public void fillAndStrokePath(int windingRule) {
+            consumePath();
+        }
 
         @Override
         public void shadingFill(COSName shadingName) {}
+
+        /** A pending W/W* clip takes effect when the path is painted or ended, as in PDF. */
+        private void consumePath() {
+            if (pendingClipRule != -1) {
+                path.setWindingRule(pendingClipRule);
+                getGraphicsState().intersectClippingPath(path);
+                pendingClipRule = -1;
+            }
+            path.reset();
+        }
     }
 
     /** No se confia en la extension ni en el MIME declarado: se mira la cabecera real. */

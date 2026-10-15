@@ -158,6 +158,47 @@ class PdfBoxTextExtractorTest {
                 error.getMessage());
     }
 
+    @Test
+    void clippedPageSizeImageIsMeasuredByItsVisibleAreaAndKeepsExactExtraction() throws Exception {
+        Path file = dir.resolve("clipped.pdf");
+        try (PDDocument document = new PDDocument()) {
+            PDPage page = new PDPage(PDRectangle.A4);
+            document.addPage(page);
+            try (PDPageContentStream content = new PDPageContentStream(document, page)) {
+                content.saveGraphicsState();
+                content.addRect(40, 700, 20, 20);
+                content.clip();
+                content.drawImage(LosslessFactory.createFromImage(document, grayImage()),
+                        0, 0, PDRectangle.A4.getWidth(), PDRectangle.A4.getHeight());
+                content.restoreGraphicsState();
+                content.beginText();
+                content.setFont(new PDType1Font(Standard14Fonts.FontName.HELVETICA), 11);
+                content.newLineAtOffset(50, 400);
+                content.showText(USABLE_TEXT);
+                content.endText();
+            }
+            document.save(file.toFile());
+        }
+
+        ExtractedDocument document = extractor(recordingOcr).extract(file);
+
+        assertEquals(List.of(), recognizedPages);
+        assertTrue(text(document.pages().get(0)).contains(USABLE_TEXT));
+    }
+
+    @Test
+    void ordinaryOcrIoFailureBlocksExtractionNamingThePage() throws Exception {
+        Path pdf = pdf(Page.text(USABLE_TEXT), Page.image(PDRectangle.A4));
+
+        ExtractionException error = assertThrows(
+                ExtractionException.class,
+                () -> extractor((pageNumber, page) -> {
+                    throw new java.io.IOException("C:\\Users\\someone\\Temp\\page.png: disk full");
+                }).extract(pdf));
+
+        assertEquals("No se pudo aplicar OCR local a la pagina 2.", error.getMessage());
+    }
+
     private static PdfBoxTextExtractor extractor(PdfBoxTextExtractor.PageOcr ocr) {
         return new PdfBoxTextExtractor(500, 50L * 1024 * 1024, ocr);
     }
