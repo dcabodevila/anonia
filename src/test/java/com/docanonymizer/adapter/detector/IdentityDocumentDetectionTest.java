@@ -73,7 +73,28 @@ class IdentityDocumentDetectionTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"X1234567L", "X-1.234.567-L", "Y 1.234.567 X", "Z.7654321H", "x1234567l"})
+    @ValueSource(strings = {"importe de 12.345.678 €", "12.345.678€ de principal", "12.345.678 euros",
+            "12.345.678 EUR"})
+    void dottedAmountsWithCurrencyAreNotCodes(String source) {
+        assertFalse(hasLabel(source, "CODIGO"), source);
+        assertFalse(hasLabel(source, "DNI"), source);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"87654321A €", "34.544.121P euros", "12.345.678 Europa"})
+    void currencyOnlySparesLetterlessNumbers(String tail) {
+        String value = tail.substring(0, tail.lastIndexOf(' '));
+        assertSingle("pago " + tail, "CODIGO", value);
+    }
+
+    @Test
+    void conjunctionBeforeSevenDigitsIsNotAnNie() {
+        assertFalse(hasLabel("entre 5 y 1234567 registros", "NIE"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"X1234567L", "X-1.234.567-L", "Y 1.234.567 X", "Z.7654321H", "x1234567l",
+            "X - 1234567L", "x 1234567L", "x - 1234567-L"})
     void dottedOrPlainNieWithValidLetterIsNie(String value) {
         String source = "con NIE " + value + ", residente";
         assertSingle(source, "NIE", value);

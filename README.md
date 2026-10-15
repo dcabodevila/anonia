@@ -330,7 +330,8 @@ del documento se conserve.
 
 Solo es DNI o NIE el número cuya letra de control cuadra, con o sin puntos y con la
 letra pegada, tras guion o tras espacio (`35.933.864K`, `45.411.121-J`). Sin letra o con
-letra errónea (`35.933.864`, `34.544.121P`) es un único `CODIGO`. Pasaporte
+letra errónea (`35.933.864`, `34.544.121P`) es un único `CODIGO`, salvo que le siga una
+moneda (`12.345.678 €`, `12.345.678 euros`): entonces es un importe y se conserva. Pasaporte
 (`[PASAPORTE_001]`) es solo el formato español, tres letras y seis cifras (`PAA123456`),
 tras la palabra «pasaporte» o «passport»; cualquier otro número en esa posición es `CODIGO`.
 

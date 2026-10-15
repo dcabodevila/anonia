@@ -65,8 +65,13 @@ public final class DeterministicDetectors {
     }
 
     private static final String DNI_BODY = "(?:\\d{8}|\\d{2}\\.\\d{3}\\.\\d{3})";
-    private static final String NIE_BODY =
-            "(?:[XYZ][\\s.-]?|[xyz]-?)(?:\\d{7}|\\d\\.\\d{3}\\.\\d{3})";
+    private static final String NIE_DIGITS = "(?:\\d{7}|\\d\\.\\d{3}\\.\\d{3})";
+    /** Prefijo estrecho para codigos sin validar: en "y 1234567" la y es una conjuncion. */
+    private static final String NIE_BODY = "(?:[XYZ][\\s.-]?|[xyz]-?)" + NIE_DIGITS;
+    /** Con letra de control valida se admite guion entre espacios tras el prefijo: "X - 1234567L". */
+    private static final String VALIDATED_NIE_BODY = "[XYZxyz](?:\\s?-?\\s?|\\.)" + NIE_DIGITS;
+    /** Sin letra y seguido de moneda es un importe, no un codigo: "12.345.678 €". */
+    private static final String NOT_AN_AMOUNT = "(?!\\s?(?:€|(?i:eur(?:os?)?)(?![A-Za-z])))";
 
     private static boolean validDocument(String value) {
         return IdentifierValidators.isValidDni(value) || IdentifierValidators.isValidNie(value);
@@ -98,7 +103,7 @@ public final class DeterministicDetectors {
     /** NIE: X, Y o Z, 7 digitos seguidos o agrupados con puntos, y letra de control valida. */
     public static final class NieDetector extends RegexDetector {
         private static final Pattern PATTERN =
-                Pattern.compile("(?<![0-9A-Za-z])" + NIE_BODY + LETTER_SUFFIX);
+                Pattern.compile("(?<![0-9A-Za-z])" + VALIDATED_NIE_BODY + LETTER_SUFFIX);
 
         public NieDetector() {
             super("nie", PATTERN, DetectionType.NIE, Provenance.CHECKSUM_VALIDATED, 0.99);
@@ -121,7 +126,8 @@ public final class DeterministicDetectors {
      */
     public static final class DocumentShapedCodeDetector extends RegexDetector {
         private static final Pattern PATTERN = Pattern.compile(
-                "(?<![0-9A-Za-z])(?:" + DNI_BODY + "|" + NIE_BODY + ")" + LETTER_SUFFIX);
+                "(?<![0-9A-Za-z])(?:" + DNI_BODY + "|" + NIE_BODY + ")"
+                        + "(?:\\s?-?\\s?[A-Za-z]|" + NOT_AN_AMOUNT + ")(?![0-9A-Za-z]|[.,]\\d)");
 
         public DocumentShapedCodeDetector() {
             super("codigo-documento", PATTERN, DetectionType.CODIGO, Provenance.REGEX, 0.80);
