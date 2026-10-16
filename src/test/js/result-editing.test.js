@@ -157,3 +157,63 @@ test('re-anonymizing an unedited result does not ask', async () => {
   assert.equal(calls.length, 1);
   assert.equal(state.markdown, 'otra vez');
 });
+
+function seedDni() {
+  state.text = 'Firma Juan con DNI 12345678Z.';
+  state.detections = [
+    { id: 'd1', type: 'DNI', start: 19, end: 28, entityKey: 'dni' },
+    { id: 'p1', type: 'PERSONA', start: 6, end: 10, entityKey: 'juan' }
+  ];
+}
+
+test('an edit that brings back an anonymized value blocks download and copy', async () => {
+  const nodes = fakeDom();
+  seedDni();
+  respond({ deliverable: true, markdown: METADATA + 'Firma [PERSONA_1] con DNI [DNI_1].', substitutions: 2, entities: 2 });
+  await app.apply();
+  assert.equal(nodes.get('download').disabled, false);
+
+  typeInResult(nodes, 'Firma [PERSONA_1] con DNI 12345678z.');
+
+  assert.equal(nodes.get('download').disabled, true);
+  assert.equal(nodes.get('copy').disabled, true);
+  assert.equal(document.getElementById('edit-leak-note').classList.contains('hidden'), false);
+  assert.match(document.getElementById('edit-leak-note').textContent, /dato anonimizado/);
+  assert.doesNotMatch(document.getElementById('edit-leak-note').textContent, /12345678/);
+  let saved = false;
+  global.URL = { createObjectURL: () => { saved = true; return 'blob:'; }, revokeObjectURL() {} };
+  assert.equal(app.download(), false);
+  assert.equal(saved, false);
+  let copied = null;
+  global.navigator = { clipboard: { writeText: async value => { copied = value; } } };
+  await app.copyMarkdown();
+  assert.equal(copied, null);
+});
+
+test('removing the reintroduced value restores download and copy', async () => {
+  const nodes = fakeDom();
+  seedDni();
+  respond({ deliverable: true, markdown: METADATA + 'Firma [PERSONA_1] con DNI [DNI_1].', substitutions: 2, entities: 2 });
+  await app.apply();
+  typeInResult(nodes, 'Firma JUAN con DNI [DNI_1].');
+  assert.equal(nodes.get('download').disabled, true);
+
+  typeInResult(nodes, 'Firma [PERSONA_1] con DNI [DNI_1], revisado.');
+
+  assert.equal(nodes.get('download').disabled, false);
+  assert.equal(nodes.get('copy').disabled, false);
+  assert.equal(document.getElementById('edit-leak-note').classList.contains('hidden'), true);
+});
+
+test('a value the user chose to keep may stay in the edited result', async () => {
+  const nodes = fakeDom();
+  seedDni();
+  state.rejected = new Set(['juan']);
+  respond({ deliverable: true, markdown: METADATA + 'Firma Juan con DNI [DNI_1].', substitutions: 1, entities: 1 });
+  await app.apply();
+
+  typeInResult(nodes, 'Firma Juan con DNI [DNI_1], revisado.');
+
+  assert.equal(nodes.get('download').disabled, false);
+  assert.equal(document.getElementById('edit-leak-note').classList.contains('hidden'), true);
+});
