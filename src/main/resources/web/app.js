@@ -17,7 +17,7 @@ const state = {
   detections: [],
   entities: new Map(),   // entityKey -> {type, sample, ids:[], count}
   rejected: new Set(),   // entityKeys descartadas
-  markdown: '', warningMarkdown: '', warningDownloadEligible: false, resultEdited: false, resultPrefix: '',
+  markdown: '', warningMarkdown: '', warningDownloadEligible: false, resultEdited: false, resultPrefix: '', editLeak: false,
   resultStatus: 'pending', resultStatusTitle: 'Resultado pendiente', resultStatusMessage: '', resultFindings: [],
   types: [], edits: [], revision: 0, analysisRequest: 0, applyRequest: 0, copyRequest: 0,
   activeTab: 'document', comparing: false,
@@ -1116,6 +1116,7 @@ function renderResult(data, hasResult) {
   if (hasResult) renderComparisonResult(previewMarkdown(data.markdown), data.labels);
   state.resultPrefix = hasResult ? data.markdown.slice(0, data.markdown.length - previewMarkdown(data.markdown).length) : '';
   setResultEditable(hasResult);
+  setEditLeak(false);
   el('warning-note').textContent = 'Este resultado puede contener datos personales residuales. Descargar o copiar implica aceptar ese riesgo; no es seguro para entregar.';
   el('download').disabled = !deliverable && !(state.warningDownloadEligible && state.warningMarkdown);
   el('copy').disabled = !deliverable && !state.warningDownloadEligible;
@@ -1140,6 +1141,30 @@ function editResult() {
   if (warning) state.warningMarkdown = edited;
   else state.markdown = edited;
   state.resultEdited = true;
+  const folded = foldForLeak(edited);
+  setEditLeak(anonymizedValues().some(value => folded.includes(value)));
+}
+
+// The server verified the text it produced, not the user's edit: an edit that brings an
+// anonymized value back must never leave the browser as a deliverable.
+function anonymizedValues() {
+  return state.detections.filter(d => !state.rejected.has(d.entityKey))
+    .map(d => foldForLeak(state.text.slice(d.start, d.end)))
+    .filter(value => value.length >= 2);
+}
+
+function foldForLeak(value) {
+  return value.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/gu, ' ').trim();
+}
+
+function setEditLeak(leak) {
+  state.editLeak = leak;
+  const note = el('edit-leak-note');
+  note.textContent = 'El resultado editado vuelve a contener un dato anonimizado. Quítalo para poder descargar o copiar.';
+  note.classList.toggle('hidden', !leak);
+  const available = !!state.markdown || (state.warningDownloadEligible && !!state.warningMarkdown);
+  el('download').disabled = leak || !available;
+  el('copy').disabled = leak || !available;
 }
 
 function renderChecks(data, hasResult) {
@@ -1241,6 +1266,8 @@ function resetResultPanels() {
   setResultEditable(false);
   el('download').disabled = true;
   el('warning-note').classList.add('hidden');
+  el('edit-leak-note').classList.add('hidden');
+  state.editLeak = false;
   el('copy').disabled = true;
   el('copy-label').textContent = 'Copiar';
 }
@@ -1388,6 +1415,7 @@ function saveMarkdown(markdown) {
 }
 
 function download() {
+  if (state.editLeak) return false;
   const markdown = state.markdown || (state.warningDownloadEligible ? state.warningMarkdown : '');
   if (!markdown) return false;
   saveMarkdown(markdown);
@@ -1395,6 +1423,7 @@ function download() {
 }
 
 async function copyMarkdown() {
+  if (state.editLeak) return;
   const warning = state.warningDownloadEligible && !!state.warningMarkdown;
   const markdown = warning ? state.warningMarkdown : state.markdown;
   if (!markdown) return;
