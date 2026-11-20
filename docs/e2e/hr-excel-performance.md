@@ -2,7 +2,7 @@
 
 Owner report: with an HR Excel of about 300 rows, full of IDs and person names, the app "freezes
 for a while". This document records how to reproduce it, the measurements, the root causes and a
-proposed fix. **The fix is not implemented**; it waits for the owner's approval.
+proposed fix. The initial measurements and proposal are preserved below; see [After the fixes](#after-the-fixes) for the approved implementation and its remaining limits.
 
 ## Reproduce
 
@@ -117,7 +117,7 @@ salida`, about one per employee (50 / 149 / 298). The web path passes verificati
 like the second occurrence of each IBAN (roster and payroll sheets) is not detected or not
 propagated in the pipeline used by the CLI.
 
-## Proposed fix (not implemented)
+## Original proposal
 
 1. **Front-end colors (largest win).** Read the type colors once — a `Map` filled from a single
    `getComputedStyle` at startup or on theme change — or set the color through a CSS class /
@@ -150,12 +150,73 @@ the security corpus.
 - E2E: `npm --prefix e2e run test:perf` must pass its 200 ms click / 1 s long-task budgets at
   50/150/300; the default `npm --prefix e2e test` and `mvn -o test` must stay green.
 
-## Not verified
+## Baseline limitations
 
-- No fix was implemented or measured; the expected gains are estimates.
+- The estimates above preceded implementation; use the measured results below instead.
 - Browser journey at 300+ employees never became interactive within 300 s, so its click and
   apply numbers are missing; server timings for 300–1000 come from the profiler and curl.
 - `.xls` fixtures are generated but were not timed; only `.xlsx` was measured.
 - Single runs on one Windows machine; no repetition or variance analysis; no heap limit tuning of
   the web server.
 - The CLI IBAN verification block was observed but its root cause was not investigated.
+
+## After the fixes
+
+With 300 employees the browser journey now completes, including copy and download. The worst
+review click still takes **710 ms**, above the unchanged 200 ms budget. The fix removes the
+multi-second style recalculation per mark, not the cost of rebuilding the review UI. At 1,000
+employees the click profile points to `scrollIntoView` (1,238 ms self time) and `renderEntities`
+(421 ms) as the next places to investigate.
+
+### Browser and CLI before → after
+
+Times in seconds. Analyze/apply are HTTP request times, not end-to-end UI latency. The 300-employee
+baseline analyze used curl; no interactive baseline was captured at 300 or 1,000 employees.
+
+| Employees | Analyze request | Apply request | Worst review click | CLI pipeline (exit) |
+|---|---:|---:|---:|---:|
+| 50 | 1.1 → 0.620 | 0.8 → 0.112 | 2.0 → 0.118 | 0.80 (2) → 0.68 (0) |
+| 150 | 3.9 → 0.332 | 5.9 → 0.383 | 30.5 → 0.317 | 2.09 (2) → 1.19 (0) |
+| 300 | 16.4 → 0.613 | — → 1.425 | — → 0.710 | 5.71 (2) → 1.92 (0) |
+| 1,000 | — → 3.827 | — → 15.602 | — → 2.437 | — → 10.49 (0) |
+
+Upload to interactive was 1.40 s / 6.30 s at 300 / 1,000 employees. Apply through delivery
+readiness took 1.78 s / 16.97 s. At 1,000 employees a main-thread task lasted 2.545 s.
+
+### JVM stages before → after
+
+Wall times in seconds; propagation includes its overlap pass. These are single runs, not
+percentiles, and do not isolate the effect of one commit. Allocation is cumulative per thread,
+not peak RSS. At 300 employees, exact-expansion allocation fell from about 64 GiB to 10 MiB
+and review replay from about 105 GiB to 5 MiB. Verification remains the main server cost.
+
+| Employees | Propagation + overlaps | Exact expansion | Review replay | Verification | Total profiler |
+|---|---:|---:|---:|---:|---:|
+| 50 | 0.06 → 0.013 | 0.40 → 0.012 | 0.60 → 0.003 | 0.08 → 0.053 | 1.25 → 0.191 |
+| 150 | 0.5 → 0.072 | 3.1 → 0.026 | 5.1 → 0.008 | 0.7 → 0.365 | 9.68 → 0.673 |
+| 300 | 2.4 → 0.246 | 12–17 → 0.054 | 21–29 → 0.014 | 2.9 → 1.404 | 38.67 → 2.023 |
+| 600 | 13 → 0.918 | 68 → 0.165 | 113 → 0.029 | 13 → 5.556 | 207.39 → 7.212 |
+| 1,000 | 52 → 2.433 | 205 → 0.410 | 344 → 0.049 | 35 → 15.768 | 638.83 → 19.550 |
+
+### Changes and verification
+
+| Commit | Change | Focused evidence |
+|---|---|---|
+| `94090e5` | Detect an IBAN before a numeric cell without relaxing verification | `mvn -o -Dtest=IbanCellBoundaryTest test`: 6 assertion failures before, 8 tests passed after. |
+| `0d74b53` | Cache mark colors and index detections by ID | `node --test src/test/js/review-render-performance.test.js`: 300 style reads and 1,041 linear scans caused failures before; both tests passed after. |
+| `18dfc03`, `b8bbb62` | Pin then optimize exact occurrence expansion and review replay | `mvn -o -Dtest=ExactOccurrencesCharacterizationTest test`: goldens recorded before optimization; the new budget failed at 8,795 ms. `mvn -o -Dtest='ExactOccurrences*Test,ReviewEdits*Test' test`: 34 passed unchanged goldens included. |
+| `5b03322` | Index accepted intervals, deduplicate propagated ranges, and reuse folded output for searches | `mvn -o -Dtest=ExactOccurrencesCharacterizationTest test`: 600-employee analysis failed the budget at 20,794 ms on the old implementation. `mvn -o -Dtest=ExactOccurrencesCharacterizationTest,SecurityCorpusEndToEndTest,RedactionVerifierTest test`: 56 passed, including candidate, redaction and finding parity on the recorded cases. |
+
+**IBAN cause:** the greedy regex in `DeterministicDetectors.java:192–195` could include the
+start of the next payroll cell (`10/2026`). `RegexDetector.java:53–56` then rejected the entire
+match after checksum validation rather than retrying the shorter value. The detector now recovers
+a checksum-valid prefix at a whitespace boundary. The CLI verified all four measured books
+without blocking findings; the verifier was not weakened to allow the missed occurrence.
+
+Final runs: `mvn -o test` (528 passed), `node --test src/test/js/*.test.js` (142 passed),
+`npm --prefix e2e test` (26 passed), and the stage profiler above with
+`-Dhr.sizes=50,150,300,600,1000` (five profiles, all verified). The unchanged
+`HR_SIZES=50,150,300,1000 npm --prefix e2e run test:perf` exited 1: CLI and the 50-employee
+browser case passed; the 150-, 300- and 1,000-employee browser cases completed their journeys
+but missed the interaction budget. The 1,000-employee case also missed the 1 s long-task budget.
+No `.xls` benchmarks, 3,000-employee post-fix run, repeated samples, or other OS/browser runs.
