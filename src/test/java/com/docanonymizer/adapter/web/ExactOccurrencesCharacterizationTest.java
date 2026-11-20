@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.docanonymizer.adapter.PipelineFactory;
+import com.docanonymizer.domain.model.AnonymizationResult;
 import com.docanonymizer.domain.model.Detection;
 import com.docanonymizer.domain.service.AnonymizationPipeline;
 import com.docanonymizer.tools.ForeignNameCorpusGenerator;
@@ -51,9 +52,10 @@ class ExactOccurrencesCharacterizationTest {
         Path foreign = workDir.resolve("foreign.pdf");
         ForeignNameCorpusGenerator.generate(foreign);
         INPUTS.put("foreign-name-corpus", foreign);
-        generateHrWorkbooks(workDir, 50, 150);
+        generateHrWorkbooks(workDir, 50, 150, 600);
         INPUTS.put("hr-50", workDir.resolve("hr-50.xlsx"));
         INPUTS.put("hr-150", workDir.resolve("hr-150.xlsx"));
+        INPUTS.put("hr-600", workDir.resolve("hr-600.xlsx"));
     }
 
     /** Runs the committed synthetic generator with the test class path (Apache POI included). */
@@ -74,10 +76,13 @@ class ExactOccurrencesCharacterizationTest {
         Map<String, String> actual = new LinkedHashMap<>();
         for (var input : INPUTS.entrySet()) {
             // A fresh pipeline per input keeps detector id sequences deterministic.
-            AnonymizationPipeline.Analysis analysis = PipelineFactory.standard().analyze(input.getValue());
+            AnonymizationPipeline pipeline = PipelineFactory.standard();
+            AnonymizationPipeline.Analysis analysis = pipeline.analyze(input.getValue());
             AnonymizationPipeline.Analysis expanded = ExactOccurrences.expand(analysis);
             actual.put(input.getKey() + " expand", digest(expanded.candidates()));
-            actual.put(input.getKey() + " replay", digest(ReviewEdits.replay(expanded, "review-v1\n")));
+            AnonymizationPipeline.ReviewedSelection reviewed = ReviewEdits.replay(expanded, "review-v1\n");
+            actual.put(input.getKey() + " replay", digest(reviewed));
+            actual.put(input.getKey() + " complete", digest(pipeline.complete(expanded, reviewed)));
             actual.put(input.getKey() + " replay-edited",
                     digest(ReviewEdits.replay(expanded, editedReview(expanded.candidates()))));
         }
@@ -118,6 +123,34 @@ class ExactOccurrencesCharacterizationTest {
 
     private static String encode(String value) {
         return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
+    }
+
+    /** Final Markdown without its timestamp line, plus every verifier finding. */
+    private static String digest(AnonymizationResult result) throws Exception {
+        String markdown = result.markdown().lines().filter(line -> !line.contains("T") || !line.matches(".*\\d{4}-\\d{2}-\\d{2}T.*"))
+                .collect(java.util.stream.Collectors.joining("\n"));
+        String findings = result.verification().findings().stream().map(Object::toString)
+                .collect(java.util.stream.Collectors.joining("\n"));
+        return "passed=" + result.verification().passed() + " markdown=" + sha256(markdown)
+                + " findings=" + result.verification().findings().size() + ":" + sha256(findings);
+    }
+
+    /**
+     * Propagation, overlap arbitration and verification must not grow with people times text:
+     * before the rewrite 600 employees needed about 13 s to analyze and 13 s to verify.
+     */
+    @Test
+    void analyzeAndVerifyOfSixHundredEmployeesStayWithinBudget() throws Exception {
+        AnonymizationPipeline pipeline = PipelineFactory.standard();
+        long started = System.nanoTime();
+        AnonymizationPipeline.Analysis analysis = pipeline.analyze(INPUTS.get("hr-600"));
+        long analyzeMs = (System.nanoTime() - started) / 1_000_000;
+        started = System.nanoTime();
+        AnonymizationResult result = pipeline.complete(analysis, analysis.candidates());
+        long completeMs = (System.nanoTime() - started) / 1_000_000;
+        assertTrue(result.verification().passed(), result.verification().toString());
+        assertTrue(analyzeMs < 5_000, "analyze took " + analyzeMs + " ms");
+        assertTrue(completeMs < 5_000, "substitution and verification took " + completeMs + " ms");
     }
 
     private static String digest(AnonymizationPipeline.ReviewedSelection selection) throws Exception {

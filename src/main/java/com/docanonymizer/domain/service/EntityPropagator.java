@@ -4,8 +4,11 @@ import com.docanonymizer.domain.model.Detection;
 import com.docanonymizer.domain.model.DetectionType;
 import com.docanonymizer.domain.model.Provenance;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -24,16 +27,31 @@ public final class EntityPropagator {
 
     private final AtomicInteger sequence = new AtomicInteger();
 
+    /**
+     * Bounded to one propagated span per text range: in an HR roster every shared given name or
+     * surname used to be emitted once per person (1.5 million spans for 1000 employees). Among
+     * identical PERSON ranges only the first can ever win {@code DetectionEngine} arbitration,
+     * so later duplicates are dropped; their ids are still consumed so surviving ids are stable.
+     * The text is folded once and each distinct variant searched once.
+     */
     public List<Detection> propagate(String normalizedText, List<Detection> seeds) {
         List<Detection> extra = new ArrayList<>();
+        TextFolding.Folded folded = TextFolding.Folded.of(normalizedText);
+        Map<String, List<int[]>> occurrences = new HashMap<>();
+        Set<Long> emitted = new HashSet<>();
         for (Detection seed : seeds) {
             if (seed.type() != DetectionType.PERSON) {
                 continue;
             }
             for (String variant : variantsOf(seed.value())) {
-                for (int[] span : NamePolicy.findOccurrencesWithinCell(normalizedText, variant)) {
+                for (int[] span : occurrences.computeIfAbsent(variant,
+                        v -> NamePolicy.findOccurrencesWithinCell(folded, v))) {
+                    int id = sequence.incrementAndGet();
+                    if (!emitted.add(((long) span[0] << 32) | span[1])) {
+                        continue;
+                    }
                     extra.add(new Detection(
-                            "prop-" + sequence.incrementAndGet(),
+                            "prop-" + id,
                             DetectionType.PERSON,
                             span[0],
                             span[1],

@@ -46,7 +46,27 @@ public final class TextFolding {
      * mayusculas y acentos. Los espacios del patron admiten cualquier separador.
      */
     public static List<int[]> findWholeWordOccurrences(String haystack, String needle) {
+        return findWholeWordOccurrences(Folded.of(haystack), needle, false);
+    }
+
+    /**
+     * A text folded once, for callers that search the same text for many needles: folding
+     * the whole haystack per needle made propagation and verification quadratic.
+     */
+    public record Folded(String text, String folded) {
+        public static Folded of(String text) {
+            return new Folded(text, fold(text));
+        }
+    }
+
+    /** Same as {@link #findWholeWordOccurrences(String, String)} over a text folded once. */
+    public static List<int[]> findWholeWordOccurrences(Folded haystack, String needle) {
         return findWholeWordOccurrences(haystack, needle, false);
+    }
+
+    /** Same as {@link #findWholeWordOccurrencesWithinCell(String, String)} over a text folded once. */
+    public static List<int[]> findWholeWordOccurrencesWithinCell(Folded haystack, String needle) {
+        return findWholeWordOccurrences(haystack, needle, true);
     }
 
     /**
@@ -55,12 +75,12 @@ public final class TextFolding {
      * un unico salto de linea si, porque el nombre puede venir partido al final de linea.
      */
     public static List<int[]> findWholeWordOccurrencesWithinCell(String haystack, String needle) {
-        return findWholeWordOccurrences(haystack, needle, true);
+        return findWholeWordOccurrences(Folded.of(haystack), needle, true);
     }
 
-    private static List<int[]> findWholeWordOccurrences(String haystack, String needle, boolean withinCell) {
+    private static List<int[]> findWholeWordOccurrences(Folded haystack, String needle, boolean withinCell) {
         List<int[]> hits = new ArrayList<>();
-        String foldedHaystack = fold(haystack);
+        String foldedHaystack = haystack.folded();
         String foldedNeedle = fold(needle.strip());
         if (foldedNeedle.isEmpty()) {
             return hits;
