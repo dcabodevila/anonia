@@ -125,6 +125,21 @@ async function save(name, data) {
 test.describe('HR workbooks: freeze diagnosis', () => {
   // Not serial: a size that breaks the budget must not hide the measurements of the others.
 
+  // Metrics of the running journey, persisted at every stage and once more after the test, so a
+  // frozen page that times out still leaves a current report naming the stage it stalled in.
+  let current = null;
+  async function stage(name) {
+    current.stage = name;
+    await save(`web-${current.rows}.json`, current);
+  }
+  test.afterEach(async ({}, testInfo) => {
+    if (!current) return;
+    current.status = testInfo.status;
+    if (testInfo.status !== 'passed' && current.stage !== 'done') current.stalledStage = current.stage;
+    await save(`web-${current.rows}.json`, current);
+    current = null;
+  });
+
   for (const rows of sizes) {
     test(`web review journey stays responsive with ${rows} employees`, async ({ page }) => {
       const file = path.join(fixtures, `hr-${rows}.xlsx`);
@@ -132,7 +147,8 @@ test.describe('HR workbooks: freeze diagnosis', () => {
       await page.addInitScript(instrument);
       await page.goto(baseUrl);
       await expect(page.locator('#dropzone')).toBeVisible();
-      const metrics = { rows, file: path.basename(file) };
+      const metrics = current = { rows, file: path.basename(file), status: 'running' };
+      await stage('analyze');
 
       // Upload -> server analysis -> detection rendering.
       await page.evaluate(() => window.__perfReset());
@@ -163,6 +179,7 @@ test.describe('HR workbooks: freeze diagnosis', () => {
         elements: document.getElementsByTagName('*').length
       }));
 
+      await stage('interactions');
       // Mark/dismiss: uncheck then re-check entity groups; each click re-renders synchronously.
       const toggles = [];
       for (let i = 0; i < TOGGLES; i++) {
@@ -178,6 +195,7 @@ test.describe('HR workbooks: freeze diagnosis', () => {
       await timedClick(page, '#entities .entity input[type=checkbox]', 0);
       await collect(page);
 
+      await stage('apply');
       // "Anonimizar": server apply + verification, then result rendering.
       const applyStarted = Date.now();
       await page.locator('#apply').click();
@@ -192,6 +210,7 @@ test.describe('HR workbooks: freeze diagnosis', () => {
         ...(await collect(page))
       };
 
+      await stage('delivery');
       // Copy and download of the anonymized Markdown.
       const copyStarted = Date.now();
       await page.locator('#copy').click();
@@ -202,7 +221,7 @@ test.describe('HR workbooks: freeze diagnosis', () => {
       const output = path.join(runtime, `hr-${rows}.anonymized.md`);
       await (await download).saveAs(output);
       metrics.delivery = { copyMs: downloadStarted - copyStarted, downloadMs: Date.now() - downloadStarted, ...(await collect(page)) };
-      await save(`web-${rows}.json`, metrics);
+      await stage('done');
       console.log(JSON.stringify(metrics));
 
       // Functional oracle: no detected DNI/NIE survives in the downloaded Markdown.

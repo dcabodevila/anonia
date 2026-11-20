@@ -68,6 +68,12 @@ public final class HrExcelStageProfiler {
                     .sorted((a, b) -> Integer.compare(rows(a), rows(b))).toList();
         }
         if (files.isEmpty()) throw new IllegalStateException("No hr-<rows>.xlsx files in " + dir);
+        // A requested size without its workbook must fail, not silently shrink the sweep.
+        List<String> missing = only.stream().filter(size -> files.stream()
+                .noneMatch(p -> String.valueOf(rows(p)).equals(size))).toList();
+        if (!missing.isEmpty()) {
+            throw new IllegalStateException("Missing hr-<rows>.xlsx in " + dir + " for sizes " + missing);
+        }
         // Warm up the JIT and the gazetteer with the smallest file so the first size is fair.
         new HrExcelStageProfiler().profile(files.get(0));
 
