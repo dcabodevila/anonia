@@ -4,9 +4,12 @@ import com.docanonymizer.domain.model.Detection;
 import com.docanonymizer.domain.model.DetectionType;
 import com.docanonymizer.domain.service.AnonymizationPipeline;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -15,7 +18,17 @@ final class ExactOccurrences {
     private static final String WHITESPACE = "[\\u0009-\\u000D\\u0020\\u00A0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000\\uFEFF]";
     private static final Pattern SPACE = Pattern.compile(WHITESPACE + "+");
 
+    // Analyses this class produced. The web job store keeps the expanded analysis, so apply can
+    // reuse it instead of expanding it again. Weak keys: an expired job releases its entry.
+    private static final Set<AnonymizationPipeline.Analysis> EXPANDED =
+            java.util.Collections.synchronizedSet(java.util.Collections.newSetFromMap(new java.util.WeakHashMap<>()));
+
     private ExactOccurrences() { }
+
+    /** Returns {@code analysis} itself when it already is the result of {@link #expand}. */
+    static AnonymizationPipeline.Analysis ensureExpanded(AnonymizationPipeline.Analysis analysis) {
+        return EXPANDED.contains(analysis) ? analysis : expand(analysis);
+    }
 
     static AnonymizationPipeline.Analysis expand(AnonymizationPipeline.Analysis analysis) {
         String text = analysis.normalizedText();
@@ -27,10 +40,14 @@ final class ExactOccurrences {
             ids.add(detection.id());
         }
 
+        // The text is normalized once and each distinct value searched once: both used to be
+        // repeated per candidate, which made analysis grow with candidates times text length.
+        MappedSource mapped = normalizeSource(text);
+        Map<String, List<int[]>> matchesByValue = new HashMap<>();
         for (Detection source : analysis.candidates()) {
             String value = normalize(source.value());
             if (value.isEmpty()) continue;
-            for (int[] range : matches(text, value)) {
+            for (int[] range : matchesByValue.computeIfAbsent(value, selected -> matches(mapped, selected))) {
                 Span span = new Span(range[0], range[1]);
                 if (occupied.contains(span) || joinsDigits(text, span)
                         || source.type() == DetectionType.ORGANIZATION && !organizationBoundary(text, span)) continue;
@@ -42,8 +59,10 @@ final class ExactOccurrences {
                 occupied.add(span);
             }
         }
-        return new AnonymizationPipeline.Analysis(text, splitDifferentValues(detections),
-                analysis.sourceSha256(), analysis.pageCount());
+        AnonymizationPipeline.Analysis expanded = new AnonymizationPipeline.Analysis(text,
+                splitDifferentValues(detections), analysis.sourceSha256(), analysis.pageCount());
+        EXPANDED.add(expanded);
+        return expanded;
     }
 
     /** Values sharing a detector key are only one review entity when their source value is exact. */
@@ -51,17 +70,19 @@ final class ExactOccurrences {
         List<Detection> split = new ArrayList<>();
         Set<String> entityKeys = new HashSet<>();
         detections.forEach(detection -> entityKeys.add(detection.entityKey()));
-        java.util.Map<String, String> groups = new java.util.LinkedHashMap<>();
+        Map<String, String> groups = new HashMap<>();
+        Set<String> assignedKeys = new HashSet<>();
         for (Detection detection : detections) {
             String sourceValue = detection.entityKey() + "\u0000" + normalize(detection.value()).toLowerCase(Locale.ROOT);
             String key = groups.get(sourceValue);
             if (key == null) {
                 key = detection.entityKey();
-                if (groups.containsValue(key)) {
+                if (assignedKeys.contains(key)) {
                     key = "review:" + detection.id();
                     while (!entityKeys.add(key)) key += ":";
                 }
                 groups.put(sourceValue, key);
+                assignedKeys.add(key);
             }
             split.add(key.equals(detection.entityKey()) ? detection : new Detection(detection.id(),
                     detection.type(), detection.start(), detection.end(), detection.value(), key,
@@ -84,22 +105,26 @@ final class ExactOccurrences {
                 || span.end < source.length() && Character.isDigit(source.codePointAt(span.end));
     }
 
-    private static List<int[]> matches(String source, String selected) {
-        MappedSource mapped = normalizeSource(source);
+    private static List<int[]> matches(MappedSource mapped, String selected) {
         List<int[]> found = new ArrayList<>();
         for (int index = mapped.value.indexOf(selected); index >= 0;
                 index = mapped.value.indexOf(selected, index + 1)) {
             int end = index + selected.length();
-            Integer startOffset = mapped.offsets.get(index);
-            Integer endOffset = mapped.offsets.get(end);
-            if (startOffset != null && endOffset != null) found.add(new int[]{startOffset, endOffset});
+            int startOffset = mapped.offset(index);
+            int endOffset = mapped.offset(end);
+            if (startOffset != UNMAPPED && endOffset != UNMAPPED) found.add(new int[]{startOffset, endOffset});
         }
         return found;
     }
 
+    /** Offset map entry for a normalized position that is not a fragment boundary. */
+    private static final int UNMAPPED = -1;
+
     private static MappedSource normalizeSource(String source) {
-        StringBuilder normalized = new StringBuilder();
-        List<Integer> offsets = new ArrayList<>();
+        StringBuilder normalized = new StringBuilder(source.length());
+        // Normalization never lengthens the text, so one slot per source char plus the end suffices.
+        int[] offsets = new int[source.length() + 1];
+        Arrays.fill(offsets, UNMAPPED);
         int whitespaceStart = -1;
         int whitespaceEnd = -1;
         for (int index = 0; index < source.length();) {
@@ -110,26 +135,23 @@ final class ExactOccurrences {
                 whitespaceEnd = end;
             } else {
                 if (whitespaceStart >= 0 && normalized.length() > 0) {
-                    appendMapped(normalized, offsets, " ", whitespaceStart, whitespaceEnd);
+                    appendMapped(normalized, offsets, source, whitespaceStart, whitespaceEnd, true);
                 }
                 whitespaceStart = -1;
-                appendMapped(normalized, offsets, source.substring(index, end), index, end);
+                appendMapped(normalized, offsets, source, index, end, false);
             }
             index = end;
         }
         return new MappedSource(normalized.toString(), offsets);
     }
 
-    private static void appendMapped(StringBuilder normalized, List<Integer> offsets,
-            String fragment, int sourceStart, int sourceEnd) {
-        setOffset(offsets, normalized.length(), sourceStart);
-        normalized.append(fragment);
-        setOffset(offsets, normalized.length(), sourceEnd);
-    }
-
-    private static void setOffset(List<Integer> offsets, int index, int value) {
-        while (offsets.size() <= index) offsets.add(null);
-        offsets.set(index, value);
+    /** Appends one fragment: a whitespace run collapsed to one space, or one code point. */
+    private static void appendMapped(StringBuilder normalized, int[] offsets, String source,
+            int sourceStart, int sourceEnd, boolean space) {
+        offsets[normalized.length()] = sourceStart;
+        if (space) normalized.append(' ');
+        else normalized.append(source, sourceStart, sourceEnd);
+        offsets[normalized.length()] = sourceEnd;
     }
 
     private static boolean isWhitespace(int codePoint) {
@@ -147,5 +169,9 @@ final class ExactOccurrences {
     }
 
     private record Span(int start, int end) { }
-    private record MappedSource(String value, List<Integer> offsets) { }
+    private record MappedSource(String value, int[] offsets) {
+        int offset(int index) {
+            return index < offsets.length ? offsets[index] : UNMAPPED;
+        }
+    }
 }
