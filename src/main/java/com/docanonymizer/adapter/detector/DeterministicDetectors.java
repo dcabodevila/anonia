@@ -198,6 +198,27 @@ public final class DeterministicDetectors {
             super("iban", PATTERN, DetectionType.IBAN, Provenance.CHECKSUM_VALIDATED, 0.99);
         }
 
+        /**
+         * The optional trailing group can swallow the next spreadsheet cell or line when it
+         * starts with digits ("...7477\t10/2026"), which breaks the checksum and would drop a
+         * real IBAN. Keep the longest checksum-valid prefix that ends at a whitespace boundary.
+         */
+        @Override
+        protected String trim(String matched) {
+            if (IdentifierValidators.isValidIban(matched)) {
+                return matched;
+            }
+            for (int cut = matched.length() - 1; cut > 0; cut--) {
+                if (Character.isWhitespace(matched.charAt(cut))) {
+                    String prefix = matched.substring(0, cut).stripTrailing();
+                    if (IdentifierValidators.isValidIban(prefix)) {
+                        return prefix;
+                    }
+                }
+            }
+            return matched;
+        }
+
         @Override
         protected boolean accepts(String value) {
             return IdentifierValidators.isValidIban(value);
