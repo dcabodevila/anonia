@@ -245,16 +245,28 @@ function setEntityFilters(search, type) {
   state.entityTypeFilter = type || '';
 }
 
+// Id index over state.detections. The list is only replaced (new analysis) or appended to
+// (manual entities), and detections are edited in place, so identity plus length detects staleness.
+let detectionIndex = { list: null, size: -1, byId: new Map() };
+
+function detectionById(id) {
+  const list = state.detections;
+  if (detectionIndex.list !== list || detectionIndex.size !== list.length) {
+    detectionIndex = { list, size: list.length, byId: new Map(list.map(detection => [detection.id, detection])) };
+  }
+  return detectionIndex.byId.get(id);
+}
+
 function occurrenceIds(entityKey) {
   const entity = state.entities.get(entityKey);
   if (!entity) return [];
   const seenRanges = new Set();
   return entity.ids.slice().sort((a, b) => {
-    const first = state.detections.find(detection => detection.id === a);
-    const second = state.detections.find(detection => detection.id === b);
+    const first = detectionById(a);
+    const second = detectionById(b);
     return first.start - second.start || first.end - second.end || a.localeCompare(b);
   }).filter(id => {
-    const detection = state.detections.find(candidate => candidate.id === id);
+    const detection = detectionById(id);
     const range = detection.start + ':' + detection.end;
     if (seenRanges.has(range)) return false;
     seenRanges.add(range);
@@ -996,10 +1008,17 @@ function renderDocument({ scrollActiveLocation = true } = {}) {
   if (scrollActiveLocation) scrollToActiveLocation(container);
 }
 
+// Reading a computed style while marks are being appended forces a full style recalculation,
+// so each type color is read once and reused (the type palette is static CSS, no theme switch).
+const typeColors = new Map();
+
 function colorOf(type) {
+  if (typeColors.has(type)) return typeColors.get(type);
   const key = '--t-' + type.toLowerCase();
-  const value = getComputedStyle(document.documentElement).getPropertyValue(key);
-  return value.trim() || '#8b97a8';
+  // Types without a palette variable keep the neutral fallback, cached as well.
+  const value = getComputedStyle(document.documentElement).getPropertyValue(key).trim() || '#8b97a8';
+  typeColors.set(type, value);
+  return value;
 }
 
 // ----------------------------------------------------------------- aplicar
