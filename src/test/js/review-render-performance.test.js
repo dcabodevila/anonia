@@ -340,3 +340,36 @@ test('toggling a mark that ends the document keeps earlier marks, in both direct
   assert.ok(roots.get('doctext').children.some(mark => mark.textContent === 'Valor59'));
   assertMatchesFullRender();
 });
+
+for (const [label, source, texts] of [
+  ['non-empty text', 'Texto sin ninguna detección', 1],
+  ['empty text', '', 0]
+]) {
+  test(`a document with ${label} and no detections renders its source text and no marks`, t => {
+    cleanupTreeDom(t);
+    const { roots, counts } = treeDom();
+    state.text = source;
+    state.detections = [];
+    state.types = ['PERSONA'];
+    state.entitySearch = '';
+    state.entityTypeFilter = '';
+    app.groupEntities();
+
+    assert.doesNotThrow(() => { app.renderEntities(); app.renderDocument(); });
+    const doctext = roots.get('doctext');
+    assert.equal(doctext.textContent, source);
+    assert.equal(doctext.children.length, 0, 'no marks are rendered');
+    assert.equal(doctext.childNodes.length, texts, 'text nodes: ' + texts);
+    assert.equal(counts.texts, texts, 'no extra empty text node is created');
+    const patched = serialize(doctext);
+
+    // Incremental rerender (selection/toggle path) over an existing render, then a full render.
+    state.rejected = new Set(['inexistente']);
+    assert.doesNotThrow(() => app.renderDocument({ incremental: true, scrollActiveLocation: false }));
+    assert.equal(doctext.textContent, source);
+    assert.equal(serialize(doctext), patched);
+    app.renderDocument({ scrollActiveLocation: false });
+    assert.equal(serialize(doctext), patched, 'incremental output matches a full render');
+    assert.equal(doctext.textContent, source);
+  });
+}
