@@ -139,6 +139,7 @@ test.describe('G7 manual entity from a real mouse selection', () => {
     await page.getByRole('button', { name: 'Añadir entidad a anonimizar' }).click();
     const input = page.locator('#entities input.entity-editor');
     await expect(input).toBeVisible();
+    await expect(input).toBeFocused();
     await input.fill(selected);
     await page.getByRole('button', { name: 'Guardar entidad manual' }).click();
 
@@ -160,13 +161,13 @@ test.describe('G7 manual entity from a real mouse selection', () => {
   });
 });
 
-// The product has acceptAll() (app.js:749) but nothing binds it to the UI, so the supported
-// "accept all" path is the bulk "Marcar todos" button exercised here.
+// The supported "accept all" path is the bulk "Marcar todos" button exercised here.
 test.describe('G12 re-checking after rejecting entities', () => {
   test('re-checking every entity updates every checkbox, mark and counter, and the output', async ({ page }) => {
     await open(page, 'people.txt', PEOPLE_TEXT);
     const boxes = page.locator('#entities [data-entity-key] input[type=checkbox]');
     const stats = '3 entidades · 3 candidatos · 1 página';
+    const partialStats = '1 de 3 entidades · 3 candidatos · 1 página';
     await expect(boxes).toHaveCount(3);
     await expect(page.locator('#stats')).toHaveText(stats);
     for (let i = 0; i < 3; i++) await expect(boxes.nth(i)).toBeChecked();
@@ -180,7 +181,7 @@ test.describe('G12 re-checking after rejecting entities', () => {
     await expect(page.locator('#doctext .hl')).toHaveCount(1);
     await expect(page.locator('#entities [data-entity-key].off')).toHaveCount(2);
     await expect(page.locator('#bulk-uncheck')).toHaveText('Desmarcar todos');
-    await expect(page.locator('#stats')).toHaveText(stats);
+    await expect(page.locator('#stats')).toHaveText(partialStats);
 
     // Rejected values stay in the output; only the checked entity is anonymized.
     await applyAndWait(page);
@@ -190,6 +191,7 @@ test.describe('G12 re-checking after rejecting entities', () => {
     // Uncheck the last one: every listed entity is unchecked, so the bulk button re-checks all.
     await boxes.nth(2).uncheck();
     await expect(page.locator('#bulk-uncheck')).toHaveText('Marcar todos');
+    await expect(page.locator('#stats')).toHaveText('0 de 3 entidades · 3 candidatos · 1 página');
     await expect(page.locator('#doctext .hl')).toHaveCount(0);
     await page.locator('#bulk-uncheck').click();
     for (let i = 0; i < 3; i++) await expect(boxes.nth(i)).toBeChecked();

@@ -829,3 +829,26 @@ function comparisonDom() {
   };
   return { nodes };
 }
+
+test('B2 the manual draft input receives focus only once its row is attached to the list', () => {
+  const { nodes } = fakeDom();
+  fixture('REF-1 | REF-1', []);
+  const attachedAtFocus = [];
+  const createElement = global.document.createElement;
+  global.document.createElement = tag => {
+    const element = createElement(tag);
+    const focus = element.focus;
+    element.focus = function () {
+      const inList = root => root.children.some(child => child === element
+        || (child && typeof child === 'object' && inList(child)));
+      attachedAtFocus.push(inList(nodes.get('entities')));
+      focus.call(this);
+    };
+    return element;
+  };
+  app.renderEntities();
+  app.startManualEntity();
+  assert.deepEqual(attachedAtFocus, [true], 'one focus call, after the row is in #entities');
+  const input = nodes.get('entities').children[0].children[0].children[0];
+  assert.equal(input.focused, 1);
+});

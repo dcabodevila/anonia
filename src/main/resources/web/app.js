@@ -169,6 +169,7 @@ function goHome() {
   state.activeEntityKey = null;
   state.activeOccurrenceId = null;
   state.manualEntityDraft = false;
+  state.stats = null;
   state.focusTarget = null;
   el('file').value = '';
   el('doctext').textContent = '';
@@ -365,6 +366,9 @@ function createManualEntityAddButton() {
   return addButton;
 }
 
+// Draft input of the open manual row; focused by startManualEntity once the row is attached.
+let manualDraftInput = null;
+
 function renderManualEntityAddRow() {
   const row = document.createElement('div');
   row.className = 'entity add-entity-row' + (state.manualEntityDraft ? ' active' : '');
@@ -423,7 +427,7 @@ function renderManualEntityAddRow() {
       finish(event.key === 'Enter');
     }
   });
-  input.focus();
+  manualDraftInput = input;
   return row;
 }
 
@@ -473,6 +477,7 @@ function updateEntityRowSelection(entityKey) {
 function renderEntities() {
   renderEntityFilters();
   updateBulkUncheck();
+  updateStats();
   const container = el('entities');
   container.innerHTML = '';
   container.append(renderManualEntityAddRow());
@@ -740,16 +745,11 @@ function toggleFilteredEntities() {
 function refreshSelection(entityKey) {
   invalidateResult();
   updateBulkUncheck();
+  updateStats();
   if (!updateEntityRowSelection(entityKey)) renderEntities();
   renderDocument({ incremental: true });
   updateLocationControls();
   restoreFocus();
-}
-
-function acceptAll() {
-  for (const key of state.rejected) recordEdit('reject', key, 'false');
-  state.rejected.clear();
-  refreshReview();
 }
 
 function normalize(value) { return value.replace(/\s+/gu, ' ').trim(); }
@@ -939,6 +939,7 @@ function startManualEntity() {
   if (state.manualEntityDraft) return;
   state.manualEntityDraft = true;
   renderEntities();
+  if (manualDraftInput) manualDraftInput.focus();
 }
 
 function editInline(button, key) {
@@ -1552,13 +1553,22 @@ function resetResultPanels() {
 // -------------------------------------------------------------------- misc
 
 function renderStats(data) {
+  state.stats = { candidates: data.detections.length, pageCount: data.pageCount, elapsedMs: data.elapsedMs };
+  updateStats();
+}
+
+// Entity count shows marked of total while some entities are unchecked.
+function updateStats() {
+  if (!state.stats) return;
+  const { candidates, pageCount, elapsedMs } = state.stats;
+  const total = state.entities.size;
+  const marked = [...state.entities.keys()].filter(key => !state.rejected.has(key)).length;
+  const noun = total === 1 ? ' entidad' : ' entidades';
   el('stats').innerHTML = '';
-  const entities = state.entities.size;
-  const candidates = data.detections.length;
-  el('stats').textContent = entities + (entities === 1 ? ' entidad' : ' entidades')
+  el('stats').textContent = (marked === total ? total : marked + ' de ' + total) + noun
     + ' · ' + candidates + (candidates === 1 ? ' candidato' : ' candidatos')
-    + ' · ' + data.pageCount + (data.pageCount === 1 ? ' página' : ' páginas');
-  el('stats').title = 'Análisis: ' + data.elapsedMs + ' ms';
+    + ' · ' + pageCount + (pageCount === 1 ? ' página' : ' páginas');
+  el('stats').title = 'Análisis: ' + elapsedMs + ' ms';
 }
 
 let comparisonScrollCleanup = null;
@@ -1735,5 +1745,5 @@ if (typeof module !== 'undefined') module.exports = {
   selectTab, toggleCompare, download, filteredEntities, setEntityFilters,
   uncheckFilteredEntities, checkFilteredEntities, toggleFilteredEntities, toggleEntity, refreshSelection,
   selectEntityLocation, navigateEntityOccurrence, occurrenceIds, isHighlightActivation, restoreFocus,
-  copyMarkdown, previewMarkdown, projectComparison, editResult
+  copyMarkdown, previewMarkdown, projectComparison, editResult, renderStats
 };

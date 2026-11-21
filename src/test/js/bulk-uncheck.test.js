@@ -178,3 +178,36 @@ test('Marcar todos: toggling one item back switches the label to Desmarcar todos
   app.toggleEntity(key(3));
   assert.equal(button().textContent, 'Desmarcar todos');
 });
+
+// B3: the stats line shows marked-of-total entities when some are unchecked.
+const stats = () => nodes.get('stats').textContent;
+const SUMMARY = ' · 5 candidatos · 2 páginas';
+function renderStatsLine() {
+  app.renderStats({ detections: state.detections, pageCount: 2, elapsedMs: 7 });
+}
+
+test('B3 stats show marked of total only while some entities are unchecked', () => {
+  renderStatsLine();
+  assert.equal(stats(), '5 entidades' + SUMMARY);
+  state.rejected.add(key(0));
+  app.refreshSelection(key(0));
+  assert.equal(stats(), '4 de 5 entidades' + SUMMARY);
+  state.rejected.delete(key(0));
+  app.refreshSelection(key(0));
+  assert.equal(stats(), '5 entidades' + SUMMARY);
+  assert.equal(nodes.get('stats').title, 'Análisis: 7 ms');
+});
+
+test('B3 stats follow bulk Desmarcar/Marcar todos, filtered, and re-renders', () => {
+  renderStatsLine();
+  app.setEntityFilters('luis', '');
+  app.uncheckFilteredEntities();
+  assert.equal(stats(), '3 de 5 entidades' + SUMMARY);
+  app.setEntityFilters('', '');
+  app.uncheckFilteredEntities();
+  assert.equal(stats(), '0 de 5 entidades' + SUMMARY);
+  app.renderEntities();
+  assert.equal(stats(), '0 de 5 entidades' + SUMMARY);
+  app.checkFilteredEntities();
+  assert.equal(stats(), '5 entidades' + SUMMARY);
+});
