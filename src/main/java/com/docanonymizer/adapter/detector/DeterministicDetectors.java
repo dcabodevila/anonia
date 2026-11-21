@@ -205,6 +205,12 @@ public final class DeterministicDetectors {
          */
         @Override
         protected String trim(String matched) {
+            // A TAB is a spreadsheet cell boundary: an IBAN never continues into the next cell,
+            // even when the extra digits happen to keep the mod-97 checksum valid (1 in 97).
+            int cell = matched.indexOf('\t');
+            if (cell >= 0) {
+                matched = matched.substring(0, cell).stripTrailing();
+            }
             if (IdentifierValidators.isValidIban(matched)) {
                 return matched;
             }
