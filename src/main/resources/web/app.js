@@ -76,7 +76,7 @@ function init() {
   el('markdown').addEventListener('input', editResult);
 
   el('compare').addEventListener('click', toggleCompare);
-  el('bulk-uncheck').addEventListener('click', uncheckFilteredEntities);
+  el('bulk-uncheck').addEventListener('click', toggleFilteredEntities);
   el('entity-search').addEventListener('input', () => {
     setEntityFilters(el('entity-search').value, el('entity-type-filter').value);
     renderEntities();
@@ -684,24 +684,55 @@ function checkedFilteredKeys() {
   return filteredEntities().map(([key]) => key).filter(key => !state.rejected.has(key));
 }
 
-function updateBulkUncheck() {
-  const button = el('bulk-uncheck');
-  if (button) button.disabled = checkedFilteredKeys().length === 0;
+// Listed entities are all unchecked (non-empty list): the bulk button offers "Marcar todos".
+function allFilteredUnchecked() {
+  const listed = filteredEntities();
+  return listed.length > 0 && listed.every(([key]) => state.rejected.has(key));
 }
 
-// Rejects every listed entity in one batch; entities hidden by the filters are untouched.
-function uncheckFilteredEntities() {
-  const keys = checkedFilteredKeys();
+function updateBulkUncheck() {
+  const button = el('bulk-uncheck');
+  if (!button) return;
+  const recheck = allFilteredUnchecked();
+  const label = recheck ? 'Marcar todos' : 'Desmarcar todos';
+  const title = recheck
+    ? 'Marca todas las entidades que se muestran con el filtro actual'
+    : 'Desmarca todas las entidades que se muestran con el filtro actual';
+  button.textContent = label;
+  button.title = title;
+  button.setAttribute('aria-label', label);
+  button.disabled = filteredEntities().length === 0;
+}
+
+// Applies one reject state to the given entities in a single batch and refreshes once.
+function setRejectedBatch(keys, rejected) {
   if (!keys.length) return;
   for (const key of keys) {
-    recordEdit('reject', key, 'true');
-    state.rejected.add(key);
+    recordEdit('reject', key, String(rejected));
+    if (rejected) state.rejected.add(key);
+    else state.rejected.delete(key);
   }
   invalidateResult();
   renderEntities();
   renderDocument({ incremental: true });
   updateLocationControls();
   restoreFocus();
+}
+
+// Rejects every listed entity in one batch; entities hidden by the filters are untouched.
+function uncheckFilteredEntities() {
+  setRejectedBatch(checkedFilteredKeys(), true);
+}
+
+// Re-checks every listed entity in one batch; entities hidden by the filters are untouched.
+function checkFilteredEntities() {
+  setRejectedBatch(filteredEntities().map(([key]) => key).filter(key => state.rejected.has(key)), false);
+}
+
+// The bulk button action follows its label.
+function toggleFilteredEntities() {
+  if (allFilteredUnchecked()) checkFilteredEntities();
+  else uncheckFilteredEntities();
 }
 
 // A selection toggle changes one row and the document ranges it covers; both are patched in
@@ -1687,7 +1718,7 @@ if (typeof module !== 'undefined') module.exports = {
   addManualEntity, startManualEntity, editInline, invalidateResult, apply, analyze, effectiveDetections, renderDocument,
   renderEntities,
   selectTab, toggleCompare, download, filteredEntities, setEntityFilters,
-  uncheckFilteredEntities, refreshSelection,
+  uncheckFilteredEntities, checkFilteredEntities, toggleFilteredEntities, toggleEntity, refreshSelection,
   selectEntityLocation, navigateEntityOccurrence, occurrenceIds, isHighlightActivation, restoreFocus,
   copyMarkdown, previewMarkdown, projectComparison, editResult
 };
