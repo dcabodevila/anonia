@@ -17,7 +17,7 @@ const state = {
   detections: [],
   entities: new Map(),   // entityKey -> {type, sample, ids:[], count}
   rejected: new Set(),   // entityKeys descartadas
-  markdown: '', warningMarkdown: '', warningDownloadEligible: false, resultEdited: false, resultPrefix: '', editLeak: false,
+  markdown: '', warningMarkdown: '', warningDownloadEligible: false, resultEdited: false, resultPrefix: '', editLeak: false, leakBaseline: new Map(),
   resultStatus: 'pending', resultStatusTitle: 'Resultado pendiente', resultStatusMessage: '', resultFindings: [],
   types: [], edits: [], revision: 0, analysisRequest: 0, applyRequest: 0, copyRequest: 0,
   activeTab: 'document', comparing: false,
@@ -984,6 +984,7 @@ function invalidateResult() {
   state.warningDownloadEligible = false;
   state.resultEdited = false;
   state.resultFindings = [];
+  state.leakBaseline = new Map();
   resetResultPanels();
   setResultStatus('pending', 'Resultado pendiente', 'Revisa las entidades y pulsa «Anonimizar».');
 }
@@ -1378,6 +1379,8 @@ function renderResult(data, hasResult) {
   if (hasResult) renderComparisonResult(previewMarkdown(data.markdown), data.labels);
   state.resultPrefix = hasResult ? data.markdown.slice(0, data.markdown.length - previewMarkdown(data.markdown).length) : '';
   setResultEditable(hasResult);
+  // A blocked result already contains still-anonymized values; only occurrences added by the edit leak.
+  state.leakBaseline = hasResult && !data.deliverable ? leakCounts(data.markdown) : new Map();
   setEditLeak(false);
   el('warning-note').textContent = 'Este resultado puede contener datos personales residuales. Descargar o copiar implica aceptar ese riesgo; no es seguro para entregar.';
   el('download').disabled = !deliverable && !(state.warningDownloadEligible && state.warningMarkdown);
@@ -1403,8 +1406,18 @@ function editResult() {
   if (warning) state.warningMarkdown = edited;
   else state.markdown = edited;
   state.resultEdited = true;
-  const folded = foldForLeak(edited);
-  setEditLeak(anonymizedValues().some(value => folded.includes(value)));
+  const counts = leakCounts(edited);
+  setEditLeak([...counts].some(([value, count]) => count > (state.leakBaseline.get(value) || 0)));
+}
+
+function leakCounts(text) {
+  const folded = foldForLeak(text);
+  const counts = new Map();
+  for (const value of anonymizedValues()) {
+    const count = folded.split(value).length - 1;
+    if (count > 0) counts.set(value, count);
+  }
+  return counts;
 }
 
 // The server verified the text it produced, not the user's edit: an edit that brings an
@@ -1530,6 +1543,7 @@ function resetResultPanels() {
   el('warning-note').classList.add('hidden');
   el('edit-leak-note').classList.add('hidden');
   state.editLeak = false;
+  state.leakBaseline = new Map();
   el('copy').disabled = true;
   el('copy-label').textContent = 'Copiar';
 }

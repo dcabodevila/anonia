@@ -114,13 +114,6 @@ test.describe('G9 non-ASCII file names', () => {
 });
 
 test.describe('G10 editing a non-deliverable result', () => {
-  // KNOWN PRODUCT BUG (not fixed here): editResult/anonymizedValues (app.js ~1397-1432) compare the
-  // whole edited preview against every still-anonymized value. In this blocked result the kept
-  // literal "JUAN PEREZ LOPEZ" contains the still-anonymized detection "Perez Lopez", so ANY edit
-  // (even typing an unrelated note) raises #edit-leak-note and disables Download/Copy; the edit
-  // of a warning result can therefore never be exported in this scenario. Remove test.fail()
-  // once the guard only reacts to values the edit introduced.
-  test.fail();
   test('the edit reaches the exported file and the status stays blocked', async ({ page }) => {
     await open(page);
     await page.locator('#file').setInputFiles(path.join(runtime, 'fixtures', 'seeded.pdf'));

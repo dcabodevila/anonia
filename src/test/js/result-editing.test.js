@@ -217,3 +217,104 @@ test('a value the user chose to keep may stay in the edited result', async () =>
   assert.equal(nodes.get('download').disabled, false);
   assert.equal(document.getElementById('edit-leak-note').classList.contains('hidden'), true);
 });
+
+
+async function applyBlocked(nodes) {
+  seedDni();
+  respond({ deliverable: false, markdown: METADATA + 'Firma [PERSONA_1] con DNI 12345678Z.', findings: [{ detail: 'Bloqueado' }] });
+  await app.apply();
+  return nodes;
+}
+
+function leakHidden() {
+  return document.getElementById('edit-leak-note').classList.contains('hidden');
+}
+
+test('blocked result: an unrelated edit does not flag values already in the preview', async () => {
+  const nodes = fakeDom();
+  await applyBlocked(nodes);
+  assert.equal(nodes.get('download').disabled, false);
+
+  typeInResult(nodes, 'Firma [PERSONA_1] con DNI 12345678Z. Nota añadida.');
+
+  assert.equal(leakHidden(), true);
+  assert.equal(nodes.get('download').disabled, false);
+  assert.equal(nodes.get('copy').disabled, false);
+  assert.equal(state.warningMarkdown, METADATA + 'Firma [PERSONA_1] con DNI 12345678Z. Nota añadida.');
+});
+
+test('blocked result: removing an existing occurrence is allowed', async () => {
+  const nodes = fakeDom();
+  await applyBlocked(nodes);
+
+  typeInResult(nodes, 'Firma [PERSONA_1] con DNI [DNI_1].');
+
+  assert.equal(leakHidden(), true);
+  assert.equal(nodes.get('download').disabled, false);
+});
+
+test('blocked result: adding another occurrence of a still-anonymized value blocks, retyping beyond the baseline too', async () => {
+  const nodes = fakeDom();
+  await applyBlocked(nodes);
+
+  typeInResult(nodes, 'Firma [PERSONA_1] con DNI 12345678Z y 12345678Z.');
+  assert.equal(leakHidden(), false);
+  assert.equal(nodes.get('download').disabled, true);
+  assert.equal(nodes.get('copy').disabled, true);
+
+  typeInResult(nodes, 'Firma [PERSONA_1] con DNI [DNI_1].');
+  assert.equal(leakHidden(), true);
+  assert.equal(nodes.get('download').disabled, false);
+  typeInResult(nodes, 'Firma [PERSONA_1] con DNI 12345678Z. Ref 12345678Z');
+  assert.equal(leakHidden(), false);
+  assert.equal(nodes.get('download').disabled, true);
+});
+
+test('blocked result: a different anonymized value introduced by the edit blocks', async () => {
+  const nodes = fakeDom();
+  await applyBlocked(nodes);
+
+  typeInResult(nodes, 'Firma JUAN con DNI 12345678Z.');
+
+  assert.equal(leakHidden(), false);
+  assert.equal(nodes.get('download').disabled, true);
+});
+
+test('deliverable result: typing an anonymized value still blocks (baseline 0)', async () => {
+  const nodes = fakeDom();
+  seedDni();
+  respond({ deliverable: true, markdown: METADATA + 'Firma [PERSONA_1] con DNI [DNI_1].', substitutions: 2, entities: 2 });
+  await app.apply();
+
+  typeInResult(nodes, 'Firma [PERSONA_1] con DNI 12345678Z.');
+
+  assert.equal(leakHidden(), false);
+  assert.equal(nodes.get('download').disabled, true);
+});
+
+test('the baseline resets when a new result arrives', async () => {
+  const nodes = fakeDom();
+  await applyBlocked(nodes);
+  typeInResult(nodes, 'Firma [PERSONA_1] con DNI 12345678Z. Nota.');
+  assert.equal(leakHidden(), true);
+
+  global.confirm = () => true;
+  respond({ deliverable: false, markdown: METADATA + 'Firma [PERSONA_1] con DNI [DNI_1].', findings: [{ detail: 'Bloqueado' }] });
+  await app.apply();
+  typeInResult(nodes, 'Firma [PERSONA_1] con DNI 12345678Z.');
+
+  assert.equal(leakHidden(), false);
+  assert.equal(nodes.get('download').disabled, true);
+});
+
+test('the baseline resets when the result is invalidated', async () => {
+  const nodes = fakeDom();
+  await applyBlocked(nodes);
+  app.invalidateResult();
+  respond({ deliverable: true, markdown: METADATA + 'Firma [PERSONA_1] con DNI [DNI_1].', substitutions: 2, entities: 2 });
+  await app.apply();
+
+  typeInResult(nodes, 'Firma [PERSONA_1] con DNI 12345678Z.');
+
+  assert.equal(leakHidden(), false);
+});
