@@ -324,18 +324,23 @@ test('toggling a mark that ends the document keeps earlier marks, in both direct
   app.renderDocument();
   const markOf = word => roots.get('doctext').children.find(mark => mark.textContent === word);
   let earlier = markOf('Valor7');
+  assert.ok(earlier, 'the earlier mark exists before toggling');
   assert.equal(state.text.length, state.detections[59].end, 'the last mark ends the document');
 
   toggleFromCheckbox('k59');
   assert.equal(state.rejected.has('k59'), true);
-  assert.ok(roots.get('doctext').children.find(mark => mark.textContent === 'Valor7') === earlier,
+  const keptRejecting = markOf('Valor7');
+  assert.ok(keptRejecting, 'the earlier mark exists after rejecting');
+  assert.ok(keptRejecting === earlier,
     'rejecting keeps the earlier mark identity');
   assertMatchesFullRender();
   earlier = markOf('Valor7'); // the full-render comparison rebuilt the document
 
   toggleFromCheckbox('k59');
   assert.equal(state.rejected.has('k59'), false);
-  assert.ok(roots.get('doctext').children.find(mark => mark.textContent === 'Valor7') === earlier,
+  const keptSelecting = markOf('Valor7');
+  assert.ok(keptSelecting, 'the earlier mark exists after selecting');
+  assert.ok(keptSelecting === earlier,
     'selecting keeps the earlier mark identity');
   assert.ok(roots.get('doctext').children.some(mark => mark.textContent === 'Valor59'));
   assertMatchesFullRender();
