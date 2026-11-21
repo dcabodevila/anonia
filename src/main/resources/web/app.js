@@ -179,6 +179,7 @@ function goHome() {
   el('toast-region').textContent = '';
   el('workspace').classList.add('hidden');
   el('loading').classList.add('hidden');
+  el('apply-loading').classList.add('hidden');
   showError(null);
   resetDropzone();
 }
@@ -1237,6 +1238,7 @@ async function apply() {
   const current = () => revision === state.revision && request === state.applyRequest;
   setResultStatus('working', 'Generando resultado', 'Aplicando tus decisiones y verificando que el documento se pueda entregar.');
   el('apply').disabled = true;
+  el('apply-loading').classList.remove('hidden');
   try {
     const response = await fetch('/api/apply', {
       method: 'POST',
@@ -1268,7 +1270,10 @@ async function apply() {
         'No se pudo contactar con el servidor. Comprueba que la aplicación siga abierta y vuelve a intentarlo.');
     }
   } finally {
-    if (request === state.applyRequest) el('apply').disabled = false;
+    if (request === state.applyRequest) {
+      el('apply').disabled = false;
+      el('apply-loading').classList.add('hidden');
+    }
   }
 }
 
