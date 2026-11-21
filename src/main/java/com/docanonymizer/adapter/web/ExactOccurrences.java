@@ -16,6 +16,7 @@ import java.util.regex.Pattern;
 /** Adds source-exact occurrences to an analysis without changing detector policy. */
 final class ExactOccurrences {
     private static final String WHITESPACE = "[\\u0009-\\u000D\\u0020\\u00A0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000\\uFEFF]";
+    private static final Pattern BLANK_LINE = Pattern.compile("(\r\n|\n|\r|\u2028|\u2029)[ \u00A0]*(\r\n|\n|\r|\u2028|\u2029)");
     private static final Pattern SPACE = Pattern.compile(WHITESPACE + "+");
 
     // Analyses this class produced. The web job store keeps the expanded analysis, so apply can
@@ -50,7 +51,9 @@ final class ExactOccurrences {
             for (int[] range : matchesByValue.computeIfAbsent(value, selected -> matches(mapped, selected))) {
                 Span span = new Span(range[0], range[1]);
                 if (occupied.contains(span) || joinsDigits(text, span)
-                        || source.type() == DetectionType.ORGANIZATION && !organizationBoundary(text, span)) continue;
+                        || source.type() == DetectionType.ORGANIZATION && !organizationBoundary(text, span)
+                        || source.type() == DetectionType.PERSON
+                                && (!organizationBoundary(text, span) || crossesCell(text, span))) continue;
                 String id = "exact:" + source.id() + ":" + span.start + ":" + span.end;
                 while (!ids.add(id)) id += ":";
                 detections.add(new Detection(id, source.type(), span.start, span.end,
@@ -89,6 +92,12 @@ final class ExactOccurrences {
                     detection.provenance(), detection.confidence()));
         }
         return List.copyOf(split);
+    }
+
+    /** A person never spans a cell (TAB) or paragraph (blank line) boundary. */
+    private static boolean crossesCell(String source, Span span) {
+        String covered = source.substring(span.start, span.end);
+        return covered.indexOf('\t') >= 0 || BLANK_LINE.matcher(covered).find();
     }
 
     private static boolean organizationBoundary(String source, Span span) {
