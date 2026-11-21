@@ -317,6 +317,85 @@ class RedactionVerifierTest {
                 .filter(f -> f.control().equals("C4-COBERTURA-DE-SUSTITUCION")).count());
     }
 
+    @Test
+    void nameRejectedTwiceBlanksExactlyTwoSuccessiveHits() {
+        Detection r1 = new Detection("r1", DetectionType.PERSON, 0, 4, "Juan", "k-r1", Provenance.REGEX, .9);
+        Detection r2 = new Detection("r2", DetectionType.PERSON, 0, 4, "Juan", "k-r2", Provenance.REGEX, .9);
+        Detection selected = new Detection("s", DetectionType.PERSON, 0, 9, "Juan Soto", "k-s", Provenance.REGEX, .9);
+        var report = verifier.verify("[P] Juan Juan Juan", List.of(selected), Map.of("k-s", "[P]"),
+                List.of(r1, r2, selected), java.util.Set.of("r1", "r2"));
+        var c3 = report.blocking().stream().filter(f -> f.control().equals("C3-TOKENS-DE-NOMBRE")).toList();
+        org.junit.jupiter.api.Assertions.assertEquals(1, c3.size());
+        org.junit.jupiter.api.Assertions.assertEquals(14, c3.get(0).outputStart());
+        org.junit.jupiter.api.Assertions.assertEquals(18, c3.get(0).outputEnd());
+    }
+
+    @Test
+    void overlappingRejectedNamesMaskInOrder() {
+        Detection r1 = new Detection("r1", DetectionType.PERSON, 0, 10, "Ana Garcia", "k-r1", Provenance.REGEX, .9);
+        Detection r2 = new Detection("r2", DetectionType.PERSON, 0, 12, "Garcia Lopez", "k-r2", Provenance.REGEX, .9);
+        Detection selected = new Detection("s", DetectionType.PERSON, 0, 12, "Maria Garcia", "k-s", Provenance.REGEX, .9);
+        var report = verifier.verify("[P] Ana Garcia Lopez Garcia Lopez", List.of(selected),
+                Map.of("k-s", "[P]"), List.of(r1, r2, selected), java.util.Set.of("r1", "r2"));
+        assertFalse(hasControl(report, "C3-TOKENS-DE-NOMBRE"));
+        // Reversed order: "Garcia Lopez" blanks the first pair, then "Ana Garcia" matches across the
+        // blanks (Ana ... second Garcia), leaving only the last "Lopez" visible (forward: the middle one).
+        Detection lopez = new Detection("s2", DetectionType.PERSON, 0, 11, "Maria Lopez", "k-s", Provenance.REGEX, .9);
+        var forward = verifier.verify("[P] Ana Garcia Lopez Garcia Lopez", List.of(lopez),
+                Map.of("k-s", "[P]"), List.of(r1, r2, lopez), java.util.Set.of("r1", "r2"));
+        var forwardC3 = forward.blocking().stream().filter(f -> f.control().equals("C3-TOKENS-DE-NOMBRE")).toList();
+        org.junit.jupiter.api.Assertions.assertEquals(1, forwardC3.size());
+        org.junit.jupiter.api.Assertions.assertEquals(15, forwardC3.get(0).outputStart());
+        var reversed = verifier.verify("[P] Ana Garcia Lopez Garcia Lopez", List.of(lopez),
+                Map.of("k-s", "[P]"), List.of(r2, r1, lopez), java.util.Set.of("r1", "r2"));
+        var c3 = reversed.blocking().stream().filter(f -> f.control().equals("C3-TOKENS-DE-NOMBRE")).toList();
+        org.junit.jupiter.api.Assertions.assertEquals(1, c3.size());
+        org.junit.jupiter.api.Assertions.assertEquals(28, c3.get(0).outputStart());
+    }
+
+    @Test
+    void enclosedOriginalPersonStillChecksLeftoverTokenAfterRejections() {
+        Detection span = new Detection("a", DetectionType.ADDRESS, 0, 30, "Calle Mayor 1", "k-a", Provenance.REGEX, .9);
+        Detection enclosed = new Detection("e", DetectionType.PERSON, 5, 14, "Rosa Vega", "k-e", Provenance.REGEX, .9);
+        Detection rejected = new Detection("r", DetectionType.PERSON, 0, 4, "Vega", "k-r", Provenance.REGEX, .9);
+        var report = verifier.verify("[DIR] Vega Vega", List.of(span), Map.of("k-a", "[DIR]"),
+                List.of(span, enclosed, rejected), java.util.Set.of("r"));
+        var c3 = report.blocking().stream().filter(f -> f.control().equals("C3-TOKENS-DE-NOMBRE")).toList();
+        org.junit.jupiter.api.Assertions.assertEquals(1, c3.size());
+        org.junit.jupiter.api.Assertions.assertEquals(11, c3.get(0).outputStart());
+    }
+
+    @Test
+    void largeHrScenarioWithManyRejectedAndEnclosedPeopleCompletesQuickly() {
+        int employees = 400;
+        int repeats = 30;
+        StringBuilder md = new StringBuilder("[DIR] ");
+        List<Detection> original = new java.util.ArrayList<>();
+        java.util.Set<String> rejected = new java.util.HashSet<>();
+        Detection wide = new Detection("wide", DetectionType.ADDRESS, 0, Integer.MAX_VALUE / 2, "Calle", "k-wide",
+                Provenance.REGEX, .9);
+        List<Detection> accepted = List.of(wide);
+        original.add(wide);
+        for (int e = 0; e < employees; e++) {
+            String name = "Nombre" + e + " Apellido" + e + " Segundo" + e;
+            for (int r = 0; r < repeats; r++) {
+                md.append(name).append(" | ");
+                String id = "p" + e + "_" + r;
+                original.add(new Detection(id, DetectionType.PERSON, 0, name.length(), name,
+                        "k-" + e, Provenance.REGEX, .9));
+                if (e % 2 == 0) {
+                    rejected.add(id);
+                }
+            }
+        }
+        Map<String, String> labels = Map.of("k-wide", "[DIR]");
+        String markdown = md.toString();
+        var report = org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(
+                java.time.Duration.ofSeconds(10),
+                () -> verifier.verify(markdown, accepted, labels, original, rejected));
+        assertTrue(hasControl(report, "C3-TOKENS-DE-NOMBRE"));
+    }
+
     private boolean hasControl(VerificationReport report, String control) {
         return report.blocking().stream().anyMatch(f -> f.control().equals(control));
     }

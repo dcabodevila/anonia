@@ -78,6 +78,75 @@ public final class TextFolding {
         return findWholeWordOccurrences(Folded.of(haystack), needle, true);
     }
 
+    /**
+     * Primera aparicion de {@code needle} como palabra completa en un texto ya plegado y
+     * mutable, o {@code null}. Equivale a {@code findWholeWordOccurrences(...).get(0)} pero
+     * sin recorrer ni plegar el resto del texto: permite enmascarar muchas apariciones
+     * sucesivas sobre el mismo buffer sin coste cuadratico.
+     */
+    public static int[] findFirstWholeWordOccurrence(StringBuilder foldedHaystack, String needle) {
+        String foldedNeedle = fold(needle.strip());
+        if (foldedNeedle.isEmpty()) {
+            return null;
+        }
+        if (foldedNeedle.indexOf(' ') < 0) {
+            int from = 0;
+            while (true) {
+                int index = foldedHaystack.indexOf(foldedNeedle, from);
+                if (index < 0) {
+                    return null;
+                }
+                int end = index + foldedNeedle.length();
+                if (isWholeWord(foldedHaystack, index, end)) {
+                    return new int[] {index, end};
+                }
+                from = index + 1;
+            }
+        }
+        String[] words = foldedNeedle.split(" +");
+        int start = 0;
+        while (true) {
+            // Any match must begin with the first word, so jump between its occurrences.
+            start = foldedHaystack.indexOf(words[0], start);
+            if (start < 0) {
+                return null;
+            }
+            int cursor = start;
+            boolean matched = true;
+            for (int w = 0; w < words.length; w++) {
+                if (w > 0) {
+                    int afterSeparator = skipSeparators(foldedHaystack, cursor);
+                    if (afterSeparator == cursor) {
+                        matched = false;
+                        break;
+                    }
+                    cursor = afterSeparator;
+                }
+                if (!startsWithAt(foldedHaystack, words[w], cursor)) {
+                    matched = false;
+                    break;
+                }
+                cursor += words[w].length();
+            }
+            if (matched && isWholeWord(foldedHaystack, start, cursor)) {
+                return new int[] {start, cursor};
+            }
+            start++;
+        }
+    }
+
+    private static boolean startsWithAt(CharSequence text, String prefix, int at) {
+        if (prefix.length() > text.length() - at) {
+            return false;
+        }
+        for (int i = 0; i < prefix.length(); i++) {
+            if (text.charAt(at + i) != prefix.charAt(i)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private static List<int[]> findWholeWordOccurrences(Folded haystack, String needle, boolean withinCell) {
         List<int[]> hits = new ArrayList<>();
         String foldedHaystack = haystack.folded();
@@ -139,7 +208,7 @@ public final class TextFolding {
         return hits;
     }
 
-    private static int skipSeparators(String text, int from) {
+    private static int skipSeparators(CharSequence text, int from) {
         int i = from;
         while (i < text.length() && (text.charAt(i) == ' ' || text.charAt(i) == '\n'
                 || text.charAt(i) == '\t')) {
@@ -159,7 +228,7 @@ public final class TextFolding {
         return crossesBoundary ? from : i;
     }
 
-    private static boolean isWholeWord(String text, int start, int end) {
+    private static boolean isWholeWord(CharSequence text, int start, int end) {
         boolean leftClear = start == 0 || !isWordChar(text.charAt(start - 1));
         boolean rightClear = end >= text.length() || !isWordChar(text.charAt(end));
         return leftClear && rightClear;
