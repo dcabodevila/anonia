@@ -149,6 +149,7 @@ the security corpus.
   workbooks and the existing corpora; plus a size test (e.g. 300 employees under a time budget).
 - E2E: `npm --prefix e2e run test:perf` must pass its 200 ms click / 1 s long-task budgets at
   50/150/300; the default `npm --prefix e2e test` and `mvn -o test` must stay green.
+  The long-task maximum covers every stage: analyze, review interactions, apply and copy/download delivery.
 
 ## Baseline limitations
 
