@@ -75,7 +75,11 @@ public final class RedactionVerifier {
         List<String> rejectedNames = original.stream()
                 .filter(d -> d.type() == DetectionType.PERSON && rejectedIds.contains(d.id()))
                 .map(Detection::value).toList();
-        checkNameTokens(markdown, nameChecks, rejectedNames, source, findings);
+        // The masked output depends only on the markdown and the rejected names, so it is built
+        // once; rebuilding it per checked person made verification cubic on large workbooks.
+        TextFolding.Folded remaining = maskRejectedNames(markdown, rejectedNames);
+        Map<String, List<int[]>> tokenHits = new java.util.HashMap<>();
+        checkNameTokens(remaining, tokenHits, nameChecks, findings);
         // Accepted outer spans hide retained tags, including accepted PERSON tags.
         // Only explicit rejections suppress their original name checks.
         var acceptedIds = accepted.stream().map(Detection::id).collect(java.util.stream.Collectors.toSet());
@@ -83,7 +87,7 @@ public final class RedactionVerifier {
             if (person.type() == DetectionType.PERSON && !rejectedIds.contains(person.id())
                     && !acceptedIds.contains(person.id())
                     && accepted.stream().anyMatch(d -> d.start() <= person.start() && d.end() >= person.end())) {
-                checkNameTokens(markdown, List.of(person), rejectedNames, source, findings);
+                checkNameTokens(remaining, tokenHits, List.of(person), findings);
             }
         }
         checkSubstitutionCoverage(markdown, accepted, pseudonyms, source, findings);
@@ -153,8 +157,8 @@ public final class RedactionVerifier {
      * controles anteriores lo ve porque el valor completo si desaparecio.
      */
     private void checkNameTokens(
-            String markdown, List<Detection> accepted, List<String> rejectedNames,
-            String source, List<Finding> findings) {
+            TextFolding.Folded remainingText, Map<String, List<int[]>> tokenHits,
+            List<Detection> accepted, List<Finding> findings) {
         Map<String, Detection> longestNameByEntity = new LinkedHashMap<>();
         for (Detection detection : accepted) {
             if (detection.type() != DetectionType.PERSON) {
@@ -163,21 +167,9 @@ public final class RedactionVerifier {
             longestNameByEntity.merge(detection.entityKey(), detection,
                     (a, b) -> a.value().length() >= b.value().length() ? a : b);
         }
-
-        StringBuilder remaining = new StringBuilder(markdown);
-        for (String rejectedName : rejectedNames) {
-            var hits = TextFolding.findWholeWordOccurrences(remaining.toString(), rejectedName);
-            if (!hits.isEmpty()) {
-                int[] hit = hits.get(0);
-                for (int i = hit[0]; i < hit[1]; i++) {
-                    remaining.setCharAt(i, ' ');
-                }
-            }
-        }
-        TextFolding.Folded remainingText = TextFolding.Folded.of(remaining.toString());
         longestNameByEntity.forEach((entityKey, detection) -> {
             for (String token : NamePolicy.significantTokens(detection.value())) {
-                var hits = NamePolicy.findOccurrences(remainingText, token);
+                var hits = tokenHits.computeIfAbsent(token, t -> NamePolicy.findOccurrences(remainingText, t));
                 if (!hits.isEmpty()) {
                     int[] hit = hits.get(0);
                     findings.add(new Finding(C3, Severity.BLOCKING,
@@ -186,6 +178,26 @@ public final class RedactionVerifier {
                 }
             }
         });
+    }
+
+    /**
+     * For each rejected name, in order, blanks only its first whole-word hit in the text as
+     * already masked by the previous names. Folding is 1:1, so the folded buffer is masked
+     * in step with the raw one and neither is rebuilt per name.
+     */
+    private static TextFolding.Folded maskRejectedNames(String markdown, List<String> rejectedNames) {
+        StringBuilder raw = new StringBuilder(markdown);
+        StringBuilder folded = new StringBuilder(TextFolding.fold(markdown));
+        for (String rejectedName : rejectedNames) {
+            int[] hit = TextFolding.findFirstWholeWordOccurrence(folded, rejectedName);
+            if (hit != null) {
+                for (int i = hit[0]; i < hit[1]; i++) {
+                    raw.setCharAt(i, ' ');
+                    folded.setCharAt(i, ' ');
+                }
+            }
+        }
+        return new TextFolding.Folded(raw.toString(), folded.toString());
     }
 
     /** Comprueba que cada entidad dejo su etiqueta en el resultado. */

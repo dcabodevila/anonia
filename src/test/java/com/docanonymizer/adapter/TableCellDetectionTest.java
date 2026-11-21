@@ -52,6 +52,41 @@ class TableCellDetectionTest {
         }
     }
 
+    @Test void hrHeadersAndJobTitlesAreNotPersonsButRealNamesAre() throws Exception {
+        String[] header = {"ID Empleado", "Empleado", "Puesto", "Responsable"};
+        String[][] rows = {{"María López Ruiz", "Técnico", "Técnico Senior"},
+                {"Juan García Pérez", "Administrativo", "Jefe de Equipo"}};
+        byte[] content;
+        try (XSSFWorkbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.createSheet("Plantilla");
+            Row head = sheet.createRow(0);
+            for (int c = 0; c < header.length; c++) head.createCell(c).setCellValue(header[c]);
+            for (int i = 0; i < rows.length; i++) {
+                Row row = sheet.createRow(i + 1);
+                for (int c = 0; c < rows[i].length; c++) row.createCell(c).setCellValue(rows[i][c]);
+            }
+            workbook.write(out);
+            content = out.toByteArray();
+        }
+
+        List<String> persons = persons(Files.write(temp.resolve("hr.xlsx"), content));
+
+        assertTrue(persons.contains("María López Ruiz"), persons::toString);
+        assertTrue(persons.contains("Juan García Pérez"), persons::toString);
+        for (String label : List.of("ID Empleado", "Empleado", "Técnico", "Técnico Senior", "Administrativo",
+                "Responsable", "Jefe de Equipo")) {
+            assertTrue(persons.stream().noneMatch(p -> p.equals(label)), () -> label + " in " + persons);
+        }
+    }
+
+    @Test void givenNameIdStaysDetectedWhileIdEmpleadoHeaderIsNot() throws Exception {
+        String text = "Nombre\tPrimer apellido\tNombre completo\tID Empleado\n\nId\tLópez\tId López\n\nAprobado por Id López.";
+        List<String> persons = persons(Files.writeString(temp.resolve("id.txt"), text));
+
+        assertTrue(persons.stream().filter(p -> p.equals("Id López")).count() >= 2, persons::toString);
+        assertTrue(persons.stream().noneMatch(p -> p.contains("Empleado")), persons::toString);
+    }
+
     private static byte[] workbook(Workbook workbook) throws Exception {
         try (workbook; ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             Sheet sheet = workbook.createSheet("Comparecientes");

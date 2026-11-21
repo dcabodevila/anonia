@@ -317,28 +317,39 @@ test('explicit entity navigation continues to scroll the active document occurre
   delete global.getComputedStyle;
 });
 
-test('pointer marker activation preserves filters and announces when its selected row is hidden', () => {
+for (const [label, search, type, activate] of [
+  ['click with text filter hiding it', 'sin coincidencias', '', node => node.listeners.click({ preventDefault() {} })],
+  ['click with type filter hiding it', '', 'DIRECCION', node => node.listeners.click({ preventDefault() {} })],
+  ['click with both filters hiding it', 'sin coincidencias', 'DIRECCION', node => node.listeners.click({ preventDefault() {} })],
+  ['click with filters already matching it', 'maría', 'PERSONA', node => node.listeners.click({ preventDefault() {} })],
+  ['Enter with filters hiding it', 'sin coincidencias', 'DIRECCION', node => node.listeners.keydown({ key: 'Enter', preventDefault() {} })],
+  ['Space with filters already matching it', 'maría', 'PERSONA', node => node.listeners.keydown({ key: ' ', preventDefault() {} })]
+]) test('marker activation always resets entity filters: ' + label, () => {
   const nodes = renderedDom();
   fixture('María García / María García', [
     ['p1', 'PERSONA', 0, 12, 'person'], ['p2', 'PERSONA', 15, 27, 'person']
   ]);
   state.revision = 9;
   state.markdown = 'ready';
-  app.setEntityFilters('sin coincidencias', '');
+  app.setEntityFilters(search, type);
+  app.renderEntities();
   app.renderDocument();
   const original = nodes.get('doctext').children[0];
 
-  original.listeners.click({ preventDefault() {} });
+  activate(original);
 
+  assert.equal(state.entitySearch, '');
+  assert.equal(state.entityTypeFilter, '');
+  assert.equal(nodes.get('entity-search').value, '');
+  assert.equal(nodes.get('entity-type-filter').children.some(option => option.selected), false);
   assert.equal(state.revision, 9);
   assert.equal(state.markdown, 'ready');
   assert.equal(state.rejected.has('person'), false);
+  assert.equal(state.activeEntityKey, 'person');
   assert.equal(state.activeOccurrenceId, 'p1');
-  assert.match(nodes.get('location-status').textContent, /no coincide con el filtro actual/);
-  assert.equal(nodes.get('entities').children.length, 1);
-  assert.equal(nodes.get('entities').children[0].className, 'entity add-entity-row');
-  assert.equal(controlsByTarget()['previous:person'], undefined);
-  assert.equal(controlsByTarget()['next:person'], undefined);
+  assert.ok(controlsByTarget()['locate:person']);
+  assert.doesNotMatch(nodes.get('location-status').textContent, /no coincide con el filtro actual/);
+  assert.match(nodes.get('location-status').textContent, /aparición 1 de 2/);
   delete global.document;
   delete global.getComputedStyle;
 });

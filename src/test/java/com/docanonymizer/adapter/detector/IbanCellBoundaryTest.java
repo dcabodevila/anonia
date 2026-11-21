@@ -68,4 +68,22 @@ class IbanCellBoundaryTest {
         assertFalse(result.markdown().contains(IBAN.replace(" ", "")), result.markdown());
         assertTrue(result.markdown().contains("10/2026"), result.markdown());
     }
+
+    /**
+     * Workbook rows EMP-001066 / EMP-001103: the IBAN plus the "10" of the next cell's "10/2026"
+     * is itself mod-97 valid, so the overrun used to be kept ("[IBAN]/2026").
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"ES23 2323 5258 4292 6991 3409", "ES23 9642 8438 5256 8865 6012"})
+    void ibanWhoseChecksumAlsoHoldsWithTheNextCellsDigitsStopsAtTheTab(String iban) {
+        String source = "EMP-001066\tAna Ruiz Gil\t" + iban + "\t10/2026\t45737\n";
+        assertEquals(List.of(iban), ibans(source), source);
+    }
+
+    @Test
+    void ibanWithATabInsideOneCellIsStillDetectedAsOne() {
+        String split = "ES46 5136\t9032 4113 0200 7477";
+        assertTrue(com.docanonymizer.domain.service.IdentifierValidators.isValidIban(split.replace('\t', ' ')));
+        assertEquals(List.of(split), ibans("IBAN " + split + "\n"));
+    }
 }

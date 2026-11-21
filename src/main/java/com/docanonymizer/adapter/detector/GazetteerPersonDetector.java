@@ -79,7 +79,7 @@ public final class GazetteerPersonDetector implements DetectorPort {
             String value = normalizedText.substring(start, end);
             String[] words = value.split("\\s+");
             boolean givenName = gazetteer.isGivenName(words[0]);
-            if (gazetteer.isExcludedWord(words[0]) || (!givenName
+            if (gazetteer.isExcludedWord(words[0]) || acronymBeforeVocabulary(words) || (!givenName
                     && !hasLaterSurname(words) && !(afterFunction && gazetteer.isSurname(words[0])))) {
                 continue;
             }
@@ -94,6 +94,19 @@ public final class GazetteerPersonDetector implements DetectorPort {
                     givenName ? 0.85 : 0.80));
         }
         return detections;
+    }
+
+    /** An uppercase acronym followed only by excluded vocabulary is a header ("ID Empleado"), not a name. */
+    private boolean acronymBeforeVocabulary(String[] words) {
+        if (words.length < 2 || words[0].length() > 3 || !words[0].equals(words[0].toUpperCase(java.util.Locale.ROOT))) {
+            return false;
+        }
+        for (int i = 1; i < words.length; i++) {
+            if (!gazetteer.isExcludedWord(words[i]) && !PARTICLE.matcher(words[i]).matches()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private boolean hasLaterSurname(String[] words) {

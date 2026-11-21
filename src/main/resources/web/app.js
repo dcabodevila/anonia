@@ -17,7 +17,7 @@ const state = {
   detections: [],
   entities: new Map(),   // entityKey -> {type, sample, ids:[], count}
   rejected: new Set(),   // entityKeys descartadas
-  markdown: '', warningMarkdown: '', warningDownloadEligible: false, resultEdited: false, resultPrefix: '', editLeak: false,
+  markdown: '', warningMarkdown: '', warningDownloadEligible: false, resultEdited: false, resultPrefix: '', editLeak: false, leakBaseline: new Map(),
   resultStatus: 'pending', resultStatusTitle: 'Resultado pendiente', resultStatusMessage: '', resultFindings: [],
   types: [], edits: [], revision: 0, analysisRequest: 0, applyRequest: 0, copyRequest: 0,
   activeTab: 'document', comparing: false,
@@ -76,6 +76,7 @@ function init() {
   el('markdown').addEventListener('input', editResult);
 
   el('compare').addEventListener('click', toggleCompare);
+  el('bulk-uncheck').addEventListener('click', toggleFilteredEntities);
   el('entity-search').addEventListener('input', () => {
     setEntityFilters(el('entity-search').value, el('entity-type-filter').value);
     renderEntities();
@@ -168,6 +169,7 @@ function goHome() {
   state.activeEntityKey = null;
   state.activeOccurrenceId = null;
   state.manualEntityDraft = false;
+  state.stats = null;
   state.focusTarget = null;
   el('file').value = '';
   el('doctext').textContent = '';
@@ -178,6 +180,7 @@ function goHome() {
   el('toast-region').textContent = '';
   el('workspace').classList.add('hidden');
   el('loading').classList.add('hidden');
+  el('apply-loading').classList.add('hidden');
   showError(null);
   resetDropzone();
 }
@@ -233,11 +236,46 @@ function sortedEntities() {
     .sort((a, b) => a[1].type.localeCompare(b[1].type) || b[1].count - a[1].count);
 }
 
+// Turns the entity text filter into a predicate over entity values (case-insensitive, normalized).
+// Plain text: substring. "..." : exact match. * % any sequence, ? _ one character (anchored, like glob/LIKE).
+// Everything else is literal; matching is done without regex, so no input can throw or backtrack badly.
+function entityTextMatcher(query) {
+  const fold = value => normalize(value || '').toLocaleLowerCase();
+  const search = fold(query);
+  if (!search) return () => true;
+  if (search.length >= 2 && search.startsWith('"') && search.endsWith('"')) {
+    const exact = search.slice(1, -1);
+    return value => fold(value) === exact;
+  }
+  if (!/[*%?_]/u.test(search)) return value => fold(value).includes(search);
+  const pattern = [];
+  for (const character of search) {
+    const token = character === '*' || character === '%' ? '*' : character === '?' || character === '_' ? '?' : character;
+    if (token === '*' && pattern[pattern.length - 1] === '*') continue;
+    pattern.push(token === '*' || token === '?' ? { wildcard: token } : token);
+  }
+  return value => globMatch(pattern, Array.from(fold(value)));
+}
+
+// Linear two-pointer glob match (no regex, no exponential backtracking): O(text * pattern) worst case.
+function globMatch(pattern, text) {
+  const isStar = token => typeof token === 'object' && token.wildcard === '*';
+  const isOne = token => typeof token === 'object' && token.wildcard === '?';
+  let t = 0, p = 0, star = -1, mark = 0;
+  while (t < text.length) {
+    if (p < pattern.length && isStar(pattern[p])) { star = p++; mark = t; }
+    else if (p < pattern.length && (isOne(pattern[p]) || pattern[p] === text[t])) { p++; t++; }
+    else if (star >= 0) { p = star + 1; t = ++mark; }
+    else return false;
+  }
+  while (p < pattern.length && isStar(pattern[p])) p++;
+  return p === pattern.length;
+}
+
 function filteredEntities() {
-  const search = normalize(state.entitySearch || '').toLocaleLowerCase();
+  const matches = entityTextMatcher(state.entitySearch || '');
   return sortedEntities().filter(([, entity]) =>
-    (!search || normalize(entity.best).toLocaleLowerCase().includes(search))
-    && (!state.entityTypeFilter || entity.type === state.entityTypeFilter));
+    matches(entity.best) && (!state.entityTypeFilter || entity.type === state.entityTypeFilter));
 }
 
 function setEntityFilters(search, type) {
@@ -328,6 +366,9 @@ function createManualEntityAddButton() {
   return addButton;
 }
 
+// Draft input of the open manual row; focused by startManualEntity once the row is attached.
+let manualDraftInput = null;
+
 function renderManualEntityAddRow() {
   const row = document.createElement('div');
   row.className = 'entity add-entity-row' + (state.manualEntityDraft ? ' active' : '');
@@ -386,7 +427,7 @@ function renderManualEntityAddRow() {
       finish(event.key === 'Enter');
     }
   });
-  input.focus();
+  manualDraftInput = input;
   return row;
 }
 
@@ -435,6 +476,8 @@ function updateEntityRowSelection(entityKey) {
 
 function renderEntities() {
   renderEntityFilters();
+  updateBulkUncheck();
+  updateStats();
   const container = el('entities');
   container.innerHTML = '';
   container.append(renderManualEntityAddRow());
@@ -641,20 +684,72 @@ function toggleEntity(entityKey) {
   refreshSelection(entityKey);
 }
 
-// A selection toggle changes one row and the document ranges it covers; both are patched in
-// place so a large review keeps unaffected nodes (and the browser's layout) intact.
-function refreshSelection(entityKey) {
+// Entities currently listed by the filters that are still checked.
+function checkedFilteredKeys() {
+  return filteredEntities().map(([key]) => key).filter(key => !state.rejected.has(key));
+}
+
+// Listed entities are all unchecked (non-empty list): the bulk button offers "Marcar todos".
+function allFilteredUnchecked() {
+  const listed = filteredEntities();
+  return listed.length > 0 && listed.every(([key]) => state.rejected.has(key));
+}
+
+function updateBulkUncheck() {
+  const button = el('bulk-uncheck');
+  if (!button) return;
+  const recheck = allFilteredUnchecked();
+  const label = recheck ? 'Marcar todos' : 'Desmarcar todos';
+  const title = recheck
+    ? 'Marca todas las entidades que se muestran con el filtro actual'
+    : 'Desmarca todas las entidades que se muestran con el filtro actual';
+  button.textContent = label;
+  button.title = title;
+  button.setAttribute('aria-label', label);
+  button.disabled = filteredEntities().length === 0;
+}
+
+// Applies one reject state to the given entities in a single batch and refreshes once.
+function setRejectedBatch(keys, rejected) {
+  if (!keys.length) return;
+  for (const key of keys) {
+    recordEdit('reject', key, String(rejected));
+    if (rejected) state.rejected.add(key);
+    else state.rejected.delete(key);
+  }
   invalidateResult();
-  if (!updateEntityRowSelection(entityKey)) renderEntities();
+  renderEntities();
   renderDocument({ incremental: true });
   updateLocationControls();
   restoreFocus();
 }
 
-function acceptAll() {
-  for (const key of state.rejected) recordEdit('reject', key, 'false');
-  state.rejected.clear();
-  refreshReview();
+// Rejects every listed entity in one batch; entities hidden by the filters are untouched.
+function uncheckFilteredEntities() {
+  setRejectedBatch(checkedFilteredKeys(), true);
+}
+
+// Re-checks every listed entity in one batch; entities hidden by the filters are untouched.
+function checkFilteredEntities() {
+  setRejectedBatch(filteredEntities().map(([key]) => key).filter(key => state.rejected.has(key)), false);
+}
+
+// The bulk button action follows its label.
+function toggleFilteredEntities() {
+  if (allFilteredUnchecked()) checkFilteredEntities();
+  else uncheckFilteredEntities();
+}
+
+// A selection toggle changes one row and the document ranges it covers; both are patched in
+// place so a large review keeps unaffected nodes (and the browser's layout) intact.
+function refreshSelection(entityKey) {
+  invalidateResult();
+  updateBulkUncheck();
+  updateStats();
+  if (!updateEntityRowSelection(entityKey)) renderEntities();
+  renderDocument({ incremental: true });
+  updateLocationControls();
+  restoreFocus();
 }
 
 function normalize(value) { return value.replace(/\s+/gu, ' ').trim(); }
@@ -844,6 +939,7 @@ function startManualEntity() {
   if (state.manualEntityDraft) return;
   state.manualEntityDraft = true;
   renderEntities();
+  if (manualDraftInput) manualDraftInput.focus();
 }
 
 function editInline(button, key) {
@@ -889,6 +985,7 @@ function invalidateResult() {
   state.warningDownloadEligible = false;
   state.resultEdited = false;
   state.resultFindings = [];
+  state.leakBaseline = new Map();
   resetResultPanels();
   setResultStatus('pending', 'Resultado pendiente', 'Revisa las entidades y pulsa «Anonimizar».');
 }
@@ -931,6 +1028,8 @@ function isHighlightActivation(event) {
 
 function activateHighlightLocation(detection) {
   // Document markers only locate an occurrence. Selection remains an explicit checkbox action.
+  // Always reset the entity filters so the located row is rendered; refreshLocation re-renders the list.
+  setEntityFilters('', '');
   state.activeEntityKey = detection.entityKey;
   state.activeOccurrenceId = detection.id;
   state.lastNavigationWrapped = false;
@@ -1174,6 +1273,7 @@ async function apply() {
   const current = () => revision === state.revision && request === state.applyRequest;
   setResultStatus('working', 'Generando resultado', 'Aplicando tus decisiones y verificando que el documento se pueda entregar.');
   el('apply').disabled = true;
+  el('apply-loading').classList.remove('hidden');
   try {
     const response = await fetch('/api/apply', {
       method: 'POST',
@@ -1205,7 +1305,10 @@ async function apply() {
         'No se pudo contactar con el servidor. Comprueba que la aplicación siga abierta y vuelve a intentarlo.');
     }
   } finally {
-    if (request === state.applyRequest) el('apply').disabled = false;
+    if (request === state.applyRequest) {
+      el('apply').disabled = false;
+      el('apply-loading').classList.add('hidden');
+    }
   }
 }
 
@@ -1277,6 +1380,8 @@ function renderResult(data, hasResult) {
   if (hasResult) renderComparisonResult(previewMarkdown(data.markdown), data.labels);
   state.resultPrefix = hasResult ? data.markdown.slice(0, data.markdown.length - previewMarkdown(data.markdown).length) : '';
   setResultEditable(hasResult);
+  // A blocked result already contains still-anonymized values; only occurrences added by the edit leak.
+  state.leakBaseline = hasResult && !data.deliverable ? leakCounts(data.markdown) : new Map();
   setEditLeak(false);
   el('warning-note').textContent = 'Este resultado puede contener datos personales residuales. Descargar o copiar implica aceptar ese riesgo; no es seguro para entregar.';
   el('download').disabled = !deliverable && !(state.warningDownloadEligible && state.warningMarkdown);
@@ -1302,8 +1407,19 @@ function editResult() {
   if (warning) state.warningMarkdown = edited;
   else state.markdown = edited;
   state.resultEdited = true;
-  const folded = foldForLeak(edited);
-  setEditLeak(anonymizedValues().some(value => folded.includes(value)));
+  const counts = leakCounts(edited);
+  setEditLeak([...counts].some(([value, count]) => count > (state.leakBaseline.get(value) || 0)));
+}
+
+function leakCounts(text) {
+  const folded = foldForLeak(text);
+  const counts = new Map();
+  for (const value of anonymizedValues()) {
+    let count = 0;
+    for (let at = folded.indexOf(value); at !== -1; at = folded.indexOf(value, at + 1)) count++;
+    if (count > 0) counts.set(value, count);
+  }
+  return counts;
 }
 
 // The server verified the text it produced, not the user's edit: an edit that brings an
@@ -1429,6 +1545,7 @@ function resetResultPanels() {
   el('warning-note').classList.add('hidden');
   el('edit-leak-note').classList.add('hidden');
   state.editLeak = false;
+  state.leakBaseline = new Map();
   el('copy').disabled = true;
   el('copy-label').textContent = 'Copiar';
 }
@@ -1436,13 +1553,22 @@ function resetResultPanels() {
 // -------------------------------------------------------------------- misc
 
 function renderStats(data) {
+  state.stats = { candidates: data.detections.length, pageCount: data.pageCount, elapsedMs: data.elapsedMs };
+  updateStats();
+}
+
+// Entity count shows marked of total while some entities are unchecked.
+function updateStats() {
+  if (!state.stats) return;
+  const { candidates, pageCount, elapsedMs } = state.stats;
+  const total = state.entities.size;
+  const marked = [...state.entities.keys()].filter(key => !state.rejected.has(key)).length;
+  const noun = total === 1 ? ' entidad' : ' entidades';
   el('stats').innerHTML = '';
-  const entities = state.entities.size;
-  const candidates = data.detections.length;
-  el('stats').textContent = entities + (entities === 1 ? ' entidad' : ' entidades')
+  el('stats').textContent = (marked === total ? total : marked + ' de ' + total) + noun
     + ' · ' + candidates + (candidates === 1 ? ' candidato' : ' candidatos')
-    + ' · ' + data.pageCount + (data.pageCount === 1 ? ' página' : ' páginas');
-  el('stats').title = 'Análisis: ' + data.elapsedMs + ' ms';
+    + ' · ' + pageCount + (pageCount === 1 ? ' página' : ' páginas');
+  el('stats').title = 'Análisis: ' + elapsedMs + ' ms';
 }
 
 let comparisonScrollCleanup = null;
@@ -1617,6 +1743,7 @@ if (typeof module !== 'undefined') module.exports = {
   addManualEntity, startManualEntity, editInline, invalidateResult, apply, analyze, effectiveDetections, renderDocument,
   renderEntities,
   selectTab, toggleCompare, download, filteredEntities, setEntityFilters,
+  uncheckFilteredEntities, checkFilteredEntities, toggleFilteredEntities, toggleEntity, refreshSelection,
   selectEntityLocation, navigateEntityOccurrence, occurrenceIds, isHighlightActivation, restoreFocus,
-  copyMarkdown, previewMarkdown, projectComparison, editResult
+  copyMarkdown, previewMarkdown, projectComparison, editResult, renderStats
 };

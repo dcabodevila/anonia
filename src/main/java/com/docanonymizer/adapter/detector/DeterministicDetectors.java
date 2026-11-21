@@ -205,8 +205,24 @@ public final class DeterministicDetectors {
          */
         @Override
         protected String trim(String matched) {
+            // A TAB is a spreadsheet cell boundary: prefer a checksum-valid IBAN that stays inside
+            // the first cell (the overrun "...7477<TAB>10/2026" can itself be valid, 1 in 97).
+            // Only when none exists keep the previous behavior: a valid match may contain a TAB
+            // (an IBAN written across one cell with an internal tab).
+            int cell = matched.indexOf('\t');
+            if (cell >= 0) {
+                String inCell = longestValidPrefix(matched.substring(0, cell).stripTrailing());
+                if (inCell != null) {
+                    return inCell;
+                }
+            }
+            String valid = longestValidPrefix(matched);
+            return valid != null ? valid : matched;
+        }
+
+        private static String longestValidPrefix(String matched) {
             if (IdentifierValidators.isValidIban(matched)) {
-                return matched;
+                return matched.stripTrailing();
             }
             for (int cut = matched.length() - 1; cut > 0; cut--) {
                 if (Character.isWhitespace(matched.charAt(cut))) {
@@ -216,7 +232,7 @@ public final class DeterministicDetectors {
                     }
                 }
             }
-            return matched;
+            return null;
         }
 
         @Override
