@@ -233,11 +233,30 @@ function sortedEntities() {
     .sort((a, b) => a[1].type.localeCompare(b[1].type) || b[1].count - a[1].count);
 }
 
+// Turns the entity text filter into a predicate over entity values (case-insensitive, normalized).
+// Plain text: substring. "..." : exact match. * % any sequence, ? _ one character (anchored, like glob/LIKE).
+// Everything else is literal; the pattern is built by escaping, so no input can throw.
+function entityTextMatcher(query) {
+  const fold = value => normalize(value || '').toLocaleLowerCase();
+  const search = fold(query);
+  if (!search) return () => true;
+  if (search.length >= 2 && search.startsWith('"') && search.endsWith('"')) {
+    const exact = search.slice(1, -1);
+    return value => fold(value) === exact;
+  }
+  if (!/[*%?_]/u.test(search)) return value => fold(value).includes(search);
+  const source = [...search].map(character =>
+    character === '*' || character === '%' ? '[^]*'
+      : character === '?' || character === '_' ? '[^]'
+        : character.replace(/[.*+?^${}()|[\]\\/-]/gu, '\\$&')).join('');
+  const pattern = new RegExp('^' + source + '$', 'u');
+  return value => pattern.test(fold(value));
+}
+
 function filteredEntities() {
-  const search = normalize(state.entitySearch || '').toLocaleLowerCase();
+  const matches = entityTextMatcher(state.entitySearch || '');
   return sortedEntities().filter(([, entity]) =>
-    (!search || normalize(entity.best).toLocaleLowerCase().includes(search))
-    && (!state.entityTypeFilter || entity.type === state.entityTypeFilter));
+    matches(entity.best) && (!state.entityTypeFilter || entity.type === state.entityTypeFilter));
 }
 
 function setEntityFilters(search, type) {
