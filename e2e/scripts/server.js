@@ -2,7 +2,7 @@ const fs = require('node:fs/promises');
 const net = require('node:net');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
-const { createFixtures, createDocumentFixtures } = require('./fixtures');
+const { createFixtures, createDocumentFixtures, createHrFixture } = require('./fixtures');
 
 const root = path.resolve(__dirname, '..', '..');
 const runtime = path.join(root, 'e2e', '.runtime');
@@ -66,6 +66,7 @@ module.exports = async function globalSetup() {
   }
 
   await createDocumentFixtures(runtime, jar);
+  await createHrFixture(runtime, jar);
   const seededPdf = path.join(runtime, 'fixtures', 'seeded.pdf');
   await generateSeededPdf(jar, seededPdf);
   await fs.copyFile(seededPdf, path.join(runtime, 'fixtures', 'replacement.pdf'));

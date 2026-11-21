@@ -183,4 +183,17 @@ class OfficeFixture {
   await runJava(['-Dfile.encoding=UTF-8', '-cp', jar, generator, fixtureDir], 'Office fixture generator');
 }
 
-module.exports = { createFixtures, createDocumentFixtures };
+/**
+ * Synthetic HR workbook (300 employees: roster, payroll and absences sheets) written by
+ * e2e/perf/HrWorkbookGenerator.java with the packaged JAR on the class path.
+ */
+async function createHrFixture(runtime, jar) {
+  const root = path.resolve(__dirname, '..', '..');
+  const hrDir = path.join(runtime, 'hr-fixtures');
+  await fs.mkdir(hrDir, { recursive: true });
+  await runJava(['-Dfile.encoding=UTF-8', '-cp', jar,
+    path.join(root, 'e2e', 'perf', 'HrWorkbookGenerator.java'), hrDir, '300'], 'HR workbook generator');
+  return hrDir;
+}
+
+module.exports = { createFixtures, createDocumentFixtures, createHrFixture };
