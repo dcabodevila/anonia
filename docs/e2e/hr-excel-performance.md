@@ -220,3 +220,39 @@ Final runs: `mvn -o test` (528 passed), `node --test src/test/js/*.test.js` (142
 browser case passed; the 150-, 300- and 1,000-employee browser cases completed their journeys
 but missed the interaction budget. The 1,000-employee case also missed the 1 s long-task budget.
 No `.xls` benchmarks, 3,000-employee post-fix run, repeated samples, or other OS/browser runs.
+
+## Incremental checkbox updates
+
+A checkbox toggle no longer rebuilds the review. `refreshSelection` (`app.js`) updates the
+toggled entity row in place, and `renderDocument({ incremental: true })` replaces only the
+document segments whose content changed. Unaffected rows and marks keep their DOM identity, and
+focus stays on the same checkbox element. Comparison mode and any state that cannot be aligned
+still fall back to the full render. Document-mark clicks (`refreshLocation`) were out of scope and
+still rebuild the review.
+
+Measured with `HR_SIZES=300,1000 npm --prefix e2e run test:perf` and the budget unchanged at 200 ms
+per click and 1 s per task. The run exited 1: both browser cases missed the budget on mark clicks,
+and the 1,000-employee case also missed the long-task budget. Single run, Windows 11, Chromium
+headless; times in ms.
+
+| Employees | Upload to interactive | Analyze server / request | Apply request | Toggles (8 clicks) | Mark clicks | Worst click before → after | Longest task (review) |
+|---|---:|---:|---:|---|---|---:|---:|
+| 300 | 2,324 | 1,454 / 1,521 | 1,547 | 92, 20, 82, 20, 81, 19, 81, 17 | 200, 221, 193 | 710 → 221 | 447 |
+| 1,000 | 6,772 | 4,185 / 4,282 | 16,812 | 292, 77, 277, 64, 281, 59, 270, 61 | 657, 740, 631 | 2,437 → 740 | 1,488 |
+
+The worst click is now a document-mark click at both sizes. Toggles stay under the budget at 300
+employees but not at 1,000 (up to 292 ms). The profiled toggle took 116 ms at 300 and 528 ms at
+1,000. Its largest self-time functions at 1,000 were `scrollIntoView` (371 ms), `(program)`
+(115 ms), `focus` (72 ms), `setResultEditable` (63 ms), the garbage collector (32 ms) and
+`querySelectorAll` (22 ms). At 300 they were `scrollIntoView` (87 ms), `(program)` (35 ms),
+`setResultEditable` (23 ms) and `focus` (21 ms). `getBoundingClientRect` and `renderEntities` no
+longer appear.
+
+Evidence: `node --test src/test/js/review-render-performance.test.js` failed three row-identity
+tests before the change and passed six after. `e2e/tests/incremental-selection.spec.js` failed
+against the previous build because focus moved to a new checkbox element, and passed after. That
+spec covers Space toggles on a focused checkbox, row and mark identity, the restored mark, and its
+keyboard activation. It also covers comparison hover links for replaced and preserved occurrences
+after the in-place toggles. Entity controls are hidden while comparing, so toggles during
+comparison are not reachable in the UI. Mark-click navigation, repeated samples and `.xls`
+workbooks remain unmeasured.
