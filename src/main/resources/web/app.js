@@ -249,7 +249,7 @@ function entityTextMatcher(query) {
   const source = [...search].map(character =>
     character === '*' || character === '%' ? '[^]*'
       : character === '?' || character === '_' ? '[^]'
-        : character.replace(/[.*+?^${}()|[\]\\/-]/gu, '\\$&')).join('');
+        : character.replace(/[.*+?^${}()|[\]\\/]/gu, '\\$&')).join('');
   const pattern = new RegExp('^' + source + '$', 'u');
   return value => pattern.test(fold(value));
 }

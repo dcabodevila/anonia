@@ -91,3 +91,17 @@ test('S2 wildcard search combines with the type filter', () => {
   assert.deepEqual(search('ana*', 'EMAIL'), ['ana@x.es']);
   assert.deepEqual(search('"ana"', 'EMAIL'), []);
 });
+
+test('S2b/S2e hyphen wildcard queries filter without throwing', () => {
+  fixture(['Ana-Maria', 'Anne-Marie', 'Ana', 'x-marie']);
+  assert.deepEqual(search('ana-*'), ['Ana-Maria']);
+  assert.deepEqual(search('anne-marie*'), ['Anne-Marie']);
+  assert.deepEqual(search('%-marie').sort(), ['Anne-Marie', 'x-marie']);
+});
+
+test('S2e no ASCII punctuation char combined with * throws', () => {
+  for (const ch of '!"#$%&\'()*+,-./:;<=>?@[\]^_`{|}~') {
+    assert.doesNotThrow(() => search(ch + '*'), ch);
+    assert.doesNotThrow(() => search('*' + ch + 'a'), ch);
+  }
+});
