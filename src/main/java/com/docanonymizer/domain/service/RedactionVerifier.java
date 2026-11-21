@@ -105,10 +105,15 @@ public final class RedactionVerifier {
     /** Fuga evidente: el valor sigue ahi tal cual, ignorando caja y acentos. */
     private void checkLiteralValues(
             String markdown, List<Detection> accepted, String source, List<Finding> findings) {
+        // One folded copy of the output, and one search per distinct value and rule: exact
+        // occurrences repeat each value many times, and folding per value was quadratic.
+        TextFolding.Folded output = TextFolding.Folded.of(markdown);
+        Map<String, List<int[]>> searched = new java.util.HashMap<>();
         for (Detection detection : accepted) {
-            var hits = detection.type() == DetectionType.PERSON
-                    ? NamePolicy.findOccurrences(markdown, detection.value())
-                    : TextFolding.findWholeWordOccurrences(markdown, detection.value());
+            boolean person = detection.type() == DetectionType.PERSON;
+            var hits = searched.computeIfAbsent((person ? "P" : "W") + detection.value(), ignored -> person
+                    ? NamePolicy.findOccurrences(output, detection.value())
+                    : TextFolding.findWholeWordOccurrences(output, detection.value()));
             if (!hits.isEmpty()) {
                 int[] hit = hits.get(0);
                 findings.add(new Finding(C1, Severity.BLOCKING,
@@ -169,9 +174,10 @@ public final class RedactionVerifier {
                 }
             }
         }
+        TextFolding.Folded remainingText = TextFolding.Folded.of(remaining.toString());
         longestNameByEntity.forEach((entityKey, detection) -> {
             for (String token : NamePolicy.significantTokens(detection.value())) {
-                var hits = NamePolicy.findOccurrences(remaining.toString(), token);
+                var hits = NamePolicy.findOccurrences(remainingText, token);
                 if (!hits.isEmpty()) {
                     int[] hit = hits.get(0);
                     findings.add(new Finding(C3, Severity.BLOCKING,

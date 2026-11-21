@@ -37,9 +37,10 @@ final class ReviewEdits {
     }
 
     private ReviewEdits(AnonymizationPipeline.Analysis analysis) {
-        analysis = ExactOccurrences.expand(analysis);
+        analysis = ExactOccurrences.ensureExpanded(analysis);
         text = analysis.normalizedText();
         Map<String, String> sourceValueGroups = new LinkedHashMap<>();
+        var assignedKeys = new java.util.HashSet<String>();
         var entityKeys = new java.util.HashSet<String>();
         analysis.candidates().forEach(d -> entityKeys.add(d.entityKey()));
         for (Detection candidate : analysis.candidates()) {
@@ -47,11 +48,12 @@ final class ReviewEdits {
             String key = sourceValueGroups.get(sourceValue);
             if (key == null) {
                 key = candidate.entityKey();
-                if (sourceValueGroups.containsValue(key)) {
+                if (assignedKeys.contains(key)) {
                     key = "review:" + candidate.id();
                     while (!entityKeys.add(key)) key += ":";
                 }
                 sourceValueGroups.put(sourceValue, key);
+                assignedKeys.add(key);
             }
             Detection d = key.equals(candidate.entityKey()) ? candidate : new Detection(candidate.id(),
                     candidate.type(), candidate.start(), candidate.end(), candidate.value(), key,

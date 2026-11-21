@@ -57,6 +57,17 @@ public final class NamePolicy {
         return filterShortTokens(text, variant, TextFolding.findWholeWordOccurrencesWithinCell(text, variant));
     }
 
+    /** {@link #findOccurrences} over a text folded once, for many variants on the same text. */
+    public static List<int[]> findOccurrences(TextFolding.Folded text, String variant) {
+        return filterShortTokens(text.text(), variant, TextFolding.findWholeWordOccurrences(text, variant));
+    }
+
+    /** {@link #findOccurrencesWithinCell} over a text folded once. */
+    public static List<int[]> findOccurrencesWithinCell(TextFolding.Folded text, String variant) {
+        return filterShortTokens(text.text(), variant,
+                TextFolding.findWholeWordOccurrencesWithinCell(text, variant));
+    }
+
     private static List<int[]> filterShortTokens(String text, String variant, List<int[]> hits) {
         String word = variant.strip();
         if (word.matches(".*\\s+.*") || CanonicalForm.forCompare(word).length() >= ANY_CASE_TOKEN_LENGTH) {

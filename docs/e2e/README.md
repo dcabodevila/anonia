@@ -53,3 +53,7 @@ Any other OCR error, including an unreadable image, absent language model, or in
 ```bash
 npm --prefix e2e audit --json
 ```
+
+## HR workbook performance suite (opt-in)
+
+`npm --prefix e2e run test:perf` generates synthetic HR workbooks with `e2e/perf/HrWorkbookGenerator.java` (sizes from `HR_SIZES`, default `50,150,300`), drives the full review journey per size and the CLI, and writes metrics to `e2e/test-results-perf/`. It is excluded from `npm --prefix e2e test` because it is slow by design, and it fails while a click blocks the main thread over 200 ms or any task exceeds 1 s. Diagnosis and findings: [hr-excel-performance.md](hr-excel-performance.md).

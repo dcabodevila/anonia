@@ -5,7 +5,8 @@
   "description": "Real-browser end-to-end checks for doc-anonymizer",
   "scripts": {
     "test": "node scripts/run-tests.js",
-    "test:headed": "playwright test --headed"
+    "test:headed": "playwright test --headed",
+    "test:perf": "playwright test --config playwright.perf.config.js"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0"

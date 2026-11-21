@@ -45,11 +45,21 @@ public final class DetectionEngine {
                 .thenComparing(Comparator.comparingInt(Detection::length).reversed())
                 .thenComparingInt(Detection::start));
 
+        // Accepted spans never overlap each other, so ordered by start they are also ordered by
+        // end: if any accepted span overlaps a candidate, the one with the greatest start below
+        // the candidate's end does. That makes each check a tree lookup instead of a full scan.
         List<Detection> accepted = new ArrayList<>();
+        java.util.TreeMap<Integer, Detection> acceptedByStart = new java.util.TreeMap<>();
+        List<Detection> acceptedEmpty = new ArrayList<>();
         for (Detection candidate : ranked) {
-            boolean collides = accepted.stream().anyMatch(candidate::overlaps);
+            var previous = acceptedByStart.lowerEntry(candidate.end());
+            boolean collides = previous != null && candidate.overlaps(previous.getValue())
+                    || acceptedEmpty.stream().anyMatch(candidate::overlaps);
             if (!collides) {
                 accepted.add(candidate);
+                // Zero-length spans can share a start with a real one: keep them apart.
+                if (candidate.length() == 0) acceptedEmpty.add(candidate);
+                else acceptedByStart.put(candidate.start(), candidate);
             }
         }
         accepted.sort(Comparator.comparingInt(Detection::start));

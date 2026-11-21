@@ -245,16 +245,28 @@ function setEntityFilters(search, type) {
   state.entityTypeFilter = type || '';
 }
 
+// Id index over state.detections. The list is only replaced (new analysis) or appended to
+// (manual entities), and detections are edited in place, so identity plus length detects staleness.
+let detectionIndex = { list: null, size: -1, byId: new Map() };
+
+function detectionById(id) {
+  const list = state.detections;
+  if (detectionIndex.list !== list || detectionIndex.size !== list.length) {
+    detectionIndex = { list, size: list.length, byId: new Map(list.map(detection => [detection.id, detection])) };
+  }
+  return detectionIndex.byId.get(id);
+}
+
 function occurrenceIds(entityKey) {
   const entity = state.entities.get(entityKey);
   if (!entity) return [];
   const seenRanges = new Set();
   return entity.ids.slice().sort((a, b) => {
-    const first = state.detections.find(detection => detection.id === a);
-    const second = state.detections.find(detection => detection.id === b);
+    const first = detectionById(a);
+    const second = detectionById(b);
     return first.start - second.start || first.end - second.end || a.localeCompare(b);
   }).filter(id => {
-    const detection = state.detections.find(candidate => candidate.id === id);
+    const detection = detectionById(id);
     const range = detection.start + ':' + detection.end;
     if (seenRanges.has(range)) return false;
     seenRanges.add(range);
@@ -378,29 +390,69 @@ function renderManualEntityAddRow() {
   return row;
 }
 
+// Rows of the last entity render, so a selection toggle can update its own row in place.
+let entityRowViews = new Map();
+
+function entityRowClass(entityKey) {
+  return 'entity' + (state.rejected.has(entityKey) ? ' off' : '')
+    + (state.activeEntityKey === entityKey ? ' active' : '');
+}
+
+function entityCheckboxLabel(entity, off) {
+  const groupScope = entity.count === 1 ? '1 aparición' : entity.count + ' apariciones';
+  const entityName = normalize(entity.best);
+  return off
+    ? 'Se conserva ' + entityName + ' en el texto; grupo de ' + groupScope + '. Marcar para anonimizar.'
+    : 'Anonimizar ' + entityName + '; grupo de ' + groupScope + '. Desmarcar para conservar el texto.';
+}
+
+function createDiscardedNote() {
+  const discarded = document.createElement('div');
+  discarded.className = 'entity-state';
+  discarded.textContent = 'Se conserva en el texto';
+  return discarded;
+}
+
+// Applies only the selection-dependent parts of a rendered row; false asks for a full render.
+function updateEntityRowSelection(entityKey) {
+  const view = entityRowViews.get(entityKey);
+  const entity = state.entities.get(entityKey);
+  if (!view || !entity || view.entity !== entity || view.row.parentNode !== el('entities')
+      || typeof view.main.insertBefore !== 'function') return false;
+  const off = state.rejected.has(entityKey);
+  view.row.className = entityRowClass(entityKey);
+  view.checkbox.checked = !off;
+  view.checkbox.setAttribute('aria-label', entityCheckboxLabel(entity, off));
+  if (off && !view.discarded) {
+    view.discarded = createDiscardedNote();
+    view.main.insertBefore(view.discarded, view.locate);
+  } else if (!off && view.discarded) {
+    view.discarded.remove();
+    view.discarded = null;
+  }
+  return true;
+}
+
 function renderEntities() {
   renderEntityFilters();
   const container = el('entities');
   container.innerHTML = '';
   container.append(renderManualEntityAddRow());
   const sorted = filteredEntities();
+  entityRowViews = new Map();
 
   for (const [entityKey, entity] of sorted) {
     const off = state.rejected.has(entityKey);
     const active = state.activeEntityKey === entityKey;
     const row = document.createElement('div');
-    row.className = 'entity' + (off ? ' off' : '') + (active ? ' active' : '');
+    row.className = entityRowClass(entityKey);
     row.dataset.entityKey = entityKey;
 
-    const groupScope = entity.count === 1 ? '1 aparición' : entity.count + ' apariciones';
-    const entityName = normalize(entity.best);
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.checked = !off;
     checkbox.dataset.focusTarget = 'checkbox:' + entityKey;
-    checkbox.setAttribute('aria-label', off
-      ? 'Se conserva ' + entityName + ' en el texto; grupo de ' + groupScope + '. Marcar para anonimizar.'
-      : 'Anonimizar ' + entityName + '; grupo de ' + groupScope + '. Desmarcar para conservar el texto.');
+    checkbox.setAttribute('aria-label', entityCheckboxLabel(entity, off));
     checkbox.addEventListener('change', () => {
       state.focusTarget = checkbox.dataset.focusTarget;
       toggleEntity(entityKey);
@@ -440,11 +492,7 @@ function renderEntities() {
     meta.textContent = String(occurrenceCount);
     meta.title = occurrenceCount === 1 ? '1 aparición' : occurrenceCount + ' apariciones';
     meta.setAttribute('aria-label', meta.title);
-    const discarded = off ? document.createElement('div') : null;
-    if (discarded) {
-      discarded.className = 'entity-state';
-      discarded.textContent = 'Se conserva en el texto';
-    }
+    const discarded = off ? createDiscardedNote() : null;
 
     const locate = document.createElement('button');
     locate.type = 'button';
@@ -487,6 +535,7 @@ function renderEntities() {
 
     row.append(checkbox, main);
     container.append(row);
+    entityRowViews.set(entityKey, { row, checkbox, main, locate, discarded, entity });
   }
 
 }
@@ -513,8 +562,12 @@ function updateLocationControls() {
 
 function restoreFocus() {
   if (!state.focusTarget || typeof document === 'undefined') return;
-  const target = [...document.querySelectorAll('[data-focus-target]')]
-    .find(control => control.dataset.focusTarget === state.focusTarget);
+  const current = document.activeElement;
+  const target = current && current.isConnected !== false && current.dataset
+    && current.dataset.focusTarget === state.focusTarget
+    ? current
+    : [...document.querySelectorAll('[data-focus-target]')]
+      .find(control => control.dataset.focusTarget === state.focusTarget);
   state.focusTarget = null;
   if (target && typeof target.focus === 'function') {
     target.focus();
@@ -585,7 +638,17 @@ function toggleEntity(entityKey) {
   recordEdit('reject', entityKey, String(rejected));
   if (rejected) state.rejected.add(entityKey);
   else state.rejected.delete(entityKey);
-  refreshReview();
+  refreshSelection(entityKey);
+}
+
+// A selection toggle changes one row and the document ranges it covers; both are patched in
+// place so a large review keeps unaffected nodes (and the browser's layout) intact.
+function refreshSelection(entityKey) {
+  invalidateResult();
+  if (!updateEntityRowSelection(entityKey)) renderEntities();
+  renderDocument({ incremental: true });
+  updateLocationControls();
+  restoreFocus();
 }
 
 function acceptAll() {
@@ -931,10 +994,9 @@ function scrollToActiveLocation(container) {
 
 // Effective tags remain the substitution projection. A location-only marker exposes
 // rejected or nested occurrences without turning them into accepted substitutions.
-function renderDocument({ scrollActiveLocation = true } = {}) {
-  const container = el('doctext');
-  container.innerHTML = '';
-  clearComparisonHover();
+// The document is planned as contiguous segments covering the whole text; each segment key
+// names everything its node shows, so equal keys mean an existing node can be kept as is.
+function documentSegments() {
   const ordered = effectiveDetections();
   if (state.comparing) {
     // Only untouched rejected ranges have an independent preserved counterpart.
@@ -947,16 +1009,19 @@ function renderDocument({ scrollActiveLocation = true } = {}) {
     ordered.sort((a, b) => a.start - b.start);
   }
   const active = state.detections.find(detection => detection.id === state.activeOccurrenceId);
+  const segments = [];
+  const add = (kind, start, end, detection) => segments.push({ kind, start, end, detection,
+    key: kind + ':' + start + ':' + end + ':' + (detection ? detection.id : '') });
 
   if (!active) {
     let cursor = 0;
     for (const detection of ordered) {
-      if (detection.start > cursor) container.append(document.createTextNode(state.text.slice(cursor, detection.start)));
-      container.append(makeHighlight(state.text.slice(detection.start, detection.end), detection, false));
+      if (detection.start > cursor) add('text', cursor, detection.start);
+      add('mark', detection.start, detection.end, detection);
       cursor = detection.end;
     }
-    container.append(document.createTextNode(state.text.slice(cursor)));
-    return;
+    add('text', cursor, state.text.length);
+    return { segments, active };
   }
 
   const boundaries = new Set([0, state.text.length, active.start, active.end]);
@@ -965,41 +1030,137 @@ function renderDocument({ scrollActiveLocation = true } = {}) {
     boundaries.add(detection.end);
   });
   const points = [...boundaries].sort((first, second) => first - second);
+  // Ordered ranges never overlap and are sorted, so one forward cursor finds the covering range.
+  let next = 0;
   for (let index = 0; index < points.length - 1; index++) {
     const start = points[index];
     const end = points[index + 1];
     if (start === end) continue;
-    const visible = ordered.find(detection => detection.start <= start && detection.end >= end);
+    while (next < ordered.length && ordered[next].end <= start) next++;
+    const candidate = ordered[next];
+    const visible = candidate && candidate.start <= start && candidate.end >= end ? candidate : null;
     const activeHere = active.start < end && active.end > start;
-    const text = state.text.slice(start, end);
-    if (visible) {
-      const mark = makeHighlight(text, visible, activeHere);
-      if (activeHere) mark.dataset.occurrenceId = active.id;
-      container.append(mark);
-    } else if (activeHere) {
-      const marker = document.createElement('span');
-      marker.className = 'location-marker active-location';
-      marker.style.color = colorOf(active.type);
-      linkComparisonHighlight(marker, active);
-      marker.dataset.occurrenceId = active.id;
-      marker.dataset.focusTarget = 'highlight:' + active.id;
-      marker.tabIndex = -1;
-      marker.setAttribute('role', 'status');
-      marker.setAttribute('aria-label', 'Ubicación de ' + normalize(text) + '. Esta coincidencia está descartada.');
-      marker.textContent = text;
-      marker.title = 'Ubicación de ' + normalize(text) + '. Esta coincidencia no cambia la selección.';
-      container.append(marker);
-    } else {
-      container.append(document.createTextNode(text));
-    }
+    if (visible) add(activeHere ? 'active-mark' : 'mark', start, end, visible);
+    else if (activeHere) add('marker', start, end, active);
+    else add('text', start, end);
   }
-  if (scrollActiveLocation) scrollToActiveLocation(container);
+  return { segments, active };
 }
 
+function createSegmentNode(segment) {
+  const text = state.text.slice(segment.start, segment.end);
+  if (segment.kind === 'text') return document.createTextNode(text);
+  if (segment.kind !== 'marker') {
+    const activeHere = segment.kind === 'active-mark';
+    const mark = makeHighlight(text, segment.detection, activeHere);
+    if (activeHere) mark.dataset.occurrenceId = state.activeOccurrenceId;
+    return mark;
+  }
+  const active = segment.detection;
+  const marker = document.createElement('span');
+  marker.className = 'location-marker active-location';
+  marker.style.color = colorOf(active.type);
+  linkComparisonHighlight(marker, active);
+  marker.dataset.occurrenceId = active.id;
+  marker.dataset.focusTarget = 'highlight:' + active.id;
+  marker.tabIndex = -1;
+  marker.setAttribute('role', 'status');
+  marker.setAttribute('aria-label', 'Ubicación de ' + normalize(text) + '. Esta coincidencia está descartada.');
+  marker.textContent = text;
+  marker.title = 'Ubicación de ' + normalize(text) + '. Esta coincidencia no cambia la selección.';
+  return marker;
+}
+
+// Segments and nodes of the last document render, for in-place selection updates.
+let documentRender = null;
+
+function documentRenderIsCurrent(container) {
+  const previous = documentRender;
+  if (!previous || previous.container !== container || previous.comparing || state.comparing
+      || previous.text !== state.text || previous.detections !== state.detections
+      || previous.size !== state.detections.length || previous.activeOccurrenceId !== state.activeOccurrenceId) return false;
+  const nodes = previous.nodes;
+  const children = container.childNodes;
+  return !!children && children.length === nodes.length && container.firstChild === nodes[0]
+    && container.lastChild === nodes[nodes.length - 1];
+}
+
+// Both segment lists partition the same text, so differing runs end where their ends align.
+// Returns null when the lists cannot be aligned, leaving the DOM untouched.
+function planDocumentPatch(previous, segments) {
+  const runs = [];
+  let i = 0;
+  let j = 0;
+  while (i < previous.length && j < segments.length) {
+    if (previous[i].key === segments[j].key) {
+      i++;
+      j++;
+      continue;
+    }
+    const run = { from: i, segmentsFrom: j };
+    let oldEnd = previous[i++].end;
+    let newEnd = segments[j++].end;
+    while (oldEnd !== newEnd) {
+      if (oldEnd < newEnd) {
+        if (i >= previous.length) return null;
+        oldEnd = previous[i++].end;
+      } else {
+        if (j >= segments.length) return null;
+        newEnd = segments[j++].end;
+      }
+    }
+    run.to = i;
+    run.segmentsTo = j;
+    runs.push(run);
+  }
+  return i === previous.length && j === segments.length ? runs : null;
+}
+
+function patchDocument(container, segments) {
+  if (!documentRenderIsCurrent(container)) return null;
+  const previous = documentRender;
+  const runs = planDocumentPatch(previous.segments, segments);
+  if (!runs || !runs.every(run => typeof previous.nodes[run.from].before === 'function')) return null;
+  const nodes = [];
+  let kept = 0;
+  for (const run of runs) {
+    while (kept < run.from) nodes.push(previous.nodes[kept++]);
+    const created = segments.slice(run.segmentsFrom, run.segmentsTo).map(createSegmentNode);
+    previous.nodes[run.from].before(...created);
+    for (let index = run.from; index < run.to; index++) previous.nodes[index].remove();
+    nodes.push(...created);
+    kept = run.to;
+  }
+  while (kept < previous.nodes.length) nodes.push(previous.nodes[kept++]);
+  return nodes;
+}
+
+function renderDocument({ scrollActiveLocation = true, incremental = false } = {}) {
+  const container = el('doctext');
+  clearComparisonHover();
+  const { segments, active } = documentSegments();
+  let nodes = incremental ? patchDocument(container, segments) : null;
+  if (!nodes) {
+    container.innerHTML = '';
+    nodes = segments.map(createSegmentNode);
+    for (const node of nodes) container.append(node);
+  }
+  documentRender = { container, nodes, segments, text: state.text, detections: state.detections,
+    size: state.detections.length, activeOccurrenceId: state.activeOccurrenceId, comparing: state.comparing };
+  if (active && scrollActiveLocation) scrollToActiveLocation(container);
+}
+
+// Reading a computed style while marks are being appended forces a full style recalculation,
+// so each type color is read once and reused (the type palette is static CSS, no theme switch).
+const typeColors = new Map();
+
 function colorOf(type) {
+  if (typeColors.has(type)) return typeColors.get(type);
   const key = '--t-' + type.toLowerCase();
-  const value = getComputedStyle(document.documentElement).getPropertyValue(key);
-  return value.trim() || '#8b97a8';
+  // Types without a palette variable keep the neutral fallback, cached as well.
+  const value = getComputedStyle(document.documentElement).getPropertyValue(key).trim() || '#8b97a8';
+  typeColors.set(type, value);
+  return value;
 }
 
 // ----------------------------------------------------------------- aplicar
