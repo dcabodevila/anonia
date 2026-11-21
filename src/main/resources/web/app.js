@@ -995,6 +995,8 @@ function isHighlightActivation(event) {
 
 function activateHighlightLocation(detection) {
   // Document markers only locate an occurrence. Selection remains an explicit checkbox action.
+  // Always reset the entity filters so the located row is rendered; refreshLocation re-renders the list.
+  setEntityFilters('', '');
   state.activeEntityKey = detection.entityKey;
   state.activeOccurrenceId = detection.id;
   state.lastNavigationWrapped = false;
