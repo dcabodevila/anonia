@@ -171,9 +171,9 @@ DNI
 NIE
 NIF
 CIF
-# HR sheet headers and job titles. "ID" is a listed given name and "Senior" a listed surname;
-# either one used to turn "ID Empleado" / "Técnico Senior" into a person.
-ID
+# HR sheet headers and job titles. "Senior" is a listed surname and turned "Técnico Senior" into a person.
+# "ID" is deliberately not listed: "Id" is a real given name; the uppercase acronym is rejected in
+# GazetteerPersonDetector when only HR vocabulary follows it ("ID Empleado").
 Empleado
 Empleada
 Técnico

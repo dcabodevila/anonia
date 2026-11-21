@@ -79,6 +79,14 @@ class TableCellDetectionTest {
         }
     }
 
+    @Test void givenNameIdStaysDetectedWhileIdEmpleadoHeaderIsNot() throws Exception {
+        String text = "Nombre\tPrimer apellido\tNombre completo\tID Empleado\n\nId\tLópez\tId López\n\nAprobado por Id López.";
+        List<String> persons = persons(Files.writeString(temp.resolve("id.txt"), text));
+
+        assertTrue(persons.stream().filter(p -> p.equals("Id López")).count() >= 2, persons::toString);
+        assertTrue(persons.stream().noneMatch(p -> p.contains("Empleado")), persons::toString);
+    }
+
     private static byte[] workbook(Workbook workbook) throws Exception {
         try (workbook; ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             Sheet sheet = workbook.createSheet("Comparecientes");

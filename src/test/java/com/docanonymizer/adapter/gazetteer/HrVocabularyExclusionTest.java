@@ -29,10 +29,11 @@ class HrVocabularyExclusionTest {
 
     @Test void vocabularyIsExcludedWords() {
         ResourceGazetteer gazetteer = new ResourceGazetteer();
-        for (String word : List.of("ID", "Empleado", "Técnico", "Senior", "Jefe", "Equipo")) {
+        for (String word : List.of("Empleado", "Técnico", "Senior", "Jefe", "Equipo")) {
             assertTrue(gazetteer.isExcludedWord(word), word);
         }
         assertFalse(gazetteer.isExcludedWord("María"));
+        assertFalse(gazetteer.isExcludedWord("Id"));
     }
 
     @Test void realNamesStayDetectedEvenWithAVocabularyWordInside() {

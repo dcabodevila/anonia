@@ -64,4 +64,22 @@ class ExactOccurrencesPersonBoundaryTest {
         var seed = new Detection("c", DetectionType.POSTAL_CODE, 4, 7, "A12", "k", Provenance.REGEX, .9);
         assertEquals(2, expand(text, seed).size());
     }
+
+    @Test void exactIbanResearchDoesNotCrossActualCells() {
+        String iban = "ES46 5136 9032 4113 0200 7477";
+        String text = iban + "\n\n" + iban.replace("5136 ", "5136\t");
+        var seed = new Detection("i", DetectionType.IBAN, 0, iban.length(), iban, "k", Provenance.CHECKSUM_VALIDATED, .99);
+        var all = expand(text, seed);
+        assertEquals(1, all.size(), all.toString());
+    }
+
+    @Test void unicodeWhitespaceOnlyLineIsABlankLine() {
+        String text = "Ana García\n\nAna\n\u2009\nGarcía";
+        assertEquals(1, expand(text, person(text, "s", "Ana García", "k")).size());
+    }
+
+    @Test void combiningMarkDoesNotEndAWord() {
+        String text = "Rene\tRene\u0301e";
+        assertEquals(1, expand(text, person(text, "s", "Rene", "k")).size());
+    }
 }

@@ -16,7 +16,7 @@ import java.util.regex.Pattern;
 /** Adds source-exact occurrences to an analysis without changing detector policy. */
 final class ExactOccurrences {
     private static final String WHITESPACE = "[\\u0009-\\u000D\\u0020\\u00A0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000\\uFEFF]";
-    private static final Pattern BLANK_LINE = Pattern.compile("(\r\n|\n|\r|\u2028|\u2029)[ \u00A0]*(\r\n|\n|\r|\u2028|\u2029)");
+    private static final Pattern BLANK_LINE = Pattern.compile("(\r\n|\n|\r|\u2028|\u2029)[\t\u000B\u000C \u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\uFEFF]*(\r\n|\n|\r|\u2028|\u2029)");
     private static final Pattern SPACE = Pattern.compile(WHITESPACE + "+");
 
     // Analyses this class produced. The web job store keeps the expanded analysis, so apply can
@@ -52,6 +52,8 @@ final class ExactOccurrences {
                 Span span = new Span(range[0], range[1]);
                 if (occupied.contains(span) || joinsDigits(text, span)
                         || source.type() == DetectionType.ORGANIZATION && !organizationBoundary(text, span)
+                        || source.type() == DetectionType.IBAN && source.value().indexOf('\t') < 0
+                                && text.substring(span.start, span.end).indexOf('\t') >= 0
                         || source.type() == DetectionType.PERSON
                                 && (!organizationBoundary(text, span) || crossesCell(text, span))) continue;
                 String id = "exact:" + source.id() + ":" + span.start + ":" + span.end;
@@ -106,7 +108,10 @@ final class ExactOccurrences {
     }
 
     private static boolean organizationWordCharacter(int codePoint) {
-        return Character.isLetterOrDigit(codePoint) || codePoint == '_';
+        int type = Character.getType(codePoint);
+        return Character.isLetterOrDigit(codePoint) || codePoint == '_'
+                || type == Character.NON_SPACING_MARK || type == Character.COMBINING_SPACING_MARK
+                || type == Character.ENCLOSING_MARK;
     }
 
     private static boolean joinsDigits(String source, Span span) {

@@ -79,4 +79,11 @@ class IbanCellBoundaryTest {
         String source = "EMP-001066\tAna Ruiz Gil\t" + iban + "\t10/2026\t45737\n";
         assertEquals(List.of(iban), ibans(source), source);
     }
+
+    @Test
+    void ibanWithATabInsideOneCellIsStillDetectedAsOne() {
+        String split = "ES46 5136\t9032 4113 0200 7477";
+        assertTrue(com.docanonymizer.domain.service.IdentifierValidators.isValidIban(split.replace('\t', ' ')));
+        assertEquals(List.of(split), ibans("IBAN " + split + "\n"));
+    }
 }
