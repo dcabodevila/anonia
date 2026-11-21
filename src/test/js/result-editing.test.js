@@ -318,3 +318,63 @@ test('the baseline resets when the result is invalidated', async () => {
 
   assert.equal(leakHidden(), false);
 });
+
+test('blocked result: an additional overlapping match blocks both exports', async () => {
+  const nodes = fakeDom();
+  state.text = 'Ana Ana';
+  state.detections = [{ id: 'p1', type: 'PERSONA', start: 0, end: 7, entityKey: 'ana' }];
+  respond({ deliverable: false, markdown: METADATA + 'Titular: [PERSONA_1]. Referencia: Mariana Ana.', findings: [{ detail: 'Bloqueado' }] });
+  await app.apply();
+  assert.equal(nodes.get('download').disabled, false);
+
+  typeInResult(nodes, 'Titular: [PERSONA_1]. Referencia: Mariana Ana Ana.');
+
+  assert.equal(leakHidden(), false);
+  assert.equal(nodes.get('download').disabled, true);
+  assert.equal(nodes.get('copy').disabled, true);
+});
+
+test('blocked result: a retyped folded substring within baseline is exported as edited', async () => {
+  const nodes = fakeDom();
+  state.text = 'Perez Lopez';
+  state.detections = [{ id: 'p1', type: 'PERSONA', start: 0, end: 11, entityKey: 'perez' }];
+  respond({ deliverable: false, markdown: METADATA + 'Titular: [PERSONA_1]. Referencia: JUAN PEREZ LOPEZ.', findings: [{ detail: 'Bloqueado' }] });
+  await app.apply();
+  typeInResult(nodes, 'Titular: [PERSONA_1]. Referencia: omitida.');
+  typeInResult(nodes, 'Titular: Pérez   López. Referencia: omitida.');
+
+  assert.equal(leakHidden(), true);
+  assert.equal(nodes.get('download').disabled, false);
+  assert.equal(nodes.get('copy').disabled, false);
+  assert.equal(state.resultStatus, 'blocked');
+  const expected = METADATA + 'Titular: Pérez   López. Referencia: omitida.';
+  let blob = null;
+  global.URL = { createObjectURL: value => { blob = value; return 'blob:'; }, revokeObjectURL() {} };
+  assert.equal(app.download(), true);
+  assert.equal(await blob.text(), expected);
+  let copied = null;
+  global.navigator = { clipboard: { writeText: async value => { copied = value; } } };
+  await app.copyMarkdown();
+  assert.equal(copied, expected);
+});
+
+test('deliverable result: a superseded warning cannot restore a baseline', async () => {
+  const nodes = fakeDom();
+  seedDni();
+  const resolvers = [];
+  global.fetch = () => new Promise(done => resolvers.push(done));
+  const first = app.apply();
+  const second = app.apply();
+  resolvers[1]({ ok: true, json: async () => ({ deliverable: true, markdown: METADATA + 'Firma [PERSONA_1] con DNI [DNI_1].', substitutions: 2, entities: 2 }) });
+  await second;
+  resolvers[0]({ ok: true, json: async () => ({ deliverable: false, markdown: METADATA + 'Firma [PERSONA_1] con DNI 12345678Z.', findings: [{ detail: 'Bloqueado' }] }) });
+  await first;
+
+  assert.equal(state.resultStatus, 'success');
+  assert.equal(state.warningDownloadEligible, false);
+  assert.equal(state.leakBaseline.size, 0);
+  typeInResult(nodes, 'Firma [PERSONA_1] con DNI 12345678Z.');
+  assert.equal(leakHidden(), false);
+  assert.equal(nodes.get('download').disabled, true);
+  assert.equal(nodes.get('copy').disabled, true);
+});

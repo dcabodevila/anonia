@@ -1414,7 +1414,8 @@ function leakCounts(text) {
   const folded = foldForLeak(text);
   const counts = new Map();
   for (const value of anonymizedValues()) {
-    const count = folded.split(value).length - 1;
+    let count = 0;
+    for (let at = folded.indexOf(value); at !== -1; at = folded.indexOf(value, at + 1)) count++;
     if (count > 0) counts.set(value, count);
   }
   return counts;
