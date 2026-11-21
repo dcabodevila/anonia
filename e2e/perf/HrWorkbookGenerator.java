@@ -6,6 +6,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -57,7 +58,7 @@ class HrWorkbookGenerator {
     static final String[] ABSENCES = {"Vacaciones", "Baja por enfermedad común",
         "Asuntos propios", "Permiso por matrimonio", "Formación", "Baja por accidente laboral"};
     static final String DNI_LETTERS = "TRWAGMYFPDXBNJZSQVHLCKE";
-    static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.ROOT);
 
     /** Small deterministic generator so every run writes byte-identical cell values. */
     static final class Seed {
@@ -107,13 +108,13 @@ class HrWorkbookGenerator {
             String address = seed.pick(STREETS) + " " + (1 + seed.next(150)) + ", "
                     + (1 + seed.next(8)) + "º " + (char) ('A' + seed.next(4)) + ", " + city[0] + " "
                     + city[1];
-            String email = ascii(given.split(" ")[0] + "." + s1 + "." + s2).toLowerCase()
+            String email = ascii(given.split(" ")[0] + "." + s1 + "." + s2).toLowerCase(Locale.ROOT)
                     + "@empresa-ficticia.es";
-            String phone = "6" + seed.next(10) + seed.next(10) + " " + String.format("%03d",
-                    seed.next(1000)) + " " + String.format("%03d", seed.next(1000));
+            String phone = "6" + seed.next(10) + seed.next(10) + " " + String.format(Locale.ROOT, "%03d",
+                    seed.next(1000)) + " " + String.format(Locale.ROOT, "%03d", seed.next(1000));
             String manager = staff.isEmpty() ? "" : staff.get(seed.next(Math.min(staff.size(), 25)))
                     .fullName();
-            staff.add(new Employee(String.format("EMP-%06d", 1000 + i), given, s1, s2, document,
+            staff.add(new Employee(String.format(Locale.ROOT, "EMP-%06d", 1000 + i), given, s1, s2, document,
                     nss(seed), iban(seed), email, phone, address, seed.pick(DEPARTMENTS),
                     seed.pick(POSITIONS), base.plusDays(seed.next(7000)).format(DATE),
                     LocalDate.of(1960, 1, 1).plusDays(seed.next(15000)).format(DATE),
@@ -124,14 +125,14 @@ class HrWorkbookGenerator {
 
     static String dni(Seed seed) {
         long number = 10_000_000L + seed.next(89_999_999);
-        return String.format("%08d", number) + DNI_LETTERS.charAt((int) (number % 23));
+        return String.format(Locale.ROOT, "%08d", number) + DNI_LETTERS.charAt((int) (number % 23));
     }
 
     static String nie(Seed seed) {
         int prefix = seed.next(3);
         long number = seed.digits(7);
         long control = prefix * 10_000_000L + number;
-        return "XYZ".charAt(prefix) + String.format("%07d", number)
+        return "XYZ".charAt(prefix) + String.format(Locale.ROOT, "%07d", number)
                 + DNI_LETTERS.charAt((int) (control % 23));
     }
 
@@ -140,18 +141,18 @@ class HrWorkbookGenerator {
         int province = 1 + seed.next(52);
         long number = seed.digits(8);
         long control = (province * 100_000_000L + number) % 97;
-        return String.format("%02d/%08d/%02d", province, number, control);
+        return String.format(Locale.ROOT, "%02d/%08d/%02d", province, number, control);
     }
 
     /** Spanish IBAN with valid CCC control digits and ISO 13616 check digits. */
     static String iban(Seed seed) {
-        String bank = String.format("%04d", seed.digits(4));
-        String branch = String.format("%04d", seed.digits(4));
-        String account = String.format("%010d", seed.digits(10));
+        String bank = String.format(Locale.ROOT, "%04d", seed.digits(4));
+        String branch = String.format(Locale.ROOT, "%04d", seed.digits(4));
+        String account = String.format(Locale.ROOT, "%010d", seed.digits(10));
         String ccc = bank + branch + cccDigit("00" + bank + branch) + cccDigit(account) + account;
         BigInteger numeric = new BigInteger(ccc + "142800");
         int check = 98 - numeric.mod(BigInteger.valueOf(97)).intValue();
-        String iban = "ES" + String.format("%02d", check) + ccc;
+        String iban = "ES" + String.format(Locale.ROOT, "%02d", check) + ccc;
         StringBuilder grouped = new StringBuilder();
         for (int i = 0; i < iban.length(); i += 4) {
             if (i > 0) grouped.append(' ');

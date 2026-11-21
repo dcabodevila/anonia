@@ -234,7 +234,7 @@ test.describe('HR workbooks: freeze diagnosis', () => {
       // Freeze budgets.
       const worstClick = Math.max(...toggles, ...marks);
       const worstTask = Math.max(metrics.analyze.longestTaskMs, metrics.interactions.longestTaskMs,
-        metrics.apply.longestTaskMs);
+        metrics.apply.longestTaskMs, metrics.delivery.longestTaskMs);
       expect.soft(worstClick, `worst click blocks the main thread ${worstClick} ms`).toBeLessThanOrEqual(INTERACTION_BUDGET_MS);
       expect.soft(worstTask, `longest main-thread task ${worstTask} ms`).toBeLessThanOrEqual(LONG_TASK_BUDGET_MS);
     });

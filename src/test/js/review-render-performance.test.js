@@ -315,3 +315,66 @@ test('comparison mode falls back to the full render with identical output', t =>
     'comparison keeps the preserved range visible');
   assertMatchesFullRender();
 });
+
+test('toggling a mark that ends the document keeps earlier marks, in both directions', t => {
+  cleanupTreeDom(t);
+  const { roots } = treeDom();
+  reviewFixture(60);
+  app.renderEntities();
+  app.renderDocument();
+  const markOf = word => roots.get('doctext').children.find(mark => mark.textContent === word);
+  let earlier = markOf('Valor7');
+  assert.ok(earlier, 'the earlier mark exists before toggling');
+  assert.equal(state.text.length, state.detections[59].end, 'the last mark ends the document');
+
+  toggleFromCheckbox('k59');
+  assert.equal(state.rejected.has('k59'), true);
+  const keptRejecting = markOf('Valor7');
+  assert.ok(keptRejecting, 'the earlier mark exists after rejecting');
+  assert.ok(keptRejecting === earlier,
+    'rejecting keeps the earlier mark identity');
+  assertMatchesFullRender();
+  earlier = markOf('Valor7'); // the full-render comparison rebuilt the document
+
+  toggleFromCheckbox('k59');
+  assert.equal(state.rejected.has('k59'), false);
+  const keptSelecting = markOf('Valor7');
+  assert.ok(keptSelecting, 'the earlier mark exists after selecting');
+  assert.ok(keptSelecting === earlier,
+    'selecting keeps the earlier mark identity');
+  assert.ok(roots.get('doctext').children.some(mark => mark.textContent === 'Valor59'));
+  assertMatchesFullRender();
+});
+
+for (const [label, source, texts] of [
+  ['non-empty text', 'Texto sin ninguna detección', 1],
+  ['empty text', '', 0]
+]) {
+  test(`a document with ${label} and no detections renders its source text and no marks`, t => {
+    cleanupTreeDom(t);
+    const { roots, counts } = treeDom();
+    state.text = source;
+    state.detections = [];
+    state.types = ['PERSONA'];
+    state.entitySearch = '';
+    state.entityTypeFilter = '';
+    app.groupEntities();
+
+    assert.doesNotThrow(() => { app.renderEntities(); app.renderDocument(); });
+    const doctext = roots.get('doctext');
+    assert.equal(doctext.textContent, source);
+    assert.equal(doctext.children.length, 0, 'no marks are rendered');
+    assert.equal(doctext.childNodes.length, texts, 'text nodes: ' + texts);
+    assert.equal(counts.texts, texts, 'no extra empty text node is created');
+    const patched = serialize(doctext);
+
+    // Incremental rerender (selection/toggle path) over an existing render, then a full render.
+    state.rejected = new Set(['inexistente']);
+    assert.doesNotThrow(() => app.renderDocument({ incremental: true, scrollActiveLocation: false }));
+    assert.equal(doctext.textContent, source);
+    assert.equal(serialize(doctext), patched);
+    app.renderDocument({ scrollActiveLocation: false });
+    assert.equal(serialize(doctext), patched, 'incremental output matches a full render');
+    assert.equal(doctext.textContent, source);
+  });
+}

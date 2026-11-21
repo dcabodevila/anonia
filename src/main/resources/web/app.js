@@ -1020,7 +1020,7 @@ function documentSegments() {
       add('mark', detection.start, detection.end, detection);
       cursor = detection.end;
     }
-    add('text', cursor, state.text.length);
+    if (cursor < state.text.length) add('text', cursor, state.text.length);
     return { segments, active };
   }
 
