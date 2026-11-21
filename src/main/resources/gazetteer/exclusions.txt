@@ -171,3 +171,33 @@ DNI
 NIE
 NIF
 CIF
+# HR sheet headers and job titles. "ID" is a listed given name and "Senior" a listed surname;
+# either one used to turn "ID Empleado" / "Técnico Senior" into a person.
+ID
+Empleado
+Empleada
+Técnico
+Técnica
+Senior
+Junior
+Administrativo
+Administrativa
+Responsable
+Analista
+Operario
+Operaria
+Coordinador
+Coordinadora
+Auxiliar
+Jefe
+Jefa
+Equipo
+Consultor
+Consultora
+Puesto
+Departamento
+Periodo
+Tipo
+Desde
+Hasta
+Observaciones
