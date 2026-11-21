@@ -349,3 +349,5 @@ main:has(#loading:not(.hidden)) #landing { display:none; }
   }
 }
 .markdown[contenteditable="plaintext-only"] { cursor:text; }.markdown[contenteditable="plaintext-only"]:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
+.entity-filters .bulk-uncheck { grid-column:1 / -1; min-height:32px; padding:4px 10px; border:1px solid var(--border); border-radius:6px; background:var(--panel); color:var(--text); font:inherit; cursor:pointer; }
+.entity-filters .bulk-uncheck:disabled { color:var(--muted); cursor:not-allowed; opacity:.6; }

@@ -76,6 +76,7 @@ function init() {
   el('markdown').addEventListener('input', editResult);
 
   el('compare').addEventListener('click', toggleCompare);
+  el('bulk-uncheck').addEventListener('click', uncheckFilteredEntities);
   el('entity-search').addEventListener('input', () => {
     setEntityFilters(el('entity-search').value, el('entity-type-filter').value);
     renderEntities();
@@ -454,6 +455,7 @@ function updateEntityRowSelection(entityKey) {
 
 function renderEntities() {
   renderEntityFilters();
+  updateBulkUncheck();
   const container = el('entities');
   container.innerHTML = '';
   container.append(renderManualEntityAddRow());
@@ -660,10 +662,36 @@ function toggleEntity(entityKey) {
   refreshSelection(entityKey);
 }
 
+// Entities currently listed by the filters that are still checked.
+function checkedFilteredKeys() {
+  return filteredEntities().map(([key]) => key).filter(key => !state.rejected.has(key));
+}
+
+function updateBulkUncheck() {
+  const button = el('bulk-uncheck');
+  if (button) button.disabled = checkedFilteredKeys().length === 0;
+}
+
+// Rejects every listed entity in one batch; entities hidden by the filters are untouched.
+function uncheckFilteredEntities() {
+  const keys = checkedFilteredKeys();
+  if (!keys.length) return;
+  for (const key of keys) {
+    recordEdit('reject', key, 'true');
+    state.rejected.add(key);
+  }
+  invalidateResult();
+  renderEntities();
+  renderDocument({ incremental: true });
+  updateLocationControls();
+  restoreFocus();
+}
+
 // A selection toggle changes one row and the document ranges it covers; both are patched in
 // place so a large review keeps unaffected nodes (and the browser's layout) intact.
 function refreshSelection(entityKey) {
   invalidateResult();
+  updateBulkUncheck();
   if (!updateEntityRowSelection(entityKey)) renderEntities();
   renderDocument({ incremental: true });
   updateLocationControls();
@@ -1636,6 +1664,7 @@ if (typeof module !== 'undefined') module.exports = {
   addManualEntity, startManualEntity, editInline, invalidateResult, apply, analyze, effectiveDetections, renderDocument,
   renderEntities,
   selectTab, toggleCompare, download, filteredEntities, setEntityFilters,
+  uncheckFilteredEntities, refreshSelection,
   selectEntityLocation, navigateEntityOccurrence, occurrenceIds, isHighlightActivation, restoreFocus,
   copyMarkdown, previewMarkdown, projectComparison, editResult
 };
