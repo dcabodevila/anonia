@@ -236,7 +236,7 @@ function sortedEntities() {
 
 // Turns the entity text filter into a predicate over entity values (case-insensitive, normalized).
 // Plain text: substring. "..." : exact match. * % any sequence, ? _ one character (anchored, like glob/LIKE).
-// Everything else is literal; the pattern is built by escaping, so no input can throw.
+// Everything else is literal; matching is done without regex, so no input can throw or backtrack badly.
 function entityTextMatcher(query) {
   const fold = value => normalize(value || '').toLocaleLowerCase();
   const search = fold(query);
@@ -246,12 +246,28 @@ function entityTextMatcher(query) {
     return value => fold(value) === exact;
   }
   if (!/[*%?_]/u.test(search)) return value => fold(value).includes(search);
-  const source = [...search].map(character =>
-    character === '*' || character === '%' ? '[^]*'
-      : character === '?' || character === '_' ? '[^]'
-        : character.replace(/[.*+?^${}()|[\]\\/]/gu, '\\$&')).join('');
-  const pattern = new RegExp('^' + source + '$', 'u');
-  return value => pattern.test(fold(value));
+  const pattern = [];
+  for (const character of search) {
+    const token = character === '*' || character === '%' ? '*' : character === '?' || character === '_' ? '?' : character;
+    if (token === '*' && pattern[pattern.length - 1] === '*') continue;
+    pattern.push(token === '*' || token === '?' ? { wildcard: token } : token);
+  }
+  return value => globMatch(pattern, Array.from(fold(value)));
+}
+
+// Linear two-pointer glob match (no regex, no exponential backtracking): O(text * pattern) worst case.
+function globMatch(pattern, text) {
+  const isStar = token => typeof token === 'object' && token.wildcard === '*';
+  const isOne = token => typeof token === 'object' && token.wildcard === '?';
+  let t = 0, p = 0, star = -1, mark = 0;
+  while (t < text.length) {
+    if (p < pattern.length && isStar(pattern[p])) { star = p++; mark = t; }
+    else if (p < pattern.length && (isOne(pattern[p]) || pattern[p] === text[t])) { p++; t++; }
+    else if (star >= 0) { p = star + 1; t = ++mark; }
+    else return false;
+  }
+  while (p < pattern.length && isStar(pattern[p])) p++;
+  return p === pattern.length;
 }
 
 function filteredEntities() {

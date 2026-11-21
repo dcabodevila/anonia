@@ -105,3 +105,16 @@ test('S2e no ASCII punctuation char combined with * throws', () => {
     assert.doesNotThrow(() => search('*' + ch + 'a'), ch);
   }
 });
+
+test('S2b/S2c pathological multi-wildcard queries on long near-matching values stay fast', () => {
+  fixture(['a'.repeat(6000), 'a'.repeat(5999) + 'b']);
+  for (const query of ['*a*a*a*a*a*a*a*a*b', '%a%a%a%a%a%a%a%a%b', '*a?a*a_a*a*a*a*a*c']) {
+    const started = Date.now();
+    const result = search(query);
+    const elapsed = Date.now() - started;
+    assert.ok(elapsed < 200, `${query} took ${elapsed} ms`);
+    assert.ok(result.length <= 1);
+  }
+  assert.deepEqual(search('*a*a*a*a*a*a*a*a*b'), ['a'.repeat(5999) + 'b']);
+  assert.deepEqual(search('*a*a*a*a*a*a*a*a*c'), []);
+});
